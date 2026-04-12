@@ -54,7 +54,7 @@
               <div class="text-[#a0a0b8] text-[10px] uppercase">已通關卡</div>
             </div>
             <div class="bg-[#1e1e2e] p-4 rounded-xl text-center border border-[#333344]">
-              <div class="text-[#ff6b6b] text-2xl font-bold font-['Fredoka'] mb-1">1</div>
+              <div class="text-[#ff6b6b] text-2xl font-bold font-['Fredoka'] mb-1">{{ consecutiveDays }}</div>
               <div class="text-[#a0a0b8] text-[10px] uppercase">連登天數</div>
             </div>
           </div>
@@ -153,7 +153,8 @@ defineProps({
   lastPlayed: { type: Object, default: null },
   clearedLevelsCount: { type: Number, default: 0 },
   dailyQuests: { type: Array, default: () => [] },
-  badges: { type: Array, default: () => [] }
+  badges: { type: Array, default: () => [] },
+  consecutiveDays: { type: Number, default: 1 },
 });
 defineEmits(['trigger-level-up', 'continue-game', 'claim-quest', 'go-to-achievements']);
 </script>

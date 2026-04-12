@@ -31,7 +31,7 @@
       </div>
 
       <div v-if="isLoginMode" class="slide-up slide-up-d2">
-        <div class="rounded-2xl p-8 border border-[#333366] backdrop-blur-md shadow-2xl" style="background:linear-gradient(135deg, rgba(30,30,46,0.8), rgba(42,42,78,0.4));">
+        <form @submit.prevent="handleLogin" class="rounded-2xl p-8 border border-[#333366] backdrop-blur-md shadow-2xl" style="background:linear-gradient(135deg, rgba(30,30,46,0.8), rgba(42,42,78,0.4));">
           <h2 class="text-xl font-bold mb-6 text-[#f0f0f0] font-['Fredoka']">登入帳號</h2>
 
           <div class="space-y-4 mb-6">
@@ -39,7 +39,6 @@
               <label class="block text-[#a0a0b8] text-xs mb-1.5">信箱</label>
               <input
                 v-model="loginEmail"
-                @keyup.enter="handleLogin"
                 type="email"
                 class="login-input"
                 placeholder="輸入註冊信箱"
@@ -51,7 +50,6 @@
               <div class="relative">
                 <input
                   v-model="loginPassword"
-                  @keyup.enter="handleLogin"
                   :type="showLoginPassword ? 'text' : 'password'"
                   class="login-input pr-10"
                   placeholder="輸入密碼"
@@ -80,14 +78,15 @@
             <div v-if="errorMessage" class="error-message mb-4">{{ errorMessage }}</div>
           </transition>
 
-          <button @click="handleLogin" class="login-btn login-btn-primary mb-3" :disabled="isLoading">
+          <button type="submit" class="login-btn login-btn-primary mb-3" :disabled="isLoading">
             <span v-if="isLoading" class="spinner"></span>
             <span v-else>⚡ 進入遊戲</span>
           </button>
-          <button @click="toggleMode" class="login-btn login-btn-secondary" :disabled="isLoading">
+          
+          <button type="button" @click="toggleMode" class="login-btn login-btn-secondary" :disabled="isLoading">
             還沒有帳號？註冊新帳號
           </button>
-        </div>
+        </form> 
       </div>
 
       <div v-else class="slide-up slide-up-d2">

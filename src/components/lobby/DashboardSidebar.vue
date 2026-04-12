@@ -117,28 +117,43 @@
 
 <script setup>
 import { supabase } from '../../supabase'; 
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import ConfirmModal from '../common/ConfirmModal.vue';
 
-defineProps({
+const props = defineProps({
   isCollapsed: Boolean,
   currentSection: String,
-  currentLevel: [Number, String], // 兼容防呆
+  currentLevel: [Number, String],
   playerName: String,
-  playerAvatarUrl: String 
+  playerAvatarUrl: String,
+  playerRole: { type: String, default: 'student' }
 });
 
 defineEmits(['toggle', 'update:currentSection']);
 
 const isLogoutModalOpen = ref(false);
 
-const menuItems = [
+const baseMenuItems = [
   { id: 'lobby', label: '大廳', icon: '🏠' },
   { id: 'courses', label: '課程', icon: '📚' },
   { id: 'achievements', label: '成就', icon: '🎖️' },
   { id: 'leaderboard', label: '排行榜', icon: '🏆' },
   { id: 'profile', label: '個人檔案', icon: '👤' }
 ];
+
+const menuItems = computed(() => {
+  if (props.playerRole === 'admin') {
+    return [
+      { id: 'admin', label: '管理後台', icon: '🛠️' }
+    ];
+  }
+  const items = [...baseMenuItems];
+  if (props.playerRole === 'teacher') {
+    // 將老師專屬的選項推入陣列中
+    items.push({ id: 'teacher', label: '教師中心', icon: '👨‍🏫' });
+  }
+  return items;
+});
 
 const triggerLogout = () => {
   isLogoutModalOpen.value = true;

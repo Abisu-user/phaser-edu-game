@@ -14,6 +14,7 @@
       :currentLevel="currentLevel"
       :playerName="playerName"
       :playerAvatarUrl="playerAvatarUrl"  
+      :playerRole="playerRole"
       v-model:currentSection="currentSection"
       @toggle="isSidebarCollapsed = !isSidebarCollapsed"
     />
@@ -63,12 +64,27 @@
           :xpPerLevel="xpPerLevel"
           :clearedLevelsCount="clearedLevelsCount"
           :badges="badges"
-          :joinData="playerJoinData"
+          :joinDate="playerJoinDate"
           :playerAvatarUrl="playerAvatarUrl"  
           @update-avatar="(newUrl) => playerAvatarUrl = newUrl"
         />
+        
         <div v-show="currentSection === 'settings'">設定即將推出...</div>
-        <div v-show="currentSection === 'help'">幫助內容即將推出...</div>
+
+        <HelpSection
+          v-show="currentSection === 'help'"
+        />
+
+        <AdminSection
+          v-if="playerRole === 'admin'"
+          v-show="currentSection === 'admin'"
+        />
+
+        <TeacherSection
+          v-if="playerRole === 'teacher'"
+          v-show="currentSection === 'teacher'"
+        />
+
         </div>
 
       <footer class="relative z-10 px-6 py-8 text-center border-t mt-auto" style="border-color:#1e1e2e;">
@@ -108,6 +124,9 @@ import LobbySection from './sections/LobbySection.vue';
 import CoursesSection from './sections/CoursesSection.vue';
 import AchievementsSection from './sections/AchievementsSection.vue';
 import ProfileSection from './sections/ProfileSection.vue';
+import HelpSection from './sections/HelpSection.vue';
+import AdminSection from './sections/AdminSection.vue';
+import TeacherSection from './sections/TeacherSection.vue';
 
 // 🌟 修正 1：將 playerName 從 Props 移除，改用本地的 ref，這樣才能被 supabase 更新
 const playerName = ref('遊客模式');
@@ -133,8 +152,10 @@ const lastPlayed = ref(null);
 const clearedLevelsCount = ref(0);
 const dailyQuests = ref([]);
 const playerEmail = ref('');
-const playerJoinData = ref(''); // 👈 這裡字尾是 a
+const playerJoinDate = ref(''); 
 const playerAvatarUrl = ref('');
+const consecutiveDays = ref(1);
+const playerRole = ref('');
 
 const xpPercent = computed(() => {
   return Math.min(Math.floor((currentXP.value / xpPerLevel.value) * 100), 100);
@@ -220,7 +241,6 @@ const claimQuest = async (questId) => {
 };
 
 const fetchLobbyData = async () => {
-  // 🌟 加入 try...catch，以後任何報錯都會在 Console 顯示，不會再死得不明不白
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -230,7 +250,7 @@ const fetchLobbyData = async () => {
 
     playerEmail.value = user.email;
     // 🐛 修正 2：原本寫成 playerJoinDate，導致程式在這裡崩潰中斷
-    playerJoinData.value = user.created_at;
+    playerJoinDate.value = user.created_at;
 
     const { count } = await supabase
       .from('user_progress')
@@ -265,7 +285,7 @@ const fetchLobbyData = async () => {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('xp, level, username, avatar_url')
+      .select('xp, level, username, avatar_url, role')
       .eq('id', user.id)
       .single();
 
@@ -275,10 +295,53 @@ const fetchLobbyData = async () => {
       currentXP.value = profile.xp || 0;
       currentLevel.value = profile.level || 1;
       playerAvatarUrl.value = profile.avatar_url || ''; 
-      console.log('🖼️ [抓蟲] 準備顯示的頭像網址:', playerAvatarUrl.value);
-      
-      // 🐛 修正 3：playerName 現在是 ref 了，可以正常賦值了！
       playerName.value = profile.username || '遊客模式';
+      playerRole.value = profile.role || 'student';
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      let currentStreak = profile.consecutive_days || 1;
+      let shouldUpdateDB = false;
+
+      if (profile.last_login_at) {
+        const lastLoginDate = new Date(profile.last_login_at);
+        lastLoginDate.setHours(0, 0, 0, 0);
+
+        const diffTime = Math.abs(today - lastLoginDate);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 1) {
+          // 昨天有登入，連登 +1
+          currentStreak += 1;
+          shouldUpdateDB = true;
+        } else if (diffDays > 1) {
+          // 斷線超過一天，重置為 1
+          currentStreak = 1;
+          shouldUpdateDB = true;
+        }
+        // 如果 diffDays === 0，代表今天已登入過，保持原樣不更新
+      } else {
+        // 沒有紀錄代表是第一次登入
+        shouldUpdateDB = true;
+      }
+
+      consecutiveDays.value = currentStreak; // 更新前端顯示天數
+
+      // 如果有跨日更新，寫回 Supabase 資料庫
+      if (shouldUpdateDB) {
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ 
+            last_login_at: new Date().toISOString(),
+            consecutive_days: currentStreak 
+          })
+          .eq('id', user.id);
+
+        if (updateError) {
+          console.error("更新登入狀態失敗:", updateError);
+        }
+      }
       
       if (localStorage.getItem('justLeveledUp') === 'true') {
         isLevelUpModalOpen.value = true; 
