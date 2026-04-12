@@ -102,6 +102,7 @@ const xpPerLevel = ref(1000);
 const hp = ref(3);
 const today = new Date().toISOString().split('T')[0];
 const storedDaily = JSON.parse(localStorage.getItem('code_quest_daily') || '{}');
+const currentTotalXP = ref(0);
 
 let game = null;
 
@@ -213,7 +214,7 @@ const handleWin = async () => {
   const { data: { user } } = await supabase.auth.getUser();
   const safeCourseId = props.levelConfig?.courseId || 'python';
   
-  // 寫入通關紀錄
+  // 寫入通關紀錄 (保持不變)
   const { error } = await supabase
     .from('user_progress')
     .upsert({ 
@@ -227,15 +228,18 @@ const handleWin = async () => {
 
   const xpReward = props.levelConfig?.xpReward || 100;
   
+  // 🌟 修改處 1：這裡重新撈資料時，記得要把 total_exp 也一起 select 出來
   const { data: profile } = await supabase
     .from('profiles')
-    .select('xp, level')
+    .select('xp, level, total_exp') 
     .eq('id', user.id)
     .single();
 
   if (profile) {
     let newXp = (profile.xp || 0) + xpReward;
     let newLevel = profile.level || 1;
+    // 🌟 修改處 2：計算加上過關獎勵後的新「總經驗」
+    let newTotalXp = (profile.total_exp || 0) + xpReward; 
 
     if (newXp >= xpPerLevel.value) {
       newLevel += Math.floor(newXp / xpPerLevel.value);
@@ -243,15 +247,20 @@ const handleWin = async () => {
       localStorage.setItem('justLeveledUp', 'true'); 
     }
 
-    // 更新到資料庫
+    // 🌟 修改處 3：更新到資料庫時，把算好的 newTotalXp 寫進去
     await supabase
       .from('profiles')
-      .update({ xp: newXp, level: newLevel })
+      .update({ 
+        xp: newXp, 
+        level: newLevel,
+        total_exp: newTotalXp 
+      })
       .eq('id', user.id);
       
-    // 🌟 關鍵：將最新結算完的等級與 XP 更新給畫面的變數，讓 Modal 顯示最新進度！
+    // 🌟 修改處 4：同步更新畫面的變數
     currentLevel.value = newLevel;
     currentXP.value = newXp;
+    currentTotalXP.value = newTotalXp; 
   }
 
   showWinModal.value = true;
@@ -272,13 +281,14 @@ onMounted( async() => {
   if (user) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('xp, level')
+      .select('xp, level, total_exp')
       .eq('id', user.id)
       .single();
       
     if (profile) {
       currentLevel.value = profile.level || 1;
       currentXP.value = profile.xp || 0;
+      currentTotalXP.value = profile.total_exp || 0;
     }
   }
   

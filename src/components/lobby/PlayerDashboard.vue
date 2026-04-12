@@ -112,7 +112,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { supabase } from '../../supabase';
 import CourseLevelModal from '../level/CourseLevelModal.vue';
 import DashboardSidebar from './DashboardSidebar.vue';
@@ -142,6 +142,7 @@ const emit = defineEmits(['enter-game', 'logout']);
 const currentLevel = ref(1);
 const currentXP = ref(0);
 const xpPerLevel = ref(1000);
+const currentTotalXP = ref(0);
 const isSidebarCollapsed = ref(false);
 const currentSection = ref('lobby'); 
 const isLevelUpModalOpen = ref(false);
@@ -157,21 +158,72 @@ const playerAvatarUrl = ref('');
 const consecutiveDays = ref(1);
 const playerRole = ref('');
 
+let heartbeatInterval = null;
+
+const sendHeartbeat = async () => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // 將目前的時間寫入資料庫
+    await supabase
+      .from('profiles')
+      .update({ last_login_at: new Date().toISOString() })
+      .eq('id', user.id);
+      
+  } catch (error) {
+    console.error('心跳發送失敗:', error);
+  }
+};
+
 const xpPercent = computed(() => {
   return Math.min(Math.floor((currentXP.value / xpPerLevel.value) * 100), 100);
 });
 
-const triggerLevelUp = () => {
-  currentXP.value += 660; 
-  const levelsGained = Math.floor(currentXP.value / xpPerLevel.value);
+const addExperience = async (gainAmount) => {
+  // 1. 畫面數字更新（同時增加當前經驗與總經驗）
+  currentXP.value += gainAmount;
+  currentTotalXP.value += gainAmount; // 永遠累加，不歸零！
+
+  let newLevel = currentLevel.value;
+  let newXP = currentXP.value;
+
+  // 2. 判斷是否升級
+  const levelsGained = Math.floor(newXP / xpPerLevel.value);
   if (levelsGained > 0) {
-    currentLevel.value += levelsGained;
-    currentXP.value = currentXP.value % xpPerLevel.value;
-    isLevelUpModalOpen.value = true;
+    newLevel += levelsGained;
+    newXP = newXP % xpPerLevel.value; // 取餘數（歸零後剩下的經驗）
     
-    setTimeout(() => {
-      isLevelUpModalOpen.value = false;
-    }, 5000);
+    currentLevel.value = newLevel;
+    currentXP.value = newXP;
+    
+    // 觸發升級特效 Modal
+    isLevelUpModalOpen.value = true;
+    setTimeout(() => { isLevelUpModalOpen.value = false; }, 5000);
+  }
+
+  // 3. 將最新的狀態同步寫回 Supabase 資料庫
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from('profiles').update({
+        xp: newXP,
+        level: newLevel,
+        total_exp: currentTotalXP.value // 🌟 存入不會歸零的總經驗
+      }).eq('id', user.id);
+    }
+  } catch (err) {
+    console.error('更新經驗值失敗:', err);
+  }
+
+  // 4. 在這裡判定累積成就！
+  checkCumulativeAchievements(); 
+};
+
+// 🌟 判定累積成就的範例函數
+const checkCumulativeAchievements = () => {
+  if (currentTotalXP.value >= 2000) {
+    console.log("🏆 解鎖成就：累積獲得 2000 經驗！");
   }
 };
 
@@ -196,7 +248,7 @@ const initDailyQuests = () => {
 const badges = computed(() => {
   const playerStats = {
     clearedLevelsCount: clearedLevelsCount.value,
-    currentXP: currentXP.value,
+    currentTotalXP: currentTotalXP.value,
     currentLevel: currentLevel.value
   };
 
@@ -215,27 +267,20 @@ const badges = computed(() => {
 
 const claimQuest = async (questId) => {
   const quest = dailyQuests.value.find(q => q.id === questId);
+  // 檢查任務是否存在、是否已領取、進度是否達標
   if (!quest || quest.isClaimed || quest.progress < quest.target) return;
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
 
+  // 1. 標記任務為已領取
   quest.isClaimed = true;
-  let newXp = currentXP.value + quest.xp;
-  let newLevel = currentLevel.value;
-
-  if (newXp >= xpPerLevel.value) {
-    newLevel += Math.floor(newXp / xpPerLevel.value);
-    newXp = newXp % xpPerLevel.value;
-    isLevelUpModalOpen.value = true;
-    setTimeout(() => { isLevelUpModalOpen.value = false; }, 5000);
-  }
-
-  currentXP.value = newXp;
-  currentLevel.value = newLevel;
-
-  await supabase.from('profiles').update({ xp: newXp, level: newLevel }).eq('id', user.id);
   
+  // 2. 🌟 核心修改：直接呼叫我們剛剛做好的「增加經驗函數」！
+  // 它會自動幫你處理 currentXP, total_exp, 升級判斷, 寫入資料庫與解鎖成就
+  await addExperience(quest.xp);
+  
+  // 3. 更新本地緩存 (LocalStorage)，記錄今天已經解過這個任務
   const today = new Date().toISOString().split('T')[0];
   localStorage.setItem('code_quest_daily', JSON.stringify({ date: today, quests: dailyQuests.value }));
 };
@@ -285,15 +330,14 @@ const fetchLobbyData = async () => {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('xp, level, username, avatar_url, role')
+      .select('xp, level, username, avatar_url, role, total_exp')
       .eq('id', user.id)
       .single();
-
-    console.log('🔍 [抓蟲] 資料庫回傳的 profile:', profile); 
 
     if (profile) {
       currentXP.value = profile.xp || 0;
       currentLevel.value = profile.level || 1;
+      currentTotalXP.value = profile.total_exp || 0;
       playerAvatarUrl.value = profile.avatar_url || ''; 
       playerName.value = profile.username || '遊客模式';
       playerRole.value = profile.role || 'student';
@@ -409,6 +453,14 @@ onMounted(() => {
   fetchCourseProgress();
   fetchLobbyData();
   initDailyQuests();
+  sendHeartbeat();
+  heartbeatInterval = setInterval(sendHeartbeat, 1 * 60 * 1000);
+});
+
+onUnmounted(() => {
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval);
+  }
 });
 </script>
 

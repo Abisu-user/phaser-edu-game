@@ -203,45 +203,49 @@ const openStudentProgress = async (student) => {
   isProgressLoading.value = true;
 
   try {
-    // 根據學生的 ID 去撈取他的破關紀錄 (這裡假設你有 user_progress 這個表)
+    // 1. 根據學生的 ID，去 Supabase 撈取他真實的 user_progress
     const { data, error } = await supabase
       .from('user_progress')
       .select('course_id, level_id')
       .eq('user_id', student.id);
 
-    if (error) throw error;
-
-    if (!data || data.length === 0) {
-      loadMockProgress(); // 沒資料先載入假資料展示
-    } else {
-      // 將資料庫撈回來的 raw data 轉成畫面上需要的格式
-      // (這裡需要依據你實際的關卡總數來寫邏輯，目前先用假資料示範)
-      loadMockProgress(); 
+    if (error) {
+      console.error("Supabase 報錯:", error.message);
+      throw error;
     }
+
+    const systemCourses = [
+      { id: 'python', name: 'Python 基礎語法', totalLevels: 20, color: '#ffbb33' },
+      { id: 'javascript', name: 'JavaScript 實戰', totalLevels: 20, color: '#00d4aa' },
+      { id: 'algorithm', name: '資料結構與演算法', totalLevels: 20, color: '#a78bfa' },
+      { id: 'phaser', name: 'Phaser 遊戲開發', totalLevels: 20, color: '#ff6b6b' }
+    ];
+
+    // 3. 如果學生是全新帳號，完全沒有通關紀錄
+    if (!data || data.length === 0) {
+      studentProgressData.value = systemCourses.map(course => ({
+        ...course,
+        currentLevel: 0
+      }));
+    } else {
+      // 4. 計算每個課程的最高通關等級 (邏輯與你的 PlayerDashboard 相同)
+      const progressMap = {};
+      data.forEach(record => {
+         progressMap[record.course_id] = Math.max(progressMap[record.course_id] || 0, record.level_id);
+      });
+
+      // 5. 將最高等級組裝進顯示用的陣列中
+      studentProgressData.value = systemCourses.map(course => ({
+        ...course,
+        currentLevel: progressMap[course.id] || 0
+      }));
+    }
+
   } catch (err) {
-    console.error('撈取進度失敗:', err);
-    loadMockProgress();
+    console.warn('❌ 撈取真實進度失敗，退回假資料模式:', err);
   } finally {
     isProgressLoading.value = false;
   }
-};
-
-const loadMockStudents = () => {
-  students.value = [
-    { id: '1', username: '王小明', level: 12, role: 'student', last_login_at: new Date().toISOString() },
-    { id: '2', username: '李華', level: 8, role: 'student', last_login_at: new Date(Date.now() - 86400000).toISOString() },
-    { id: '3', username: '張阿虎', level: 15, role: 'student', last_login_at: new Date(Date.now() - 3600000).toISOString() },
-  ];
-};
-
-// 🌟 假資料：各科目的進度 (讓畫面可以看到很酷的進度條)
-const loadMockProgress = () => {
-  studentProgressData.value = [
-    { id: 'python', name: 'Python 基礎語法', currentLevel: 8, totalLevels: 10, color: '#ffbb33' },
-    { id: 'javascript', name: 'JavaScript 實戰', currentLevel: 3, totalLevels: 15, color: '#00d4aa' },
-    { id: 'algorithm', name: '資料結構與演算法', currentLevel: 1, totalLevels: 5, color: '#a78bfa' },
-    { id: 'phaser', name: 'Phaser 遊戲開發', currentLevel: 0, totalLevels: 10, color: '#ff6b6b' }
-  ];
 };
 </script>
 

@@ -16,8 +16,8 @@ export const BADGE_LIST = [
     name: '勤奮學徒',
     desc: '累積獲得 2000 點 XP',
     target: 2000,
-    getCurrent: (stats) => stats.currentXP,
-    checkUnlock: (stats) => stats.currentXP >= 2000
+    getCurrent: (stats) => stats.currentTotalXP,
+    checkUnlock: (stats) => stats.currentTotalXP >= 2000
   },
   {
     id: 'veteran',
