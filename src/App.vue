@@ -69,9 +69,6 @@ const checkLoginState = async () => {
     if (profile) {
       currentPlayerName.value = profile.username;
     }
-  } else {
-    // 如果沒有憑證，就乖乖待在登入畫面
-    currentScreen.value = 'login';
   }
 };
 
