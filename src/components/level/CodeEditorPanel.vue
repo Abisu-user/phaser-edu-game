@@ -6,6 +6,10 @@
       <p class="text-xs mt-1" style="color:#f0f0f0;">{{ levelConfig.hint || '點擊拼圖輸入指令' }}</p>
     </div>
 
+    <div v-if="levelConfig.restrictions?.maxBlocks" class="px-4 py-2 border-b flex-shrink-0 bg-black/40 border-[#ffbb33]/30">
+      <p class="text-[12px] font-bold text-[#ffbb33]">⚡ 指令行數限制: {{ levelConfig.restrictions.maxBlocks }} 行</p>
+    </div>
+
     <div class="px-4 py-3 border-b flex-shrink-0" style="border-color:#333355; background: rgba(0,0,0,0.2);">
       <p class="text-xs mb-2" style="color:#8b949e;">可用的指令拼圖：</p>
       <div class="grid grid-cols-2 gap-2">
@@ -104,17 +108,22 @@ const selectedIndex = ref(0);
 const suggestPos = ref({ top: 0, left: 0 });
 const typingWordLength = ref(0);
 
+// 將所有新版支援的按鈕與指令加入
 const ALL_BLOCKS = [
-  { id: 'move', label: '向右走', code: 'moveRight();', color: '#00d4aa', icon: '👉' },
-  { id: 'move', label: '向左走', code: 'moveLeft();', color: '#00d4aa', icon: '👈' },
-  { id: 'move', label: '向上走', code: 'moveUp();', color: '#a78bfa', icon: '👆' }, 
-  { id: 'move', label: '向下走', code: 'moveDown();', color: '#a78bfa', icon: '👇' },
+  { id: 'moveRight', label: '向右走', code: 'moveRight();', color: '#00d4aa', icon: '👉' },
+  { id: 'moveLeft', label: '向左走', code: 'moveLeft();', color: '#00d4aa', icon: '👈' },
+  { id: 'moveUp', label: '向上走', code: 'moveUp();', color: '#a78bfa', icon: '👆' }, 
+  { id: 'moveDown', label: '向下走', code: 'moveDown();', color: '#a78bfa', icon: '👇' },
   { id: 'attack', label: '近戰攻擊', code: 'attack();', color: '#ffbb33', icon: '⚔️' },
   { id: 'repeat', label: '重複3次', code: 'repeat(3, () => {\n  // 寫入重複動作\n});', color: '#ff6b6b', icon: '🔁' }
 ];
 
+// 新增感應器的自動補全提示
 const availableSnippets = [
-  'moveUp();', 'moveDown();', 'moveLeft();', 'moveRight();', 'attack();', 'repeat(3, () => {\n  \n});'
+  'moveUp();', 'moveDown();', 'moveLeft();', 'moveRight();', 'attack();', 
+  'repeat(3, () => {\n  \n});',
+  'if (isObstacleAhead()) {\n  \n}', 
+  'while (!isEnemyNear()) {\n  \n}'
 ];
 
 const lineCount = computed(() => Math.max(15, userCode.value.split('\n').length));
@@ -136,8 +145,13 @@ const insertCode = (code) => {
     userCode.value = beforeText + textToInsert + afterText;
     nextTick(() => {
       const newCursorPos = startPos + textToInsert.length;
-      textarea.focus();
-      textarea.setSelectionRange(newCursorPos, newCursorPos);
+      if (code.includes('repeat')) {
+        textarea.focus();
+        textarea.setSelectionRange(startPos + 18, startPos + 18);
+      } else {
+        textarea.focus();
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+      }
     });
   } else {
     userCode.value += code + '\n';
@@ -184,7 +198,7 @@ const applySuggestion = (index) => {
 
   nextTick(() => {
     let newPos = textWithoutTyping.length + suggestion.length;
-    if (suggestion.includes('repeat')) newPos -= 5;
+    if (suggestion.includes('repeat') || suggestion.includes('if') || suggestion.includes('while')) newPos -= 4;
     textarea.selectionStart = textarea.selectionEnd = newPos;
     textarea.focus();
     updateSuggestions();
@@ -213,8 +227,37 @@ const handleKeydown = (e) => {
   }
 };
 
+// ===============================================
+// 🌟 核心魔法：微型編譯器
+// ===============================================
 const handleExecute = () => {
-  emit('execute', userCode.value);
+  let codeToRun = userCode.value;
+  
+  // 1. 轉換 repeat 迴圈 (將 repeat(3, () => {...}) 轉為標準 for 迴圈)
+  codeToRun = codeToRun.replace(/repeat\s*\(\s*(\d+)\s*,\s*\(\s*\)\s*=>\s*\{([\s\S]*?)\}\s*\);?/g, "for(let i=0; i<$1; i++) { $2 }");
+  
+  // 2. 轉換基礎指令，加上 await 讓動畫播完才走下一步
+  codeToRun = codeToRun.replace(/moveRight\(\);?/g, "await scene.addCommand('moveRight');");
+  codeToRun = codeToRun.replace(/moveLeft\(\);?/g,  "await scene.addCommand('moveLeft');");
+  codeToRun = codeToRun.replace(/moveUp\(\);?/g,    "await scene.addCommand('moveUp');");
+  codeToRun = codeToRun.replace(/moveDown\(\);?/g,  "await scene.addCommand('moveDown');");
+  codeToRun = codeToRun.replace(/attack\(\);?/g,    "await scene.addCommand('attack');");
+  
+  // 3. 轉換感應器
+  codeToRun = codeToRun.replace(/isObstacleAhead\(\)/g, "(await scene.checkObstacleAhead())");
+  codeToRun = codeToRun.replace(/isEnemyNear\(\)/g, "(await scene.checkEnemyNear())");
+
+  // 4. 計算有效行數 (當作是「積木數量」來檢查關卡限制)
+  let blockCount = 0;
+  const lines = userCode.value.split('\n');
+  for (let line of lines) {
+    if (line.trim() !== '' && !line.trim().startsWith('//')) {
+      blockCount++;
+    }
+  }
+
+  // 將編譯過後的程式碼與行數，發送給 GameLevel.vue 執行
+  emit('execute', codeToRun, blockCount);
 };
 
 const handleClear = () => {

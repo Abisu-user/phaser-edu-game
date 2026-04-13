@@ -54,7 +54,7 @@
         :levelConfig="levelConfig"
         :isExecuting="isExecuting"
         :currentLine="currentLine"
-        @execute="runCode"
+        @execute="executeCode"
         @clear="clearCode"
       />
     </div>
@@ -66,7 +66,8 @@
     :currentXP="currentXP"
     :xpPerLevel="xpPerLevel"
     :xpReward="levelConfig?.xpReward || 100"
-    :stars="hp"  @next="handleNextLevel"
+    :stars="hp"  
+    @next="handleNextLevel"
     @home="$emit('back')"
   />
 
@@ -106,8 +107,62 @@ const currentTotalXP = ref(0);
 
 let game = null;
 
+// 🌟 修改處：完全重構的 executeCode
+// 接收 CodeEditorPanel 傳來的 Blockly 代碼字串與積木數量
+const executeCode = async (code, blockCount = 0) => {
+  // 1. 攔截積木數量限制
+  const maxBlocks = props.levelConfig?.restrictions?.maxBlocks;
+  if (maxBlocks && blockCount > maxBlocks) {
+    alert(`⚠️ 魔法能量不足！這關最多只能使用 ${maxBlocks} 個積木，但你使用了 ${blockCount} 個。請嘗試使用迴圈來優化！`);
+    return;
+  }
+
+  if (!game) return;
+  const phaserScene = game.scene.getScene('TeachingScene');
+  if (!phaserScene) return;
+
+  isExecuting.value = true;
+  phaserScene.resetLevel();
+  currentLine.value = -1;
+
+  // 延遲一點點確保場景重置完成
+  setTimeout(async () => {
+      try {
+        // 使用 Async 封裝並執行
+        const asyncCode = `
+          return (async () => {
+            // 執行 Blockly 產生的邏輯
+            ${code}
+            
+            // 程式跑完後檢查是否勝利
+            scene.checkVictory();
+
+            // 回傳怪物是否已被擊敗 (alpha === 0)
+            return scene.enemy.alpha === 0; 
+          })();
+        `;
+        
+        // 將 phaserScene 當作 scene 變數傳入腳本中執行
+        const run = new Function('scene', asyncCode);
+        const isSuccess = await run(phaserScene);
+
+        // 如果跑完沒有勝利，就扣愛心
+        if (!isSuccess) {
+           hp.value = Math.max(0, hp.value - 1);
+        }
+
+      } catch (error) {
+        console.error("執行過程中出現魔法錯誤:", error);
+        alert("執行失敗！請檢查積木是否有拼錯。");
+      } finally {
+        isExecuting.value = false;
+      }
+  }, 100); 
+};
+
 const onLevelWin = () => {
   isLevelCleared.value = true;
+  handleWin();
 };
 
 const handleNextLevel = () => {
@@ -117,7 +172,6 @@ const handleNextLevel = () => {
 
 watch(hp, (newHp) => {
   if (newHp <= 0) {
-    // 延遲一點點顯示，讓玩家看清楚最後一顆心消失的動畫
     setTimeout(() => {
       showFailModal.value = true;
     }, 500);
@@ -127,11 +181,6 @@ watch(hp, (newHp) => {
 const handleRestart = () => {
   showFailModal.value = false;
   hp.value = 3;
-  window.dispatchEvent(new CustomEvent('reset-game'));
-};
-
-const retryLevel = () => {
-  isLevelCleared.value = false;
   if (game) {
     const scene = game.scene.getScene('TeachingScene');
     if (scene) scene.resetLevel();
@@ -142,103 +191,94 @@ const clearCode = () => {
   currentLine.value = -1;
 };
 
-// 處理來自編輯器的程式碼執行請求
-const runCode = (code) => {
-  const scene = game.scene.getScene('TeachingScene');
-  scene.resetLevel();
-  currentLine.value = -1;
-  
-  let callCount = {};
-  let linesByFn = {};
-
-  code.split('\n').forEach((l, i) => {
-    let m = l.match(/^\s*(moveRight|moveLeft|moveUp|moveDown|attack)\s*\(/);
-    if (m) { (linesByFn[m[1]] = linesByFn[m[1]] || []).push(i); }
-  });
-
-  const makeCmd = (type, fn) => () => {
-    callCount[fn] = callCount[fn] || 0;
-    scene.addCommand(type, linesByFn[fn]?.[callCount[fn]++] ?? -1);
-  };
-
-  try {
-    new Function('moveRight','moveLeft','moveUp','moveDown','attack','repeat', code)(
-      makeCmd('move_right','moveRight'),
-      makeCmd('move_left', 'moveLeft'),
-      makeCmd('move_up',   'moveUp'),
-      makeCmd('move_down', 'moveDown'),
-      makeCmd('attack',    'attack'),
-      (n, fn) => { for (let i = 0; i < n; i++) fn(); }
-    );
-
-    isExecuting.value = true;
-    scene.runCommands(
-      (lineIdx) => { currentLine.value = lineIdx; },
-      (isSuccess) => {
-        isExecuting.value = false;
-        currentLine.value = -1;
-        if (isSuccess) {
-          handleWin();
-        } else {
-          hp.value = Math.max(0, hp.value - 1);
-        }
-      }
-    );
-  } catch (error) {
-    console.error('程式碼語法錯誤：', error);
-    isExecuting.value = false;
-    alert('執行失敗！請檢查是否漏打括號或分號。');
-  }
-};
-
+// 處理每日任務 (維持你原本的邏輯)
 if (storedDaily.date === today) {
   const quests = storedDaily.quests;
   
-  // 1. 更新「通過 3 個新關卡」任務
   const passTask = quests.find(q => q.id === 'pass_levels');
-  if (passTask && passTask.progress < passTask.target) {
-    passTask.progress += 1;
-  }
+  if (passTask && passTask.progress < passTask.target) passTask.progress += 1;
   
-  // 2. 更新「完美通關」任務 (假設我們通關就是 3 顆星)
   const perfectTask = quests.find(q => q.id === 'perfect_clear');
-  // 假設你未來有星星系統，這裡可以判斷 stars === 3
-  if (perfectTask && perfectTask.progress < perfectTask.target) {
-    perfectTask.progress += 1; 
-  }
+  if (perfectTask && perfectTask.progress < perfectTask.target) perfectTask.progress += 1; 
   
   localStorage.setItem('code_quest_daily', JSON.stringify({ date: today, quests }));
 }
 
+// 寫入通關紀錄與經驗值
 const handleWin = async () => {
-  const { data: { user } } = await supabase.auth.getUser();
-  const safeCourseId = props.levelConfig?.courseId || 'python';
+  // 1. 取得使用者，並防範未登入狀態
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
   
-  // 寫入通關紀錄 (保持不變)
-  const { error } = await supabase
+  if (authError || !user) {
+    console.warn('未登入或無法取得使用者狀態，僅顯示通關畫面不存檔。');
+    showWinModal.value = true;
+    return;
+  }
+
+  // 確保 ID 存在
+  const safeCourseId = props.levelConfig?.courseId || 'python';
+  const levelId = props.levelConfig?.id ? Number(props.levelConfig.id) : 0;
+  
+  // --- 2. 更新通關進度 (方法二：手動檢查是否存在) ---
+  
+  // 先查詢資料庫中是否已有該玩家對應該關卡的紀錄
+  const { data: existingProgress, error: fetchError } = await supabase
     .from('user_progress')
-    .upsert({ 
-      user_id: user.id, 
-      course_id: safeCourseId, 
-      level_id: props.levelConfig.id, 
-      stars: hp.value 
-    });
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('level_id', levelId) 
+    .maybeSingle(); 
 
-  if (error) return alert('存檔失敗：' + error.message);
+  let progressError = null;
 
+  if (existingProgress) {
+    // A. 如果紀錄已存在 -> 執行 Update (更新星星數)
+    const { error } = await supabase
+      .from('user_progress')
+      .update({ 
+        stars: hp.value, 
+        course_id: safeCourseId 
+      })
+      .eq('id', existingProgress.id);
+    progressError = error;
+  } else {
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      console.error('查詢進度時發生非預期錯誤:', fetchError);
+    }
+    
+    const { error } = await supabase
+      .from('user_progress')
+      .insert({ 
+        user_id: user.id, 
+        course_id: safeCourseId, 
+        level_id: levelId, 
+        stars: hp.value 
+      });
+    progressError = error;
+  }
+
+  // 檢查進度存檔結果
+  if (progressError) {
+    console.error('存檔過程發生錯誤:', progressError);
+    return alert('存檔失敗：' + progressError.message);
+  }
+
+  // --- 3. 更新玩家經驗值與等級 (保持原邏輯) ---
   const xpReward = props.levelConfig?.xpReward || 100;
   
-  // 🌟 修改處 1：這裡重新撈資料時，記得要把 total_exp 也一起 select 出來
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('xp, level, total_exp') 
     .eq('id', user.id)
     .single();
 
+  if (profileError) {
+    console.error('取得玩家資料失敗:', profileError);
+  }
+
   if (profile) {
     let newXp = (profile.xp || 0) + xpReward;
     let newLevel = profile.level || 1;
-    // 🌟 修改處 2：計算加上過關獎勵後的新「總經驗」
     let newTotalXp = (profile.total_exp || 0) + xpReward; 
 
     if (newXp >= xpPerLevel.value) {
@@ -247,20 +287,18 @@ const handleWin = async () => {
       localStorage.setItem('justLeveledUp', 'true'); 
     }
 
-    // 🌟 修改處 3：更新到資料庫時，把算好的 newTotalXp 寫進去
-    await supabase
+    const { error: updateError } = await supabase
       .from('profiles')
-      .update({ 
-        xp: newXp, 
-        level: newLevel,
-        total_exp: newTotalXp 
-      })
+      .update({ xp: newXp, level: newLevel, total_exp: newTotalXp })
       .eq('id', user.id);
       
-    // 🌟 修改處 4：同步更新畫面的變數
-    currentLevel.value = newLevel;
-    currentXP.value = newXp;
-    currentTotalXP.value = newTotalXp; 
+    if (updateError) {
+       console.error('更新經驗值失敗:', updateError);
+    } else {
+       currentLevel.value = newLevel;
+       currentXP.value = newXp;
+       currentTotalXP.value = newTotalXp; 
+    }
   }
 
   showWinModal.value = true;

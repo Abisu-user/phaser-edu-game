@@ -4,14 +4,13 @@ export default class TeachingScene extends Phaser.Scene {
     
     constructor() {
         super({ key: 'TeachingScene' });
-        this.actionQueue = [];
-        this.isExecuting = false;
         this.cellSize = 80;
         this.levelConfig = null;
+        this.lastFacing = 'moveRight'; // 記錄玩家最後朝向，供感應器使用
+        this.isFailed = false; // 紀錄是否已經撞牆失敗
     }
 
     init(data) {
-        // 修正 Bug 1: 防護 data 為 undefined 的情況
         if (data && Object.keys(data).length > 0) {
             this.levelConfig = data;
         }
@@ -39,17 +38,29 @@ export default class TeachingScene extends Phaser.Scene {
             fontFamily: '"Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif'
         };
 
+        // --- 繪製障礙物 ---
+        if (cfg.obstacles) {
+            cfg.obstacles.forEach(obs => {
+                const icon = obs.type === 'lava' ? '🔥' : (obs.type === 'wall' ? '🧱' : '🪨');
+                let ox = obs.x * this.cellSize + this.cellSize / 2;
+                let oy = obs.y * this.cellSize + this.cellSize / 2;
+                this.add.text(ox, oy, icon, emojiStyle).setOrigin(0.5);
+            });
+        }
+
         // --- 設定玩家 ---
         this.playerGridX = cfg.player.gridX;
         this.playerGridY = cfg.player.gridY;
-        this.currentGridX = this.playerGridX;
-        this.currentGridY = this.playerGridY;
         
         this.startX = this.playerGridX * this.cellSize + this.cellSize / 2;
         this.startY = this.playerGridY * this.cellSize + this.cellSize / 2;
         
         this.player = this.add.text(this.startX, this.startY, cfg.player.emoji, emojiStyle).setOrigin(0.5);
         this.playerLabel = this.add.text(this.startX, this.startY + 40, cfg.player.label, { fontSize: '18px', fill: '#f0f0f0', fontFamily: 'sans-serif' }).setOrigin(0.5);
+        
+        // 讓玩家顯示在最上層
+        this.player.setDepth(10);
+        this.playerLabel.setDepth(10);
 
         // --- 設定敵人 ---
         this.enemyGridX = cfg.enemy.gridX;
@@ -70,28 +81,23 @@ export default class TeachingScene extends Phaser.Scene {
             strokeThickness: 2,
             wordWrap: { width: 700 }
         }).setOrigin(0.5).setVisible(false);
-    }
-
-    addCommand(type, lineIdx) {
-        // 現在佇列裡存的是物件：{ type: 'move_right', lineIdx: 1 }
-        this.actionQueue.push({ type, lineIdx });
+        this.messageBox.setDepth(20);
     }
 
     resetLevel() {
-        // 修正 Bug 2: 砍掉所有正在跑的動畫與計時器，避免玩家狂按執行導致角色亂飛
         this.tweens.killAll();
         this.time.removeAllEvents();
 
-        this.currentGridX = this.playerGridX;
-        this.currentGridY = this.playerGridY;
+        this.playerGridX = this.levelConfig.player.gridX;
+        this.playerGridY = this.levelConfig.player.gridY;
+        this.lastFacing = 'moveRight';
+        this.isFailed = false;
         
         if (this.player) {
             this.player.setPosition(this.startX, this.startY);
             this.playerLabel.setPosition(this.startX, this.startY + 40);
         }
         
-        this.actionQueue = [];
-        this.isExecuting = false;
         if (this.messageBox) this.messageBox.setVisible(false);
         
         if (this.enemy) {
@@ -102,114 +108,130 @@ export default class TeachingScene extends Phaser.Scene {
         }
     }
 
-    runCommands(onLineUpdate, onComplete) {
-        if (this.isExecuting) return;
-        
-        this._onLineUpdate = onLineUpdate;
-        this._onComplete = onComplete;
+    // ==========================================
+    // 遊戲核心邏輯 (支援 Async / Await 與 感知器)
+    // ==========================================
 
-        if (this.actionQueue.length === 0) {
-            this.showResult(false, '❌ 喔不，沒有指令！請點擊右側指令拼圖。');
-            if (this._onComplete) { this._onComplete(false); this._onComplete = null; }
-            return;
-        }
-        
-        this.isExecuting = true;
-        this.processNextCommand();
+    // 判斷某座標是否有障礙物
+    isObstacle(x, y) {
+        if (!this.levelConfig || !this.levelConfig.obstacles) return false;
+        return this.levelConfig.obstacles.some(ob => ob.x === x && ob.y === y);
     }
 
-    movePlayerToGrid(targetGridX, targetGridY) {
-        if (targetGridX < 0 || targetGridX >= 10 || targetGridY < 0 || targetGridY >= 10) {
-            this.showResult(false, '❌ 角色撞到牆壁出界了！');
-            this.isExecuting = false;
-            this.actionQueue = [];
-            if (this._onComplete) { this._onComplete(false); this._onComplete = null; }
-            return;
-        }
-
-        this.currentGridX = targetGridX;
-        this.currentGridY = targetGridY;
-
-        let targetX = targetGridX * this.cellSize + this.cellSize / 2;
-        let targetY = targetGridY * this.cellSize + this.cellSize / 2;
-
-        this.tweens.add({
-            targets: this.player,
-            x: targetX, y: targetY,
-            duration: 300, ease: 'Power2',
-        });
-        this.tweens.add({
-            targets: this.playerLabel,
-            x: targetX, y: targetY + 40,
-            duration: 300, ease: 'Power2',
-            onComplete: () => {
-                this.time.delayedCall(100, () => this.processNextCommand());
-            }
-        });
+    // 感知指令：檢查前方是否有障礙物
+    async checkObstacleAhead() {
+        let nx = this.playerGridX;
+        let ny = this.playerGridY;
+        if (this.lastFacing === 'moveRight') nx += 1;
+        if (this.lastFacing === 'moveLeft') nx -= 1;
+        if (this.lastFacing === 'moveUp') ny -= 1;
+        if (this.lastFacing === 'moveDown') ny += 1;
+        
+        // 如果前方是牆壁邊界 (0-9 網格範圍)，也算作障礙物
+        if (nx < 0 || nx >= 10 || ny < 0 || ny >= 10) return true;
+        return this.isObstacle(nx, ny);
     }
 
-    processNextCommand() {
-        if (this.actionQueue.length === 0) {
-            this.isExecuting = false;
-            this.checkVictory();
-            return;
-        }
+    // 感知指令：檢查敵人是否在周圍一格內
+    async checkEnemyNear() {
+        if (!this.enemy || this.enemy.alpha === 0) return false; // 敵人已死
+        const dist = Math.abs(this.playerGridX - this.enemyGridX) + Math.abs(this.playerGridY - this.enemyGridY);
+        return dist <= 1;
+    }
 
-        // 修正 Bug 3: 正確解析物件
-        const cmdObj = this.actionQueue.shift();
-        
-        if (this._onLineUpdate && cmdObj.lineIdx !== -1) {
-            this._onLineUpdate(cmdObj.lineIdx); // 觸發 Vue 行號亮起
-        }
+    // 執行單一指令，回傳 Promise 讓 Blockly 等待動畫
+    async addCommand(action) {
+        if (this.isFailed || !this.player || this.enemy.alpha === 0) return Promise.resolve(); 
 
-        const command = cmdObj.type;
+        return new Promise((resolve) => {
+            let dx = 0, dy = 0;
+            
+            // 記錄方向
+            if (action === 'moveRight') { dx = 1; this.lastFacing = action; }
+            else if (action === 'moveLeft') { dx = -1; this.lastFacing = action; }
+            else if (action === 'moveUp') { dy = -1; this.lastFacing = action; }
+            else if (action === 'moveDown') { dy = 1; this.lastFacing = action; }
+            
+            if (action.startsWith('move')) {
+                const nextX = this.playerGridX + dx;
+                const nextY = this.playerGridY + dy;
 
-        if (command === 'move_right') this.movePlayerToGrid(this.currentGridX + 1, this.currentGridY);
-        else if (command === 'move_left') this.movePlayerToGrid(this.currentGridX - 1, this.currentGridY);
-        else if (command === 'move_up') this.movePlayerToGrid(this.currentGridX, this.currentGridY - 1);
-        else if (command === 'move_down') this.movePlayerToGrid(this.currentGridX, this.currentGridY + 1);
-        
-        else if (command === 'attack') {
-            let distance = Math.abs(this.currentGridX - this.enemyGridX) + Math.abs(this.currentGridY - this.enemyGridY);
+                // 檢查是否撞牆或撞障礙物
+                if (nextX < 0 || nextX >= 10 || nextY < 0 || nextY >= 10 || this.isObstacle(nextX, nextY)) {
+                    this.showResult(false, '💥 碰！撞到障礙物或牆壁了！');
+                    this.isFailed = true; // 標記失敗，阻斷後續指令
+                    resolve(); 
+                    return;
+                }
 
-            if (distance === 1) {
-                const slash = this.add.text(this.enemy.x, this.enemy.y, '⚔️', { fontSize: '64px' }).setOrigin(0.5);
+                this.playerGridX = nextX;
+                this.playerGridY = nextY;
+                
+                let targetX = nextX * this.cellSize + this.cellSize / 2;
+                let targetY = nextY * this.cellSize + this.cellSize / 2;
+
+                // 播放移動動畫
                 this.tweens.add({
-                    targets: slash, scale: 1.5, alpha: 0, duration: 200,
+                    targets: this.player,
+                    x: targetX, y: targetY,
+                    duration: 300, ease: 'Power2'
+                });
+                
+                this.tweens.add({
+                    targets: this.playerLabel,
+                    x: targetX, y: targetY + 40,
+                    duration: 300, ease: 'Power2',
                     onComplete: () => {
-                        slash.destroy();
-                        this.enemy.setTint(0xff0000);
-                        this.tweens.add({
-                            targets: this.enemy, x: this.enemy.x + 8, yoyo: true, repeat: 2, duration: 50,
-                            onComplete: () => {
-                                this.enemy.setAlpha(0);
-                                this.time.delayedCall(200, () => this.processNextCommand());
-                            }
-                        });
+                        this.time.delayedCall(50, () => resolve());
                     }
                 });
+            } 
+            else if (action === 'attack') {
+                let distance = Math.abs(this.playerGridX - this.enemyGridX) + Math.abs(this.playerGridY - this.enemyGridY);
+
+                if (distance <= 1) {
+                    const slash = this.add.text(this.enemy.x, this.enemy.y, '⚔️', { fontSize: '64px' }).setOrigin(0.5);
+                    this.tweens.add({
+                        targets: slash, scale: 1.5, alpha: 0, duration: 200,
+                        onComplete: () => {
+                            slash.destroy();
+                            this.enemy.setTint(0xff0000);
+                            this.tweens.add({
+                                targets: [this.enemy, this.enemyLabel], 
+                                x: '+=8', yoyo: true, repeat: 2, duration: 50,
+                                onComplete: () => {
+                                    this.enemy.setAlpha(0); // 擊殺敵人
+                                    this.enemyLabel.setAlpha(0);
+                                    this.time.delayedCall(200, () => resolve());
+                                }
+                            });
+                        }
+                    });
+                } else {
+                    this.showResult(false, `❌ 攻擊失敗！距離太遠了。目前距離 ${distance} 格，近戰需要移動到相鄰一格。`);
+                    this.isFailed = true;
+                    resolve();
+                }
             } else {
-                this.showResult(false, `❌ 攻擊失敗！距離太遠了。目前距離 ${distance} 格，近戰需要移動到相鄰一格。`);
-                this.isExecuting = false;
-                this.actionQueue = [];
-                if (this._onComplete) { this._onComplete(false); this._onComplete = null; }
+                resolve(); // 若遇到無法解析的指令，直接跳過
             }
-        }
+        });
     }
 
     checkVictory() {
-        const isSuccess = this.enemy.alpha === 0;
+        if (this.isFailed) return; // 如果已經撞牆失敗，就不顯示任務完成訊息
+
+        const isSuccess = (this.enemy.alpha === 0);
         const msg = isSuccess
             ? (this.levelConfig?.successMessage || '✨ 任務完成！')
-            : '❌ 喔不，怪物還活著！請確認是否走到怪物旁邊並使用 attack();。';
+            : '❌ 喔不，怪物還活著！請確認是否走到怪物旁邊並使用 attack()。';
         
         this.showResult(isSuccess, msg);
 
         if (isSuccess) {
+            // 發送事件給 Vue 組件，顯示勝利 Modal
             window.dispatchEvent(new Event('level-win'));
         }
-
-        if (this._onComplete) { this._onComplete(isSuccess); this._onComplete = null; }
     }
 
     showResult(isSuccess, text) {
