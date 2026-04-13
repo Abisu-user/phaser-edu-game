@@ -15,9 +15,21 @@
       :playerName="playerName"
       :playerAvatarUrl="playerAvatarUrl"  
       :playerRole="playerRole"
+      :hasUnread="hasUnreadMessages"
       v-model:currentSection="currentSection"
       @toggle="isSidebarCollapsed = !isSidebarCollapsed"
+      @clear-unread="hasUnreadMessages = false"
     />
+
+    <transition enter-active-class="transition ease-out duration-300" enter-from-class="transform translate-y-10 opacity-0" enter-to-class="transform translate-y-0 opacity-100" leave-active-class="transition ease-in duration-200" leave-from-class="transform translate-y-0 opacity-100" leave-to-class="transform translate-y-10 opacity-0">
+      <div v-if="globalNotification" class="fixed bottom-10 right-10 bg-[#1a1a3e] border border-[#00d4aa] rounded-xl p-4 shadow-[0_0_20px_rgba(0,212,170,0.4)] z-50 flex flex-col min-w-[250px] animate-bounce">
+        <div class="flex items-center space-x-2 mb-1">
+          <span class="text-xl">💬</span>
+          <span class="text-[#00d4aa] font-bold text-lg">{{ globalNotification.title }}</span>
+        </div>
+        <div class="text-white/90 truncate max-w-[200px]">{{ globalNotification.content }}</div>
+      </div>
+    </transition>
 
     <div class="main-content">
       <DashboardHeader 
@@ -47,6 +59,11 @@
           :courseProgress="courseProgress"
           @open-level-selector="openLevelSelector"
         />
+
+        <FriendsSection
+          v-show="currentSection === 'friends'"
+        />
+
 
         <AchievementsSection
           v-show="currentSection === 'achievements'" 
@@ -91,6 +108,28 @@
         <p class="text-sm" style="color:#a0a0b8;">祝你學習愉快！需要幫助？<a href="#" style="color:#00d4aa;text-decoration:none;">查看教程</a></p>
       </footer>
     </div>
+
+    <div class="fixed bottom-6 right-6 z-[100] flex flex-col gap-3 pointer-events-none">
+      <transition-group name="toast">
+        <div v-for="toast in toastNotifications" :key="toast.id" 
+            @click="currentSection = 'friends'"
+            class="bg-[#151932]/95 backdrop-blur-md border border-[#00d4aa]/40 p-4 rounded-2xl shadow-[0_10px_40px_rgba(0,212,170,0.3)] flex items-center gap-4 w-80 transform transition-all pointer-events-auto cursor-pointer hover:scale-105 hover:border-[#00d4aa]">
+          
+          <img :src="toast.avatar || '/default-avatar.png'" class="w-12 h-12 rounded-full border-2 border-[#00d4aa]/50 object-cover flex-shrink-0" />
+          
+          <div class="flex-1 overflow-hidden">
+            <div class="text-[#00d4aa] font-bold text-sm truncate flex justify-between items-center">
+              {{ toast.senderName }}
+              <span class="text-white/40 text-[10px] font-normal">剛剛</span>
+            </div>
+            <div class="text-white text-sm truncate mt-0.5">{{ toast.content }}</div>
+          </div>
+
+          <div class="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse"></div>
+        </div>
+      </transition-group>
+    </div>
+
   </div>
 
   <LevelUpModal 
@@ -112,7 +151,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { supabase } from '../../supabase';
 import CourseLevelModal from '../level/CourseLevelModal.vue';
 import DashboardSidebar from './DashboardSidebar.vue';
@@ -127,8 +166,8 @@ import ProfileSection from './sections/ProfileSection.vue';
 import HelpSection from './sections/HelpSection.vue';
 import AdminSection from './sections/AdminSection.vue';
 import TeacherSection from './sections/TeacherSection.vue';
+import FriendsSection from './sections/FriendsSection.vue';
 
-// 🌟 修正 1：將 playerName 從 Props 移除，改用本地的 ref，這樣才能被 supabase 更新
 const playerName = ref('遊客模式');
 
 const courseProgress = ref({
@@ -157,7 +196,11 @@ const playerJoinDate = ref('');
 const playerAvatarUrl = ref('');
 const consecutiveDays = ref(1);
 const playerRole = ref('');
+const toastNotifications = ref([]);
+const hasUnreadMessages = ref(false);
+const myUserId = ref('');
 
+let globalMessageSubscription = null;
 let heartbeatInterval = null;
 
 const sendHeartbeat = async () => {
@@ -218,6 +261,43 @@ const addExperience = async (gainAmount) => {
 
   // 4. 在這裡判定累積成就！
   checkCumulativeAchievements(); 
+};
+
+const setupGlobalMessageListener = async () => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  myUserId.value = user.id;
+
+  globalMessageSubscription = supabase.channel('global-notifications')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'direct_messages' }, async (payload) => {
+      const msg = payload.new;
+
+      // 確認接收者是我，且目前「不在」friends 頁面
+      if (msg.receiver_id === myUserId.value && currentSection.value !== 'friends') {
+        
+        hasUnreadMessages.value = true;
+        const { data: sender } = await supabase
+          .from('profiles')
+          .select('username, avatar_url')
+          .eq('id', msg.sender_id)
+          .single();
+
+
+        if (sender) {
+          const notificationId = Date.now();
+          toastNotifications.value.push({
+            id: notificationId,
+            senderName: sender.username,
+            avatar: sender.avatar_url,
+            content: msg.content
+          });
+
+          setTimeout(() => {
+            toastNotifications.value = toastNotifications.value.filter(n => n.id !== notificationId);
+          }, 5000);
+        }
+      }
+    }).subscribe();
 };
 
 // 🌟 判定累積成就的範例函數
@@ -455,11 +535,34 @@ onMounted(() => {
   initDailyQuests();
   sendHeartbeat();
   heartbeatInterval = setInterval(sendHeartbeat, 1 * 60 * 1000);
+  setupGlobalMessageListener();
 });
+
+watch(() => myUserId.value, (newId) => {
+  if (newId) {
+    // 確保有 ID 才建立全域訂閱
+    globalMessageSubscription = supabase.channel('global-messages')
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'direct_messages',
+        filter: `receiver_id=eq.${newId}` // 確保過濾器綁定到正確的非空 ID
+      }, async (payload) => {
+        // 1. 觸發側邊欄紅點
+        hasUnreadMessages.value = true;
+        
+        // 2. 處理 Toast 與查詢發送者名稱的邏輯...
+      }).subscribe();
+  }
+}, { immediate: true });
 
 onUnmounted(() => {
   if (heartbeatInterval) {
     clearInterval(heartbeatInterval);
+  }
+
+  if (globalMessageSubscription) {
+    supabase.removeChannel(globalMessageSubscription);
   }
 });
 </script>
@@ -484,5 +587,18 @@ onUnmounted(() => {
 .float-2 { animation: float 3.5s ease-in-out infinite 0.5s; }
 .float-3 { animation: float 4s ease-in-out infinite 1s; }
 .particle { position: absolute; width: 6px; height: 6px; border-radius: 50%; animation: particle 2s ease-out infinite; }
+
+.toast-enter-active,
+.toast-leave-active {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.toast-enter-from {
+  opacity: 0;
+  transform: translateY(30px) scale(0.9);
+}
+.toast-leave-to {
+  opacity: 0;
+  transform: translateX(100%);
+}
 </style>
 

@@ -141,32 +141,35 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue'; // 新增引入生命週期
 import { supabase } from '../../../supabase'; 
 
 const currentView = ref('dashboard');
 const students = ref([]);
 const isLoading = ref(false);
 
-// 🌟 新增的狀態：用來儲存當前查看的學生與其進度資料
 const selectedStudent = ref(null);
 const studentProgressData = ref([]);
 const isProgressLoading = ref(false);
 
-// 🌟 聰明的返回上一頁邏輯
+// 🌟 新增：響應式的當前時間，用來讓 Vue 自動重新計算是否離線
+const currentTime = ref(new Date().getTime());
+let timer = null;
+let realtimeChannel = null; // 用來儲存 Supabase 的訂閱通道
+
 const goBack = () => {
   if (currentView.value === 'student_progress') {
-    currentView.value = 'student_list'; // 從進度頁返回名單
+    currentView.value = 'student_list';
   } else if (currentView.value === 'student_list') {
-    currentView.value = 'dashboard';    // 從名單返回控制台
+    currentView.value = 'dashboard';
   }
 };
 
+// 🌟 修改：使用 currentTime.value 來計算，只要 currentTime 改變，綠燈狀態就會自動重新判定
 const checkIsOnline = (dateString) => {
   if (!dateString) return false;
   const lastActivity = new Date(dateString).getTime();
-  const now = new Date().getTime();
-  const diffInMinutes = (now - lastActivity) / (1000 * 60);
+  const diffInMinutes = (currentTime.value - lastActivity) / (1000 * 60);
   return diffInMinutes <= 5; 
 };
 
@@ -174,6 +177,28 @@ const formatDate = (dateString) => {
   if (!dateString) return '從未登入';
   const date = new Date(dateString);
   return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`;
+};
+
+// 🌟 新增：設定 Supabase 的即時監聽
+const setupRealtime = () => {
+  if (realtimeChannel) return; // 避免重複訂閱
+
+  realtimeChannel = supabase
+    .channel('profiles-updates')
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'profiles' },
+      (payload) => {
+        const updatedData = payload.new;
+        // 如果變更的是學生名單中的人，立刻更新他的最後上線時間
+        const index = students.value.findIndex(s => s.id === updatedData.id);
+        if (index !== -1) {
+          students.value[index].last_login_at = updatedData.last_login_at;
+          students.value[index].level = updatedData.level; // 順便更新等級
+        }
+      }
+    )
+    .subscribe();
 };
 
 const openStudentList = async () => {
@@ -188,31 +213,30 @@ const openStudentList = async () => {
 
     if (error) throw error;
     students.value = data || [];
+    
+    // 🌟 載入名單後，啟動即時監聽
+    setupRealtime();
+    
   } catch (err) {
     console.error('撈取學生名單失敗:', err);
-    loadMockStudents();
   } finally {
     isLoading.value = false;
   }
 };
 
-// 🌟 點擊「查看進度」觸發的函數
 const openStudentProgress = async (student) => {
-  selectedStudent.value = student; // 記住被點擊的學生
+  // ... 原本的 openStudentProgress 程式碼保持不變 ...
+  selectedStudent.value = student; 
   currentView.value = 'student_progress';
   isProgressLoading.value = true;
 
   try {
-    // 1. 根據學生的 ID，去 Supabase 撈取他真實的 user_progress
     const { data, error } = await supabase
       .from('user_progress')
       .select('course_id, level_id')
       .eq('user_id', student.id);
 
-    if (error) {
-      console.error("Supabase 報錯:", error.message);
-      throw error;
-    }
+    if (error) throw error;
 
     const systemCourses = [
       { id: 'python', name: 'Python 基礎語法', totalLevels: 20, color: '#ffbb33' },
@@ -221,20 +245,17 @@ const openStudentProgress = async (student) => {
       { id: 'phaser', name: 'Phaser 遊戲開發', totalLevels: 20, color: '#ff6b6b' }
     ];
 
-    // 3. 如果學生是全新帳號，完全沒有通關紀錄
     if (!data || data.length === 0) {
       studentProgressData.value = systemCourses.map(course => ({
         ...course,
         currentLevel: 0
       }));
     } else {
-      // 4. 計算每個課程的最高通關等級 (邏輯與你的 PlayerDashboard 相同)
       const progressMap = {};
       data.forEach(record => {
          progressMap[record.course_id] = Math.max(progressMap[record.course_id] || 0, record.level_id);
       });
 
-      // 5. 將最高等級組裝進顯示用的陣列中
       studentProgressData.value = systemCourses.map(course => ({
         ...course,
         currentLevel: progressMap[course.id] || 0
@@ -242,11 +263,24 @@ const openStudentProgress = async (student) => {
     }
 
   } catch (err) {
-    console.warn('❌ 撈取真實進度失敗，退回假資料模式:', err);
+    console.warn('❌ 撈取真實進度失敗', err);
   } finally {
     isProgressLoading.value = false;
   }
 };
+
+// 🌟 新增：在元件掛載時啟動計時器，並在卸載時清理
+onMounted(() => {
+  // 每 30 秒更新一次時間（不需重新整理畫面），超過 5 分鐘的人會自動變成離線
+  timer = setInterval(() => {
+    currentTime.value = new Date().getTime();
+  }, 30000); 
+});
+
+onUnmounted(() => {
+  if (timer) clearInterval(timer);
+  if (realtimeChannel) supabase.removeChannel(realtimeChannel); // 離開頁面時切斷監聽，節省效能
+});
 </script>
 
 <style scoped>

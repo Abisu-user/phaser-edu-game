@@ -43,19 +43,28 @@
       <div 
         v-for="item in menuItems" 
         :key="item.id" 
-        class="group flex items-center rounded-xl cursor-pointer transition-all duration-300 relative overflow-hidden"
+        class="group flex items-center rounded-xl cursor-pointer transition-all duration-300 relative"
         :class="[
           currentSection === item.id 
             ? 'bg-[#00d4aa]/10 text-[#00d4aa] border border-[#00d4aa]/30 shadow-[0_0_15px_rgba(0,212,170,0.15)]' 
             : 'text-[#a0a0b8] border border-transparent hover:bg-white/5 hover:text-white hover:border-white/10',
           isCollapsed ? 'p-3 justify-center' : 'px-4 py-3 gap-4'
         ]"
-        @click="$emit('update:currentSection', item.id)"
-        :title="isCollapsed ? item.label : ''"
+        @click="() => {
+          $emit('update:currentSection', item.id);
+          if (item.id === 'friends') $emit('clear-unread');
+        }"
       >
         <div v-if="currentSection === item.id" class="absolute left-0 top-0 bottom-0 w-1 bg-[#00d4aa] shadow-[0_0_10px_#00d4aa]"></div>
         
-        <div class="text-xl group-hover:scale-110 transition-transform duration-300">{{ item.icon }}</div>
+        <div class="text-xl group-hover:scale-110 transition-transform duration-300 relative">
+          {{ item.icon }}
+          
+          <div v-if="item.id === 'friends' && props.hasUnread && currentSection !== 'friends'" 
+              class="absolute -top-1.5 -right-1.5 w-3 h-3 bg-red-500 rounded-full border-2 border-[#0a0e27] shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse">
+          </div>
+        </div>
+
         <div v-if="!isCollapsed" class="font-medium tracking-wide whitespace-nowrap">{{ item.label }}</div>
       </div>
 
@@ -126,16 +135,18 @@ const props = defineProps({
   currentLevel: [Number, String],
   playerName: String,
   playerAvatarUrl: String,
+  hasUnread: Boolean,
   playerRole: { type: String, default: 'student' }
 });
 
-defineEmits(['toggle', 'update:currentSection']);
+defineEmits(['toggle', 'update:currentSection', 'clear-unread']);
 
 const isLogoutModalOpen = ref(false);
 
 const baseMenuItems = [
   { id: 'lobby', label: '大廳', icon: '🏠' },
   { id: 'courses', label: '課程', icon: '📚' },
+  { id: 'friends', label: '好友', icon: '👥' },
   { id: 'achievements', label: '成就', icon: '🎖️' },
   { id: 'leaderboard', label: '排行榜', icon: '🏆' },
   { id: 'profile', label: '個人檔案', icon: '👤' }
