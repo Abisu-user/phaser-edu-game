@@ -526,8 +526,16 @@ const refreshUserData = async () => {
   }
 };
 
-const handleWindowFocus = () => {
-  refreshUserData();
+let lastCheckTime = 0;
+const COOLDOWN_TIME = 5000; 
+
+const handleUserInteraction = () => {
+  const now = Date.now();
+  // 如果距離上次檢查已經超過 5 秒，才去後台抓資料
+  if (now - lastCheckTime > COOLDOWN_TIME) {
+    lastCheckTime = now;
+    refreshUserData();
+  }
 };
 
 const handleVisibilityChange = () => {
@@ -568,8 +576,9 @@ onMounted(() => {
   sendHeartbeat();
   heartbeatInterval = setInterval(sendHeartbeat, 1 * 60 * 1000);
   setupGlobalMessageListener();
-  window.addEventListener('focus', handleWindowFocus);
   document.addEventListener('visibilitychange', handleVisibilityChange);
+  window.addEventListener('click', handleUserInteraction);
+  window.addEventListener('pointerenter', handleUserInteraction);
 });
 
 watch(() => myUserId.value, (newId) => {
@@ -598,8 +607,9 @@ onUnmounted(() => {
   if (globalMessageSubscription) {
     supabase.removeChannel(globalMessageSubscription);
   }
-  window.removeEventListener('focus', handleWindowFocus);
   document.removeEventListener('visibilitychange', handleVisibilityChange);
+  window.addEventListener('click', handleUserInteraction);
+  window.addEventListener('pointerenter', handleUserInteraction);
 });
 </script>
 
