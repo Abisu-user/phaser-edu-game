@@ -84,6 +84,7 @@
           :joinDate="playerJoinDate"
           :playerAvatarUrl="playerAvatarUrl"  
           @update-avatar="(newUrl) => playerAvatarUrl = newUrl"
+          @update-name="handleNameUpdate"
         />
         
         <div v-show="currentSection === 'settings'">設定即將推出...</div>
@@ -202,6 +203,10 @@ const myUserId = ref('');
 
 let globalMessageSubscription = null;
 let heartbeatInterval = null;
+
+const handleNameUpdate = (newName) => {
+  playerName.value = newName; 
+};
 
 const sendHeartbeat = async () => {
   try {
@@ -504,6 +509,33 @@ const openLevelSelector = async (course) => {
   isLevelModalOpen.value = true;
 };
 
+const refreshUserData = async () => {
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error) throw error;
+    
+    if (user) {
+      // 這裡將抓到的最新 Email 覆寫掉你原本的變數
+      playerEmail.value = user.email; 
+      
+      // 如果你的名字存在 user_metadata 裡，也可以順便更新
+      // playerName.value = user.user_metadata.username || playerName.value;
+    }
+  } catch (err) {
+    console.error('背景更新使用者資料失敗:', err.message);
+  }
+};
+
+const handleWindowFocus = () => {
+  refreshUserData();
+};
+
+const handleVisibilityChange = () => {
+  if (document.visibilityState === 'visible') {
+    refreshUserData();
+  }
+};
+
 const startLevel = (data) => {
   isLevelModalOpen.value = false;
   emit('enter-game', data); 
@@ -536,6 +568,8 @@ onMounted(() => {
   sendHeartbeat();
   heartbeatInterval = setInterval(sendHeartbeat, 1 * 60 * 1000);
   setupGlobalMessageListener();
+  window.addEventListener('focus', handleWindowFocus);
+  document.addEventListener('visibilitychange', handleVisibilityChange);
 });
 
 watch(() => myUserId.value, (newId) => {
@@ -564,6 +598,8 @@ onUnmounted(() => {
   if (globalMessageSubscription) {
     supabase.removeChannel(globalMessageSubscription);
   }
+  window.removeEventListener('focus', handleWindowFocus);
+  document.removeEventListener('visibilitychange', handleVisibilityChange);
 });
 </script>
 

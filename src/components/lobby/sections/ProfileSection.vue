@@ -98,6 +98,38 @@
             <div class="flex flex-col gap-4 pb-6 border-b border-white/5">
               <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
+                  <p class="text-white font-bold">使用者名稱</p>
+                  <p class="text-sm text-[#a0a0b8]">目前名稱：<span class="text-white">{{ playerName }}</span></p>
+                </div>
+                <button 
+                  @click="toggleNameEdit"
+                  class="px-5 py-2 rounded-xl text-sm font-bold transition-colors"
+                  :class="isEditingName ? 'bg-white/10 text-white hover:bg-white/20' : 'bg-[#00d4aa] text-[#0a0e27] hover:bg-[#00b894]'"
+                >
+                  {{ isEditingName ? '取消' : '更改名稱' }}
+                </button>
+              </div>
+
+              <div v-show="isEditingName" class="mt-2 flex flex-col gap-3">
+                <input 
+                  v-model="newName" 
+                  type="text" 
+                  placeholder="輸入新的使用者名稱" 
+                  class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-[#a0a0b8] focus:outline-none focus:border-[#00d4aa] transition-colors"
+                />
+                <button 
+                  @click="handleUpdateName" 
+                  :disabled="isUpdatingProfile"
+                  class="px-5 py-3 mt-1 rounded-xl text-sm font-bold text-[#0a0e27] bg-[#00d4aa] hover:bg-[#00b894] transition-colors disabled:opacity-50 self-end w-full sm:w-auto"
+                >
+                  {{ isUpdatingProfile ? '更新中...' : '確認修改名稱' }}
+                </button>
+              </div>
+            </div>
+
+            <div class="flex flex-col gap-4 pb-6 border-b border-white/5">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
                   <p class="text-white font-bold">登入密碼</p>
                   <p class="text-sm text-[#a0a0b8]">定期更新密碼以保護您的帳號安全。</p>
                 </div>
@@ -210,7 +242,8 @@ const props = defineProps({
   joinDate: String,
 });
 
-const emit = defineEmits(['update-avatar']);
+// 加入 'update-name' 事件
+const emit = defineEmits(['update-avatar', 'update-name']);
 
 // --- Modal 狀態管理 🌟 ---
 const modalState = ref({
@@ -222,7 +255,6 @@ const modalState = ref({
   confirmText: '確定',
 });
 
-// 統一呼叫通知的方法
 const showAlert = (title, message, icon = '⚠️', isDanger = false, confirmText = '確定') => {
   modalState.value = {
     isOpen: true,
@@ -245,10 +277,16 @@ const isCropModalOpen = ref(false);
 const tempImageSrc = ref('');
 
 // --- 帳號設定相關變數 ---
+const isUpdatingProfile = ref(false); // 專門給更新使用者資料用的 Loading 狀態
 const isUpdatingAuth = ref(false);
+
+const isEditingName = ref(false);
+const newName = ref('');
+
 const isEditingPassword = ref(false);
 const newPassword = ref('');
 const confirmPassword = ref('');
+
 const isEditingEmail = ref(false);
 const newEmail = ref('');
 
@@ -330,12 +368,23 @@ const uploadAvatar = async (croppedBlob) => {
 
 // --- 帳號設定邏輯 ---
 
+// 新增：切換編輯名稱狀態 (會自動收合其他設定)
+const toggleNameEdit = () => {
+  isEditingName.value = !isEditingName.value;
+  if (!isEditingName.value) {
+    newName.value = '';
+  }
+  isEditingPassword.value = false;
+  isEditingEmail.value = false;
+};
+
 const togglePasswordEdit = () => {
   isEditingPassword.value = !isEditingPassword.value;
   if (!isEditingPassword.value) {
     newPassword.value = '';
     confirmPassword.value = '';
   }
+  isEditingName.value = false;
   isEditingEmail.value = false;
 };
 
@@ -344,7 +393,42 @@ const toggleEmailEdit = () => {
   if (!isEditingEmail.value) {
     newEmail.value = '';
   }
+  isEditingName.value = false;
   isEditingPassword.value = false;
+};
+
+// 新增：更新使用者名稱處理函數
+const handleUpdateName = async () => {
+  if (!newName.value.trim()) {
+    showAlert('格式錯誤', '名稱不能為空！', '⚠️', true);
+    return;
+  }
+  
+  try {
+    isUpdatingProfile.value = true;
+    
+    // 取得當前登入的 user ID
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('未登入');
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ username: newName.value.trim() }) 
+      .eq('id', user.id);
+
+    if (error) throw error;
+
+    showAlert('修改成功', '您的使用者名稱已成功更新！', '✅', false, '了解');
+    
+    // 通知父組件更新 playerName prop
+    emit('update-name', newName.value.trim());
+    toggleNameEdit(); 
+  } catch (error) {
+    console.error('修改名稱失敗:', error.message);
+    showAlert('修改失敗', '更新使用者名稱時發生錯誤。', '❌', true);
+  } finally {
+    isUpdatingProfile.value = false;
+  }
 };
 
 const handleUpdatePassword = async () => {
@@ -382,15 +466,15 @@ const handleUpdateEmail = async () => {
   try {
     isUpdatingAuth.value = true;
     
-    // 🌟 關鍵修改：加上 options 指定 emailRedirectTo (導回現在所在的網址)
     const { error } = await supabase.auth.updateUser(
       { email: newEmail.value },
-      { emailRedirectTo: `${window.location.origin}/email-confirmed` }
+      { emailRedirectTo: `${window.location.origin}/success.html` }
     );
     
     if (error) throw error;
 
-    showAlert('確認信已發送', '請前往新信箱點選確認連結，完成後才會正式更改。', '📧', false, '去收信');
+    // 👇 這裡也順便改一下，按鈕改成「了解」比較符合不跳轉的情境
+    showAlert('確認信已發送', '請前往新信箱點選確認連結。點擊後系統將自動更新。', '📧', false, '了解');
     toggleEmailEdit(); 
   } catch (error) {
     console.error('修改 Email 失敗:', error.message);

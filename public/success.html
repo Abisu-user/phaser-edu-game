@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>驗證成功</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #0a0e27; /* 遊戲深色背景 */
+      color: #ffffff;
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+    .container {
+      background-color: #16162a;
+      border: 1px solid rgba(0, 212, 170, 0.3);
+      border-radius: 24px;
+      padding: 40px 30px;
+      text-align: center;
+      max-width: 400px;
+      width: 85%;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+      position: relative;
+    }
+    /* 頂部的螢光發光效果 */
+    .glow {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      height: 60px;
+      background: #00d4aa;
+      opacity: 0.15;
+      filter: blur(40px);
+      border-radius: 50%;
+    }
+    .icon {
+      font-size: 70px;
+      margin-bottom: 20px;
+      text-shadow: 0 0 20px rgba(0, 212, 170, 0.5);
+    }
+    h1 {
+      color: #00d4aa;
+      margin: 0 0 15px 0;
+      font-size: 26px;
+      letter-spacing: 1px;
+    }
+    p {
+      color: #a0a0b8;
+      font-size: 15px;
+      line-height: 1.6;
+      margin: 0;
+    }
+    .btn-close {
+      display: inline-block;
+      margin-top: 30px;
+      background-color: rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+      padding: 12px 24px;
+      border-radius: 12px;
+      text-decoration: none;
+      font-weight: bold;
+      font-size: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="glow"></div>
+    <div class="icon">✅</div>
+    <h1>驗證成功！</h1>
+    <p>您的 Email 已經成功更新。</p>
+    <p>現在您可以安全地關閉此視窗，並回到原本的裝置繼續您的冒險。</p>
+    
+    <button class="btn-close" onclick="window.close();">關閉視窗</button>
+  </div>
+</body>
+</html>
