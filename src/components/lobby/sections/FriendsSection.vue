@@ -42,29 +42,28 @@
              class="bg-white/10 hover:bg-white/15 transition-all p-4 rounded-2xl flex items-center gap-4 border border-white/5 cursor-pointer group">
           
           <div class="relative flex-shrink-0">
-            <img :src="friend.avatar_url || '/default-avatar.png'" class="w-14 h-14 rounded-full border-2 border-white/20 object-cover" />
-            <div :class="['absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-[#151932]', checkOnline(friend.last_login_at) ? 'bg-green-500' : 'bg-gray-500']"></div>
+            <img :src="friend.avatar_url || '/default-avatar.png'" class="w-14 h-14 rounded-full border-2 object-cover" :class="friend.role === 'teacher' ? 'border-[#ffbb33]' : 'border-white/20'" />
+            <div v-if="friend.role !== 'teacher'" :class="['absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-[#151932]', checkOnline(friend.last_login_at) ? 'bg-green-500' : 'bg-gray-500']"></div>
+            <div v-else class="absolute -bottom-1 -right-2 bg-[#ffbb33] text-[#0a0e27] text-[10px] px-1.5 py-0.5 rounded font-bold shadow-md">老師</div>
           </div>
           
           <div class="flex-grow">
             <div class="flex items-center space-x-2">
-                <div class="font-bold text-lg text-white group-hover:text-[#00d4aa] transition-colors">{{ friend.username }}</div>
-                    <div v-if="unreadSenders.includes(friend.id)" class="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse"></div>
-                    <div class="bg-white/10 text-[10px] px-1.5 py-0.5 rounded-md text-white/70 font-mono">Lv.{{ friend.level || 1 }}</div>
-                </div>
+              <div class="font-bold text-lg transition-colors" :class="friend.role === 'teacher' ? 'text-[#ffbb33]' : 'text-white group-hover:text-[#00d4aa]'">{{ friend.username }}</div>
+              <div v-if="unreadSenders.includes(friend.id)" class="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse"></div>
+              <div v-if="friend.role !== 'teacher'" class="bg-white/10 text-[10px] px-1.5 py-0.5 rounded-md text-white/70 font-mono">Lv.{{ friend.level || 1 }}</div>
+            </div>
             <div class="text-xs mt-1" :class="checkOnline(friend.last_login_at) ? 'text-green-400' : 'text-white/40'">
-              {{ checkOnline(friend.last_login_at) ? '目前在線上' : `上次上線：${formatLastOnline(friend.last_login_at)}` }}
+              {{ friend.role === 'teacher' ? '系統指導教師' : (checkOnline(friend.last_login_at) ? '目前在線上' : `上次上線：${formatLastOnline(friend.last_login_at)}`) }}
             </div>
           </div>
           
           <div class="flex items-center space-x-2">
             <button @click.stop="openChat(friend)" class="bg-white/10 hover:bg-[#00d4aa] hover:text-[#0a0e27] px-4 py-2 rounded-xl text-sm transition-all text-white/90 font-bold shadow-lg">
-              發送訊息
+              查看訊息
             </button>
-            <button @click.stop="promptDeleteFriend(friend)" class="p-2 rounded-xl bg-white/5 hover:bg-red-500/20 text-white/40 hover:text-red-400 transition-colors" title="刪除好友">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
+            <button v-if="friend.role !== 'teacher'" @click.stop="promptDeleteFriend(friend)" class="p-2 rounded-xl bg-white/5 hover:bg-red-500/20 text-white/40 hover:text-red-400 transition-colors" title="刪除好友">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
             </button>
           </div>
         </div>
@@ -197,7 +196,7 @@
             <button @click="closeProfile(); openChat(selectedProfile)" class="w-full bg-[#00d4aa] text-[#0a0e27] hover:bg-[#00b38f] py-3 rounded-xl font-bold transition-all shadow-[0_0_15px_rgba(0,212,170,0.3)]">
               發送訊息
             </button>
-            <button @click="promptDeleteFriend(selectedProfile)" class="w-full bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 py-2.5 rounded-xl font-bold transition-all mt-2 text-sm">
+            <button v-if="selectedProfile.role !== 'teacher'" @click="promptDeleteFriend(selectedProfile)" class="w-full bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 py-2.5 rounded-xl font-bold transition-all mt-2 text-sm">
               解除好友關係
             </button>
           </div>
@@ -235,11 +234,37 @@
           <div v-for="msg in chatMessages" :key="msg.id" 
                class="max-w-[75%] flex flex-col" 
                :class="msg.sender_id === myId ? 'self-end items-end' : 'self-start items-start'">
+            
             <div class="px-4 py-2 rounded-2xl text-sm" 
-                 :class="msg.sender_id === myId ? 'bg-[#00d4aa] text-[#0a0e27] rounded-tr-sm' : 'bg-white/10 text-white rounded-tl-sm'">
-              {{ msg.content }}
+                 :class="[
+                   msg.sender_id === myId ? 'bg-[#00d4aa] text-[#0a0e27] rounded-tr-sm' : 
+                   (activeChatFriend.role === 'teacher' ? 'bg-[#ffbb33]/10 border border-[#ffbb33]/30 text-[#ffbb33] rounded-tl-sm' : 'bg-white/10 text-white rounded-tl-sm')
+                 ]">
+              <div v-if="activeChatFriend.role === 'teacher' && msg.sender_id !== myId" class="text-[10px] font-bold mb-1 opacity-80">📢 教師 / 系統通知</div>
+              <div class="whitespace-pre-wrap">{{ msg.content }}</div>
             </div>
             <div class="text-[10px] text-white/30 mt-1 px-1">{{ formatChatTime(msg.created_at) }}</div>
+          </div>
+        </div>
+
+        <div class="p-3 bg-white/5 border-t border-white/10 flex-shrink-0">
+          <div v-if="activeChatFriend.role === 'teacher'" class="text-center text-[#a0a0b8] text-sm py-2">
+            🔒 此為教師廣播頻道，無法直接回覆
+          </div>
+          <div v-else class="flex space-x-2">
+            <input 
+              v-model="newMessage" 
+              @keyup.enter="sendMessage"
+              type="text" 
+              placeholder="輸入訊息..." 
+              class="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-white/30 focus:outline-none focus:border-[#00d4aa]/50"
+            />
+            <button 
+              @click="sendMessage" 
+              :disabled="!newMessage.trim()"
+              class="bg-[#00d4aa] text-[#0a0e27] px-4 rounded-xl font-bold disabled:opacity-50 transition-colors flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 transform rotate-90" viewBox="0 0 20 20" fill="currentColor"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" /></svg>
+            </button>
           </div>
         </div>
 
@@ -336,19 +361,53 @@ const fetchData = async () => {
   myId.value = user.id;
 
   try {
+    // 1. 撈取好友 (🌟 記得加上 role 欄位)
     const { data: friendsData } = await supabase
       .from('friendships')
-      .select(`friend_id, profiles:friend_id ( id, username, avatar_url, last_login_at, level )`)
+      .select(`friend_id, profiles:friend_id ( id, username, avatar_url, last_login_at, level, role )`)
       .eq('user_id', user.id)
       .eq('status', 'accepted');
-    if (friendsData) friends.value = friendsData.map(item => item.profiles);
+      
+    let loadedFriends = friendsData ? friendsData.map(item => item.profiles) : [];
 
+    // 2. 撈取好友邀請 (🌟 記得加上 role 欄位)
     const { data: requestsData } = await supabase
       .from('friendships')
-      .select(`user_id, profiles:user_id ( id, username, avatar_url, level )`)
+      .select(`user_id, profiles:user_id ( id, username, avatar_url, level, role )`)
       .eq('friend_id', user.id)
       .eq('status', 'pending');
     if (requestsData) pendingRequests.value = requestsData.map(item => item.profiles);
+
+    // ==========================================
+    // 🌟 3. 新增：撈取曾經傳訊息給我的「老師」，並加入列表
+    // ==========================================
+    const { data: msgs } = await supabase
+      .from('direct_messages')
+      .select('sender_id')
+      .eq('receiver_id', user.id);
+
+    if (msgs && msgs.length > 0) {
+      // 找出所有發送者的 ID
+      const senderIds = [...new Set(msgs.map(m => m.sender_id))];
+      // 過濾掉已經在好友名單裡的人
+      const nonFriendIds = senderIds.filter(id => !loadedFriends.some(f => f.id === id));
+      
+      if (nonFriendIds.length > 0) {
+        // 去 profiles 抓出這些人，而且只抓老師
+        const { data: teacherProfiles } = await supabase
+          .from('profiles')
+          .select('id, username, avatar_url, last_login_at, level, role')
+          .in('id', nonFriendIds)
+          .eq('role', 'teacher');
+          
+        if (teacherProfiles) {
+          // 將老師加到好友列表的「最上面」
+          loadedFriends = [...teacherProfiles, ...loadedFriends];
+        }
+      }
+    }
+
+    friends.value = loadedFriends;
 
     setupFriendsRealtime();
     setupFriendshipRealtime();

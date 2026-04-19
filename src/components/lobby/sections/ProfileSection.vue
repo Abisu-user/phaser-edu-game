@@ -203,6 +203,28 @@
               </div>
             </div>
 
+            <div v-if="playerRole === 'student'" class="mt-8 p-6 bg-[#ffbb33]/10 border border-[#ffbb33]/30 rounded-2xl">
+              <div class="flex items-start gap-4">
+                <div class="text-4xl">🎓</div>
+                <div>
+                  <h3 class="text-[#ffbb33] text-lg font-bold mb-1">想成為教育者嗎？申請教師資格</h3>
+                  <p class="text-sm text-[#a0a0b8] mb-4 leading-relaxed">
+                    申請成為教師後，您可以建立班級、管理學生進度，並派發專屬的程式課程。
+                    <span class="text-red-400 block mt-1">⚠️ 注意：送出申請後，您的帳號將進入「待審核」狀態，需等待管理員開通後才能再次登入。</span>
+                  </p>
+                  
+                  <button 
+                    @click="applyForTeacher" 
+                    :disabled="isApplying"
+                    class="px-6 py-2.5 bg-[#ffbb33] hover:bg-[#ffaa00] text-[#0a0e27] font-bold rounded-xl transition-all shadow-[0_4px_14px_rgba(255,187,51,0.3)] hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+                  >
+                    <span v-if="isApplying" class="animate-pulse">送出申請中...</span>
+                    <span v-else>立即申請成為教師 🚀</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
 
@@ -231,8 +253,10 @@ import AvatarCropModal from '../AvatarCropModal.vue';
 import ConfirmModal from '../../common/ConfirmModal.vue'; 
 
 const props = defineProps({
+  playerId: String,
   playerName: String,
   playerEmail: String,
+  playerRole: String,
   playerAvatarUrl: { type: String, default: '' },
   currentLevel: Number,
   currentXP: Number,
@@ -244,6 +268,41 @@ const props = defineProps({
 
 // 加入 'update-name' 事件
 const emit = defineEmits(['update-avatar', 'update-name']);
+
+const isApplying = ref(false);
+
+const applyForTeacher = async () => {
+  // 1. 二次確認防呆
+  if (!confirm('確定要申請成為教師嗎？\n送出後系統會自動為您登出，並等待管理員審核。')) {
+    return;
+  }
+
+  isApplying.value = true;
+
+  try {
+    // 2. 更新 Supabase 資料表
+    const { error } = await supabase
+      .from('profiles')
+      .update({ 
+        role: 'teacher',     // 角色轉為教師
+        status: 'pending'    // 狀態設為待審核
+      })
+      .eq('id', props.playerId); // 對準目前登入玩家的 ID
+
+    if (error) throw error;
+
+    alert('✅ 已成功送出申請！請等待管理員核准。');
+
+    await supabase.auth.signOut();
+    window.location.reload(); // 重整頁面，自動退回登入畫面
+
+  } catch (error) {
+    console.error('教師申請失敗:', error.message);
+    alert('申請失敗，請確認網路連線或稍後再試！');
+  } finally {
+    isApplying.value = false;
+  }
+};
 
 // --- Modal 狀態管理 🌟 ---
 const modalState = ref({
@@ -473,7 +532,6 @@ const handleUpdateEmail = async () => {
     
     if (error) throw error;
 
-    // 👇 這裡也順便改一下，按鈕改成「了解」比較符合不跳轉的情境
     showAlert('確認信已發送', '請前往新信箱點選確認連結。點擊後系統將自動更新。', '📧', false, '了解');
     toggleEmailEdit(); 
   } catch (error) {

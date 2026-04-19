@@ -81,6 +81,7 @@
 <script setup>
 import { onMounted, onUnmounted, ref, watch } from 'vue';
 import { supabase } from '../../supabase.js';
+import { BADGE_LIST } from '../../game/config/badges.js';
 import Phaser from 'phaser';
 import TeachingScene from '../../game/scenes/TeachingScene.js';
 import CodeEditorPanel from './CodeEditorPanel.vue';
@@ -104,6 +105,7 @@ const hp = ref(3);
 const today = new Date().toISOString().split('T')[0];
 const storedDaily = JSON.parse(localStorage.getItem('code_quest_daily') || '{}');
 const currentTotalXP = ref(0);
+const enterTime = ref(0);
 
 let game = null;
 
@@ -181,6 +183,9 @@ watch(hp, (newHp) => {
 const handleRestart = () => {
   showFailModal.value = false;
   hp.value = 3;
+  
+  enterTime.value = Date.now(); 
+
   if (game) {
     const scene = game.scene.getScene('TeachingScene');
     if (scene) scene.resetLevel();
@@ -206,7 +211,11 @@ if (storedDaily.date === today) {
 
 // 寫入通關紀錄與經驗值
 const handleWin = async () => {
-  // 1. 取得使用者，並防範未登入狀態
+  // 🌟 1. 新增：計算這關花了多少秒
+  const leaveTime = Date.now();
+  const timeSpentSeconds = Math.floor((leaveTime - enterTime.value) / 1000);
+
+  // 取得使用者，並防範未登入狀態
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   
   if (authError || !user) {
@@ -219,8 +228,6 @@ const handleWin = async () => {
   const safeCourseId = props.levelConfig?.courseId || 'python';
   const levelId = props.levelConfig?.id ? Number(props.levelConfig.id) : 0;
   
-  // --- 2. 更新通關進度 (方法二：手動檢查是否存在) ---
-  
   // 先查詢資料庫中是否已有該玩家對應該關卡的紀錄
   const { data: existingProgress, error: fetchError } = await supabase
     .from('user_progress')
@@ -232,12 +239,13 @@ const handleWin = async () => {
   let progressError = null;
 
   if (existingProgress) {
-    // A. 如果紀錄已存在 -> 執行 Update (更新星星數)
+    // A. 如果紀錄已存在 -> 執行 Update (更新星星數與花費時間)
     const { error } = await supabase
       .from('user_progress')
       .update({ 
         stars: hp.value, 
-        course_id: safeCourseId 
+        course_id: safeCourseId,
+        time_spent_seconds: timeSpentSeconds // 🌟 2. 將秒數寫入 Update
       })
       .eq('id', existingProgress.id);
     progressError = error;
@@ -246,13 +254,15 @@ const handleWin = async () => {
       console.error('查詢進度時發生非預期錯誤:', fetchError);
     }
     
+    // B. 如果是首次通關 -> 執行 Insert
     const { error } = await supabase
       .from('user_progress')
       .insert({ 
         user_id: user.id, 
         course_id: safeCourseId, 
         level_id: levelId, 
-        stars: hp.value 
+        stars: hp.value,
+        time_spent_seconds: timeSpentSeconds // 🌟 3. 將秒數寫入 Insert
       });
     progressError = error;
   }
@@ -263,7 +273,6 @@ const handleWin = async () => {
     return alert('存檔失敗：' + progressError.message);
   }
 
-  // --- 3. 更新玩家經驗值與等級 (保持原邏輯) ---
   const xpReward = props.levelConfig?.xpReward || 100;
   
   const { data: profile, error: profileError } = await supabase
@@ -272,11 +281,7 @@ const handleWin = async () => {
     .eq('id', user.id)
     .single();
 
-  if (profileError) {
-    console.error('取得玩家資料失敗:', profileError);
-  }
-
-  if (profile) {
+ if (profile) {
     let newXp = (profile.xp || 0) + xpReward;
     let newLevel = profile.level || 1;
     let newTotalXp = (profile.total_exp || 0) + xpReward; 
@@ -299,12 +304,52 @@ const handleWin = async () => {
        currentXP.value = newXp;
        currentTotalXP.value = newTotalXp; 
     }
+
+    // ==========================================
+    // 🏆 🌟 成就解鎖判定區塊 🌟 🏆
+    // ==========================================
+    
+    // 1. 去資料庫抓取該玩家「總共通關了幾關」
+    const { count: clearedCount } = await supabase
+      .from('user_progress')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id);
+
+    // 2. 組合當下最新的成績單
+    const currentStats = {
+      clearedLevelsCount: clearedCount || 0, // 剛抓出來的通關數
+      currentTotalXP: newTotalXp,            // 剛算好的總經驗值
+      currentLevel: newLevel                 // 剛算好的最新等級
+    };
+
+    // 3. 跑迴圈自動檢查並寫入資料庫
+    for (const badge of BADGE_LIST) {
+      if (badge.checkUnlock(currentStats)) {
+        
+        // 🌟 將 insert 改成 upsert，並告訴它遇到重複的就忽略
+        const { error } = await supabase.from('user_achievements').upsert({
+          user_id: user.id,
+          achievement_id: badge.id
+        }, {
+          onConflict: 'user_id, achievement_id', 
+          ignoreDuplicates: true                 
+        });
+        
+      
+        if (!error) {
+          console.log(`✅ 系統檢查成就：${badge.name} (已同步)`);
+        } else {
+          console.error(`成就寫入異常 (${badge.name}):`, error);
+        }
+      }
+    }
   }
 
   showWinModal.value = true;
 };
 
 onMounted( async() => {
+  enterTime.value = Date.now();
   window.addEventListener('level-win', onLevelWin);
   const config = {
       type: Phaser.AUTO,

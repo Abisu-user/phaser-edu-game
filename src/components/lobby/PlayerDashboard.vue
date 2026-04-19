@@ -17,6 +17,8 @@
       :playerRole="playerRole"
       :hasUnread="hasUnreadMessages"
       v-model:currentSection="currentSection"
+      v-model:activeAdminTab="activeAdminTab"
+      v-model:activeTeacherTab="activeTeacherTab"
       @toggle="isSidebarCollapsed = !isSidebarCollapsed"
       @clear-unread="hasUnreadMessages = false"
     />
@@ -38,6 +40,8 @@
         :currentXP="currentXP"
         :xpPerLevel="xpPerLevel"
       />
+
+      <SystemAnnouncement />
 
       <div class="relative z-10 max-w-7xl mx-auto px-6 py-12 w-full">
         
@@ -74,6 +78,7 @@
         
         <ProfileSection 
           v-show="currentSection === 'profile'"
+          :playerId="currentId"
           :playerName="playerName"
           :playerEmail="playerEmail"
           :currentLevel="currentLevel"
@@ -82,6 +87,7 @@
           :clearedLevelsCount="clearedLevelsCount"
           :badges="badges"
           :joinDate="playerJoinDate"
+          :playerRole="playerRole"
           :playerAvatarUrl="playerAvatarUrl"  
           @update-avatar="(newUrl) => playerAvatarUrl = newUrl"
           @update-name="handleNameUpdate"
@@ -93,14 +99,16 @@
           v-show="currentSection === 'help'"
         />
 
-        <AdminSection
-          v-if="playerRole === 'admin'"
-          v-show="currentSection === 'admin'"
+        <AdminSection 
+          v-if="playerRole === 'admin'" 
+          v-show="currentSection === 'admin'" 
+          :currentTab="activeAdminTab" 
         />
 
         <TeacherSection
-          v-if="playerRole === 'teacher'"
-          v-show="currentSection === 'teacher'"
+            v-if="playerRole === 'teacher'"
+            v-show="currentSection === 'teacher'"
+            :currentTab="activeTeacherTab"
         />
 
         </div>
@@ -148,6 +156,18 @@
     @close="isLevelModalOpen = false"
     @select-level="startLevel"
   />
+
+  <ConfirmModal 
+    :isOpen="isForceLogoutModalOpen"
+    title="🚨 系統緊急維護中"
+    message="管理員已開啟系統維護模式，為了確保您的資料安全，您將被強制登出。請稍後再重新登入！"
+    confirmText="我知道了 (自動登出)"
+    cancelText="" 
+    icon="🚧"
+    :isDanger="true"
+    @confirm="executeForceLogout"
+    @cancel="executeForceLogout" 
+  />
   
 </template>
 
@@ -168,6 +188,7 @@ import HelpSection from './sections/HelpSection.vue';
 import AdminSection from './sections/AdminSection.vue';
 import TeacherSection from './sections/TeacherSection.vue';
 import FriendsSection from './sections/FriendsSection.vue';
+import SystemAnnouncement from './sections/admin/SystemAnnouncement.vue';
 
 const playerName = ref('遊客模式');
 
@@ -180,6 +201,7 @@ const emit = defineEmits(['enter-game', 'logout']);
 
 // 狀態管理
 const currentLevel = ref(1);
+const currentId = ref('');
 const currentXP = ref(0);
 const xpPerLevel = ref(1000);
 const currentTotalXP = ref(0);
@@ -200,12 +222,21 @@ const playerRole = ref('');
 const toastNotifications = ref([]);
 const hasUnreadMessages = ref(false);
 const myUserId = ref('');
+const activeAdminTab = ref('system');
+const isForceLogoutModalOpen = ref(false);
+const activeTeacherTab = ref('overview');
 
 let globalMessageSubscription = null;
 let heartbeatInterval = null;
+let maintenanceSubscription = null;
 
 const handleNameUpdate = (newName) => {
   playerName.value = newName; 
+};
+
+const executeForceLogout = async () => {
+  await supabase.auth.signOut();
+  window.location.reload(); // 重整頁面，自動退回登入畫面
 };
 
 const sendHeartbeat = async () => {
@@ -265,7 +296,7 @@ const addExperience = async (gainAmount) => {
   }
 
   // 4. 在這裡判定累積成就！
-  checkCumulativeAchievements(); 
+  // checkCumulativeAchievements(); 
 };
 
 const setupGlobalMessageListener = async () => {
@@ -305,12 +336,12 @@ const setupGlobalMessageListener = async () => {
     }).subscribe();
 };
 
-// 🌟 判定累積成就的範例函數
-const checkCumulativeAchievements = () => {
-  if (currentTotalXP.value >= 2000) {
-    console.log("🏆 解鎖成就：累積獲得 2000 經驗！");
-  }
-};
+// // 🌟 判定累積成就的範例函數
+// const checkCumulativeAchievements = () => {
+//   if (currentTotalXP.value >= 2000) {
+//     console.log("🏆 解鎖成就：累積獲得 2000 經驗！");
+//   }
+// };
 
 const initDailyQuests = () => {
   const today = new Date().toISOString().split('T')[0];
@@ -374,12 +405,10 @@ const fetchLobbyData = async () => {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      console.log('🚨 [抓蟲] 完蛋！找不到 user，提早結束了！'); 
       return;
     }
 
     playerEmail.value = user.email;
-    // 🐛 修正 2：原本寫成 playerJoinDate，導致程式在這裡崩潰中斷
     playerJoinDate.value = user.created_at;
 
     const { count } = await supabase
@@ -415,11 +444,12 @@ const fetchLobbyData = async () => {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('xp, level, username, avatar_url, role, total_exp')
+      .select('id, xp, level, username, avatar_url, role, total_exp')
       .eq('id', user.id)
       .single();
 
     if (profile) {
+      currentId.value = profile.id || '';
       currentXP.value = profile.xp || 0;
       currentLevel.value = profile.level || 1;
       currentTotalXP.value = profile.total_exp || 0;
@@ -570,6 +600,7 @@ const fetchCourseProgress = async () => {
 };
 
 onMounted(() => {
+  console.log('📡 [系統廣播] 準備連線監聽 system_settings...');
   fetchCourseProgress();
   fetchLobbyData();
   initDailyQuests();
@@ -579,6 +610,34 @@ onMounted(() => {
   document.addEventListener('visibilitychange', handleVisibilityChange);
   window.addEventListener('click', handleUserInteraction);
   window.addEventListener('pointerenter', handleUserInteraction);
+
+  maintenanceSubscription = supabase
+    .channel('custom-maintenance-channel')
+    .on(
+      'postgres_changes', 
+      { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'system_settings'
+      }, 
+      (payload) => {
+        // 🔥 當資料庫有任何更新，這裡一定會印出東西！
+        console.log('🚨 [系統廣播] 收到資料庫更新！', payload);
+        console.log('👤 [系統廣播] 當前玩家身份是：', playerRole.value);
+
+        // 加上 ?. 防止 payload.new 為空時報錯
+        if (payload.new?.is_maintenance === true && playerRole.value !== 'admin') {
+          console.log('🛑 [系統廣播] 條件成立！準備強制踢出！');
+          isForceLogoutModalOpen.value = true;
+        } else {
+          console.log('✅ [系統廣播] 條件不成立，安全放行。');
+        }
+      }
+    )
+    .subscribe((status) => {
+      // 🔥 檢查連線是否真的成功
+      console.log('📶 [系統廣播] 連線狀態：', status);
+    });
 });
 
 watch(() => myUserId.value, (newId) => {
@@ -607,6 +666,11 @@ onUnmounted(() => {
   if (globalMessageSubscription) {
     supabase.removeChannel(globalMessageSubscription);
   }
+
+  if (maintenanceSubscription) {
+    supabase.removeChannel(maintenanceSubscription);
+  }
+  
   document.removeEventListener('visibilitychange', handleVisibilityChange);
   window.addEventListener('click', handleUserInteraction);
   window.addEventListener('pointerenter', handleUserInteraction);

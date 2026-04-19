@@ -11,218 +11,235 @@
 
     <div class="w-full max-w-md px-6 relative z-10">
 
-      <div class="mb-6 slide-up flex justify-start">
-        <button
-          @click="$emit('back-to-home')"
-          class="w-10 h-10 rounded-lg flex items-center justify-center cursor-pointer transition-all duration-200 hover:scale-110 hover:bg-[#ffbb3333] bg-[#ffbb331a] border border-[#ffbb3344] text-[#ffbb33]"
-          title="返回首頁"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="m12 19-7-7 7-7"/>
-            <path d="M19 12H5"/>
-          </svg>
-        </button>
-      </div>
-
-      <div class="text-center mb-8 slide-up slide-up-d1">
-        <div class="text-5xl mb-4">⚡</div>
-        <h1 class="text-3xl font-bold mb-2 text-[#f0f0f0] font-['Fredoka']">Code Quest</h1>
-        <p class="text-[#a0a0b8] text-sm">解鎖程式超能力</p>
-      </div>
-
-      <div v-if="isLoginMode" class="slide-up slide-up-d2">
-        <form @submit.prevent="handleLogin" class="rounded-2xl p-8 border border-[#333366] backdrop-blur-md shadow-2xl" style="background:linear-gradient(135deg, rgba(30,30,46,0.8), rgba(42,42,78,0.4));">
-          <h2 class="text-xl font-bold mb-6 text-[#f0f0f0] font-['Fredoka']">登入帳號</h2>
-
-          <div class="space-y-4 mb-6">
-            <div>
-              <label class="block text-[#a0a0b8] text-xs mb-1.5">信箱</label>
-              <input
-                v-model="loginEmail"
-                type="email"
-                class="login-input"
-                placeholder="輸入註冊信箱"
-                autocomplete="email"
-              >
-            </div>
-            <div>
-              <label class="block text-[#a0a0b8] text-xs mb-1.5">密碼</label>
-              <div class="relative">
-                <input
-                  v-model="loginPassword"
-                  :type="showLoginPassword ? 'text' : 'password'"
-                  class="login-input pr-10"
-                  placeholder="輸入密碼"
-                  autocomplete="current-password"
-                >
-                <button
-                  type="button"
-                  @click="showLoginPassword = !showLoginPassword"
-                  class="eye-toggle"
-                  tabindex="-1"
-                >
-                  <svg v-if="showLoginPassword" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-                  </svg>
-                  <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
-                    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
-                    <line x1="1" y1="1" x2="23" y2="23"/>
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <transition name="fade-msg">
-            <div v-if="errorMessage" class="error-message mb-4">{{ errorMessage }}</div>
-          </transition>
-
-          <button type="submit" class="login-btn login-btn-primary mb-3" :disabled="isLoading">
-            <span v-if="isLoading" class="spinner"></span>
-            <span v-else>⚡ 進入遊戲</span>
+      <div v-if="!showQuickRegister">
+        
+        <div class="mb-6 slide-up flex justify-start">
+          <button
+            @click="$emit('back-to-home')"
+            class="w-10 h-10 rounded-lg flex items-center justify-center cursor-pointer transition-all duration-200 hover:scale-110 hover:bg-[#ffbb3333] bg-[#ffbb331a] border border-[#ffbb3344] text-[#ffbb33]"
+            title="返回首頁"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m12 19-7-7 7-7"/>
+              <path d="M19 12H5"/>
+            </svg>
           </button>
-          
-          <button type="button" @click="toggleMode" class="login-btn login-btn-secondary" :disabled="isLoading">
-            還沒有帳號？註冊新帳號
-          </button>
-        </form> 
-      </div>
+        </div>
 
-      <div v-else class="slide-up slide-up-d2">
-        <div class="rounded-2xl p-8 border border-[#333366] backdrop-blur-md shadow-2xl" style="background:linear-gradient(135deg, rgba(30,30,46,0.8), rgba(42,42,78,0.4));">
-          
-          <h2 class="text-xl font-bold mb-6 text-[#f0f0f0] font-['Fredoka'] text-center">
-            {{ isWaitingForOtp ? '✉️ 驗證信箱' : '建立新帳號' }}
-          </h2>
+        <div class="text-center mb-8 slide-up slide-up-d1">
+          <div class="text-5xl mb-4">⚡</div>
+          <h1 class="text-3xl font-bold mb-2 text-[#f0f0f0] font-['Fredoka']">Code Quest</h1>
+          <p class="text-[#a0a0b8] text-sm">解鎖程式超能力</p>
+        </div>
 
-          <transition name="fade-msg">
-            <div v-if="errorMessage" class="error-message mb-4">{{ errorMessage }}</div>
-          </transition>
-          <transition name="fade-msg">
-            <div v-if="successMessage" class="success-message mb-4">{{ successMessage }}</div>
-          </transition>
+        <div v-if="isLoginMode" class="slide-up slide-up-d2">
+          <form @submit.prevent="handleLogin" class="rounded-2xl p-8 border border-[#333366] backdrop-blur-md shadow-2xl" style="background:linear-gradient(135deg, rgba(30,30,46,0.8), rgba(42,42,78,0.4));">
+            <h2 class="text-xl font-bold mb-6 text-[#f0f0f0] font-['Fredoka']">登入帳號</h2>
 
-          <div v-if="!isWaitingForOtp" class="space-y-4 mb-6">
-            <div>
-              <label class="block text-[#a0a0b8] text-xs mb-1.5">玩家名稱</label>
-              <input v-model="registerForm.username" type="text" class="login-input" placeholder="輸入玩家名稱（至少3字）" autocomplete="username">
-            </div>
-            <div>
-              <label class="block text-[#a0a0b8] text-xs mb-1.5">信箱</label>
-              <input v-model="registerForm.email" type="email" class="login-input" placeholder="輸入信箱" autocomplete="email">
-            </div>
-
-            <div>
-              <label class="block text-[#a0a0b8] text-xs mb-1.5">密碼</label>
-              <div class="relative">
+            <div class="space-y-4 mb-6">
+              <div>
+                <label class="block text-[#a0a0b8] text-xs mb-1.5">信箱</label>
                 <input
-                  v-model="registerForm.password"
-                  :type="showRegisterPassword ? 'text' : 'password'"
-                  class="login-input pr-10"
-                  placeholder="輸入密碼（至少6位）"
-                  autocomplete="new-password"
+                  v-model="loginEmail"
+                  type="email"
+                  class="login-input"
+                  placeholder="輸入註冊信箱"
+                  autocomplete="email"
                 >
-                <button type="button" @click="showRegisterPassword = !showRegisterPassword" class="eye-toggle" tabindex="-1">
-                  <svg v-if="showRegisterPassword" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-                  </svg>
-                  <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
-                    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
-                    <line x1="1" y1="1" x2="23" y2="23"/>
-                  </svg>
-                </button>
               </div>
-
-              <div v-if="registerForm.password.length > 0" class="mt-2">
-                <div class="h-1.5 w-full bg-[#1e1e2e] rounded-full overflow-hidden">
-                  <div class="h-full transition-all duration-300 ease-out"
-                       :class="passwordStrength.colorClass"
-                       :style="{ width: passwordStrength.percent + '%' }">
-                  </div>
+              <div>
+                <label class="block text-[#a0a0b8] text-xs mb-1.5">密碼</label>
+                <div class="relative">
+                  <input
+                    v-model="loginPassword"
+                    :type="showLoginPassword ? 'text' : 'password'"
+                    class="login-input pr-10"
+                    placeholder="輸入密碼"
+                    autocomplete="current-password"
+                  >
+                  <button type="button" @click="showLoginPassword = !showLoginPassword" class="eye-toggle" tabindex="-1">
+                    <svg v-if="showLoginPassword" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                    </svg>
+                    <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                      <line x1="1" y1="1" x2="23" y2="23"/>
+                    </svg>
+                  </button>
                 </div>
-                <p class="text-[11px] mt-1 font-semibold" :class="passwordStrength.textColor">
-                  {{ passwordStrength.label }}
+              </div>
+            </div>
+
+            <transition name="fade-msg">
+              <div v-if="errorMessage" class="error-message mb-4">{{ errorMessage }}</div>
+            </transition>
+
+            <button type="submit" class="login-btn login-btn-primary mb-3" :disabled="isLoading">
+              <span v-if="isLoading" class="spinner"></span>
+              <span v-else>⚡ 進入遊戲</span>
+            </button>
+            
+            <button type="button" @click="toggleMode" class="login-btn login-btn-secondary" :disabled="isLoading">
+              還沒有帳號？註冊新帳號
+            </button>
+          </form> 
+        </div>
+
+        <div v-else class="slide-up slide-up-d2">
+          <div class="rounded-2xl p-8 border border-[#333366] backdrop-blur-md shadow-2xl" style="background:linear-gradient(135deg, rgba(30,30,46,0.8), rgba(42,42,78,0.4));">
+            
+            <h2 class="text-xl font-bold mb-6 text-[#f0f0f0] font-['Fredoka'] text-center">
+              {{ isWaitingForOtp ? '✉️ 驗證信箱' : '建立新帳號' }}
+            </h2>
+
+            <transition name="fade-msg">
+              <div v-if="errorMessage" class="error-message mb-4">{{ errorMessage }}</div>
+            </transition>
+            <transition name="fade-msg">
+              <div v-if="successMessage" class="success-message mb-4">{{ successMessage }}</div>
+            </transition>
+
+            <div v-if="!isWaitingForOtp" class="space-y-4 mb-6">
+              <div>
+                <label class="block text-[#a0a0b8] text-xs mb-1.5">玩家名稱</label>
+                <input v-model="registerForm.username" type="text" class="login-input" placeholder="輸入玩家名稱（至少3字）" autocomplete="username">
+              </div>
+              <div>
+                <label class="block text-[#a0a0b8] text-xs mb-1.5">信箱</label>
+                <input v-model="registerForm.email" type="email" class="login-input" placeholder="輸入信箱" autocomplete="email">
+              </div>
+
+              <div>
+                <label class="block text-[#a0a0b8] text-xs mb-1.5">密碼</label>
+                <div class="relative">
+                  <input
+                    v-model="registerForm.password"
+                    :type="showRegisterPassword ? 'text' : 'password'"
+                    class="login-input pr-10"
+                    placeholder="輸入密碼（至少6位）"
+                    autocomplete="new-password"
+                  >
+                  <button type="button" @click="showRegisterPassword = !showRegisterPassword" class="eye-toggle" tabindex="-1">
+                    <svg v-if="showRegisterPassword" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                    </svg>
+                    <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                      <line x1="1" y1="1" x2="23" y2="23"/>
+                    </svg>
+                  </button>
+                </div>
+
+                <div v-if="registerForm.password.length > 0" class="mt-2">
+                  <div class="h-1.5 w-full bg-[#1e1e2e] rounded-full overflow-hidden">
+                    <div class="h-full transition-all duration-300 ease-out"
+                         :class="passwordStrength.colorClass"
+                         :style="{ width: passwordStrength.percent + '%' }">
+                    </div>
+                  </div>
+                  <p class="text-[11px] mt-1 font-semibold" :class="passwordStrength.textColor">
+                    {{ passwordStrength.label }}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-[#a0a0b8] text-xs mb-1.5">確認密碼</label>
+                <div class="relative">
+                  <input
+                    v-model="registerForm.confirmPassword"
+                    :type="showConfirmPassword ? 'text' : 'password'"
+                    class="login-input pr-10"
+                    :class="{ 'error-border': registerForm.confirmPassword.length > 0 && !isPasswordMatch }"
+                    placeholder="再次輸入密碼"
+                    autocomplete="new-password"
+                  >
+                  <button type="button" @click="showConfirmPassword = !showConfirmPassword" class="eye-toggle" tabindex="-1">
+                    <svg v-if="showConfirmPassword" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                    </svg>
+                    <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                      <line x1="1" y1="1" x2="23" y2="23"/>
+                    </svg>
+                  </button>
+                </div>
+                <p v-if="registerForm.confirmPassword.length > 0 && !isPasswordMatch" class="text-[11px] mt-1 text-[#ff6b6b] font-semibold flex items-center gap-1">
+                  ❌ 兩次輸入的密碼不一致
+                </p>
+                <p v-else-if="registerForm.confirmPassword.length > 0 && isPasswordMatch" class="text-[11px] mt-1 text-[#00d4aa] font-semibold flex items-center gap-1">
+                  ✅ 密碼一致
                 </p>
               </div>
+              
+              <button
+                @click="handleRegister"
+                class="login-btn login-btn-primary mt-6"
+                :disabled="!isFormValid || isLoading"
+                :class="{ 'opacity-50 cursor-not-allowed': !isFormValid || isLoading }"
+              >
+                <span v-if="isLoading" class="spinner"></span>
+                <span v-else>📧 發送驗證碼</span>
+              </button>
+              <button @click="toggleMode" class="login-btn login-btn-secondary mt-3" :disabled="isLoading">
+                已有帳號？返回登入
+              </button>
             </div>
 
-            <div>
-              <label class="block text-[#a0a0b8] text-xs mb-1.5">確認密碼</label>
-              <div class="relative">
-                <input
-                  v-model="registerForm.confirmPassword"
-                  :type="showConfirmPassword ? 'text' : 'password'"
-                  class="login-input pr-10"
-                  :class="{ 'error-border': registerForm.confirmPassword.length > 0 && !isPasswordMatch }"
-                  placeholder="再次輸入密碼"
-                  autocomplete="new-password"
-                >
-                <button type="button" @click="showConfirmPassword = !showConfirmPassword" class="eye-toggle" tabindex="-1">
-                  <svg v-if="showConfirmPassword" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-                  </svg>
-                  <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
-                    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
-                    <line x1="1" y1="1" x2="23" y2="23"/>
-                  </svg>
-                </button>
-              </div>
-              <p v-if="registerForm.confirmPassword.length > 0 && !isPasswordMatch" class="text-[11px] mt-1 text-[#ff6b6b] font-semibold flex items-center gap-1">
-                ❌ 兩次輸入的密碼不一致
+            <div v-else class="space-y-4 mb-6 text-center animate-fade-in">
+              <p class="text-[#a0a0b8] text-sm leading-relaxed mb-4">
+                已發送 8 位數驗證碼至：<br>
+                <span class="text-white font-bold">{{ registerForm.email }}</span>
               </p>
-              <p v-else-if="registerForm.confirmPassword.length > 0 && isPasswordMatch" class="text-[11px] mt-1 text-[#00d4aa] font-semibold flex items-center gap-1">
-                ✅ 密碼一致
-              </p>
+
+              <input 
+                v-model="otpCode" 
+                type="text" 
+                placeholder="00000000" 
+                maxlength="8"
+                class="login-input text-center text-2xl tracking-[0.5em] font-bold py-4" 
+                @keyup.enter="handleVerifyOtp"
+              />
+
+              <button
+                @click="handleVerifyOtp"
+                class="login-btn login-btn-primary mt-6"
+                :disabled="isLoading || otpCode.length !== 8"
+                :class="{ 'opacity-50 cursor-not-allowed': isLoading || otpCode.length !== 8 }"
+              >
+                <span v-if="isLoading" class="spinner"></span>
+                <span v-else>✅ 確認驗證並註冊</span>
+              </button>
+
+              <button @click="isWaitingForOtp = false" class="text-[#a0a0b8] hover:text-white text-sm mt-4 transition-colors">
+                ← 返回修改信箱
+              </button>
             </div>
-            
-            <button
-              @click="handleRegister"
-              class="login-btn login-btn-primary mt-6"
-              :disabled="!isFormValid || isLoading"
-              :class="{ 'opacity-50 cursor-not-allowed': !isFormValid || isLoading }"
-            >
-              <span v-if="isLoading" class="spinner"></span>
-              <span v-else>📧 發送驗證碼</span>
-            </button>
-            <button @click="toggleMode" class="login-btn login-btn-secondary mt-3" :disabled="isLoading">
-              已有帳號？返回登入
-            </button>
+
           </div>
-
-          <div v-else class="space-y-4 mb-6 text-center animate-fade-in">
-            <p class="text-[#a0a0b8] text-sm leading-relaxed mb-4">
-              已發送 8 位數驗證碼至：<br>
-              <span class="text-white font-bold">{{ registerForm.email }}</span>
-            </p>
-
-            <input 
-              v-model="otpCode" 
-              type="text" 
-              placeholder="00000000" 
-              maxlength="8"
-              class="login-input text-center text-2xl tracking-[0.5em] font-bold py-4" 
-              @keyup.enter="handleVerifyOtp"
-            />
-
-            <button
-              @click="handleVerifyOtp"
-              class="login-btn login-btn-primary mt-6"
-              :disabled="isLoading || otpCode.length !== 8"
-              :class="{ 'opacity-50 cursor-not-allowed': isLoading || otpCode.length !== 8 }"
-            >
-              <span v-if="isLoading" class="spinner"></span>
-              <span v-else>✅ 確認驗證並註冊</span>
-            </button>
-
-            <button @click="isWaitingForOtp = false" class="text-[#a0a0b8] hover:text-white text-sm mt-4 transition-colors">
-              ← 返回修改信箱
-            </button>
-          </div>
-
         </div>
+
+        <div class="text-center mt-6">
+          <button @click="showQuickRegister = true" class="text-[11px] text-[#a0a0b8] hover:text-[#00d4aa] underline transition-colors tracking-wider">
+            🔧 切換至開發者快速註冊
+          </button>
+        </div>
+
+      </div>
+
+      <div v-else class="slide-up">
+        
+        <QuickReigster />
+        
+        <div class="text-center mt-6">
+          <button @click="showQuickRegister = false" class="text-sm font-bold text-[#00d4aa] hover:text-white transition-colors">
+            ← 返回一般登入
+          </button>
+        </div>
+
       </div>
 
     </div>
@@ -232,6 +249,7 @@
 <script setup>
 import { ref, reactive, computed } from 'vue';
 import { supabase } from '../../supabase.js';
+import QuickReigster from '../../QuickReigster.vue';
 
 const emit = defineEmits(['login-success', 'back-to-home']);
 
@@ -249,6 +267,10 @@ const otpCode = ref('');
 const showLoginPassword = ref(false);
 const showRegisterPassword = ref(false);
 const showConfirmPassword = ref(false);
+
+
+//暫時
+const showQuickRegister = ref(false);
 
 // ── 表單資料 ────────────────────────────────────────────
 const loginEmail = ref('');
@@ -348,11 +370,26 @@ const handleLogin = async () => {
 
     if (error) throw error;
 
+    
+
     const { data: profile } = await supabase
       .from('profiles')
-      .select('username')
+      .select('username, role')
       .eq('id', data.user.id)
       .single();
+    
+    if (profile && profile.status === 'banned') {
+        // 1. 立刻強制登出，拔掉他的 Token
+        await supabase.auth.signOut();
+        // 2. 丟出錯誤訊息，讓他看見
+        throw new Error('此帳號已遭管理員停權。如有疑問請聯繫導師。');
+    }
+
+    const canEnter = await checkMaintenance(profile.role);
+    if (!canEnter) {
+      isLoading.value = false;
+      return; 
+    }
 
     emit('login-success', profile?.username || '神秘勇者');
   } catch (err) {
@@ -364,6 +401,18 @@ const handleLogin = async () => {
   } finally {
     isLoading.value = false;
   }
+};
+
+const checkMaintenance = async (userRole) => {
+  const { data } = await supabase.from('system_settings').select('is_maintenance').eq('id', 1).single();
+  
+  // 如果是維護中，且玩家「不是」管理員
+  if (data?.is_maintenance && userRole !== 'admin') {
+    alert('🚨 系統目前正在維護中，請稍後再試！');
+    await supabase.auth.signOut(); // 強制踢出去
+    return false;
+  }
+  return true;
 };
 
 // ── 發送註冊驗證碼 (階段 1) 🌟 ─────────────────────────
