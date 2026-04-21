@@ -90,6 +90,7 @@
 
 <script setup>
 import { ref, computed, nextTick } from 'vue';
+import { COMMAND_DICT } from '../../game/config/CommandList.js'; 
 
 const props = defineProps({
   levelConfig: { type: Object, required: true },
@@ -108,27 +109,45 @@ const selectedIndex = ref(0);
 const suggestPos = ref({ top: 0, left: 0 });
 const typingWordLength = ref(0);
 
-// 將所有新版支援的按鈕與指令加入
-const ALL_BLOCKS = [
-  { id: 'moveRight', label: '向右走', code: 'moveRight();', color: '#00d4aa', icon: '👉' },
-  { id: 'moveLeft', label: '向左走', code: 'moveLeft();', color: '#00d4aa', icon: '👈' },
-  { id: 'moveUp', label: '向上走', code: 'moveUp();', color: '#a78bfa', icon: '👆' }, 
-  { id: 'moveDown', label: '向下走', code: 'moveDown();', color: '#a78bfa', icon: '👇' },
-  { id: 'attack', label: '近戰攻擊', code: 'attack();', color: '#ffbb33', icon: '⚔️' },
-  { id: 'repeat', label: '重複3次', code: 'repeat(3, () => {\n  // 寫入重複動作\n});', color: '#ff6b6b', icon: '🔁' }
-];
+// ===============================================
+// 1. 動態從 COMMAND_DICT 產生按鈕與提示
+// ===============================================
 
-// 新增感應器的自動補全提示
+// 動態產生的按鈕清單
+const ALL_BLOCKS = COMMAND_DICT.filter(cmd => cmd.type !== 'logic' || cmd.id === 'repeat').map(cmd => {
+  // 自動解析 Emoji 和文字
+  const match = cmd.label.match(/([\uD800-\uDBFF][\uDC00-\uDFFF]|\p{Emoji_Presentation})/u);
+  const icon = match ? match[0] : '🧩';
+  const labelText = cmd.label.replace(icon, '').trim();
+
+  // 根據類型分配顏色
+  let color = '#00d4aa'; // 預設綠色 (移動類)
+  if (['attack', 'shoot', 'magic', 'bomb'].includes(cmd.id)) color = '#ffbb33'; // 攻擊類橘色
+  if (cmd.type === 'sensor') color = '#38bdf8'; // 感知類藍色
+  if (cmd.type === 'logic') color = '#ff6b6b'; // 邏輯類紅色
+
+  // 定義插入的程式碼模板
+  let codeSnippet = `${cmd.id}();`;
+  if (cmd.id === 'repeat') codeSnippet = `repeat(3, () => {\n  // 寫入重複動作\n});`;
+
+  return { id: cmd.id, label: labelText, code: codeSnippet, color, icon };
+});
+
+// 自動補全提示字串 (Snippets)
 const availableSnippets = [
-  'moveUp();', 'moveDown();', 'moveLeft();', 'moveRight();', 'attack();', 
+  ...COMMAND_DICT.filter(cmd => cmd.type === 'action').map(cmd => `${cmd.id}();`),
   'repeat(3, () => {\n  \n});',
-  'if (isObstacleAhead()) {\n  \n}', 
-  'while (!isEnemyNear()) {\n  \n}'
+  'if (isWall()) {\n  \n}', 
+  'while (!isGoal()) {\n  \n}',
+  'if (isEnemy()) {\n  \n}'
 ];
 
 const lineCount = computed(() => Math.max(15, userCode.value.split('\n').length));
-const filteredBlocks = computed(() => props.levelConfig.availableCommands ? ALL_BLOCKS.filter(b => props.levelConfig.availableCommands.includes(b.id)) : ALL_BLOCKS);
+const filteredBlocks = computed(() => props.levelConfig.availableCommands 
+  ? ALL_BLOCKS.filter(b => props.levelConfig.availableCommands.includes(b.id)) 
+  : ALL_BLOCKS);
 
+// --- 捲動與游標處理 ---
 const syncScroll = (e) => {
   if (lineNumbersRef.value) lineNumbersRef.value.scrollTop = e.target.scrollTop;
 };
@@ -145,9 +164,9 @@ const insertCode = (code) => {
     userCode.value = beforeText + textToInsert + afterText;
     nextTick(() => {
       const newCursorPos = startPos + textToInsert.length;
-      if (code.includes('repeat')) {
+      if (code.includes('repeat') || code.includes('if') || code.includes('while')) {
         textarea.focus();
-        textarea.setSelectionRange(startPos + 18, startPos + 18);
+        textarea.setSelectionRange(startPos + textToInsert.indexOf('{') + 4, startPos + textToInsert.indexOf('{') + 4);
       } else {
         textarea.focus();
         textarea.setSelectionRange(newCursorPos, newCursorPos);
@@ -228,7 +247,7 @@ const handleKeydown = (e) => {
 };
 
 // ===============================================
-// 🌟 核心魔法：微型編譯器
+// 🌟 2. 核心魔法：全自動微型編譯器
 // ===============================================
 const handleExecute = () => {
   let codeToRun = userCode.value;
@@ -236,21 +255,24 @@ const handleExecute = () => {
   // 1. 轉換 repeat 迴圈 (將 repeat(3, () => {...}) 轉為標準 for 迴圈)
   codeToRun = codeToRun.replace(/repeat\s*\(\s*(\d+)\s*,\s*\(\s*\)\s*=>\s*\{([\s\S]*?)\}\s*\);?/g, "for(let i=0; i<$1; i++) { $2 }");
   
-  // 2. 轉換基礎指令，加上 await 讓動畫播完才走下一步
-  codeToRun = codeToRun.replace(/moveRight\(\);?/g, "await scene.addCommand('moveRight');");
-  codeToRun = codeToRun.replace(/moveLeft\(\);?/g,  "await scene.addCommand('moveLeft');");
-  codeToRun = codeToRun.replace(/moveUp\(\);?/g,    "await scene.addCommand('moveUp');");
-  codeToRun = codeToRun.replace(/moveDown\(\);?/g,  "await scene.addCommand('moveDown');");
-  codeToRun = codeToRun.replace(/attack\(\);?/g,    "await scene.addCommand('attack');");
-  
-  // 3. 轉換感應器
-  codeToRun = codeToRun.replace(/isObstacleAhead\(\)/g, "(await scene.checkObstacleAhead())");
-  codeToRun = codeToRun.replace(/isEnemyNear\(\)/g, "(await scene.checkEnemyNear())");
+  // 2. 自動遍歷 COMMAND_DICT，替換所有動作與感應器 (不需再手動一條一條加)
+  COMMAND_DICT.forEach(cmd => {
+    if (cmd.type === 'action') {
+      // 將 moveRight(); 替換成 await scene.addCommand('moveRight');
+      const regex = new RegExp(`\\b${cmd.id}\\(\\);?`, 'g');
+      codeToRun = codeToRun.replace(regex, `await scene.addCommand('${cmd.id}');`);
+    } else if (cmd.type === 'sensor') {
+      // 將 isWall() 替換成 (await scene.checkSensor('isWall'))
+      const regex = new RegExp(`\\b${cmd.id}\\(\\)`, 'g');
+      codeToRun = codeToRun.replace(regex, `(await scene.checkSensor('${cmd.id}'))`);
+    }
+  });
 
-  // 4. 計算有效行數 (當作是「積木數量」來檢查關卡限制)
+  // 3. 計算有效行數 (當作是「積木數量」來檢查關卡限制)
   let blockCount = 0;
   const lines = userCode.value.split('\n');
   for (let line of lines) {
+    // 忽略空白行與註解
     if (line.trim() !== '' && !line.trim().startsWith('//')) {
       blockCount++;
     }

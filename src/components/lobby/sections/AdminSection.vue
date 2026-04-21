@@ -18,6 +18,8 @@
       <SystemSettingsPanel v-if="currentTab === 'system'" />
       
       <UserManagementPanel v-else-if="currentTab === 'users'" />
+
+      <LevelDesigner v-else-if="currentTab === 'content'" />
       
       <UnderConstruction 
         v-else 
@@ -37,6 +39,7 @@ import { computed } from 'vue';
 import SystemSettingsPanel from './admin/SystemSettingsPanel.vue';
 import UserManagementPanel from './admin/UserManagementPanel.vue';
 import UnderConstruction from './admin/UnderConstruction.vue';
+import LevelDesigner from './admin/LevelDesigner.vue';
 
 const props = defineProps({
   currentTab: { type: String, default: 'system' }

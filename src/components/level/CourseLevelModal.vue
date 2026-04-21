@@ -17,36 +17,33 @@
         </div>
 
         <div class="p-8 max-h-[60vh] overflow-y-auto grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4">
-          <button 
-            v-for="n in totalLevels" 
-            :key="n"
-            @click="selectLevel(n)"
-            :disabled="n > unlockedLevel"
-            class="relative aspect-square rounded-2xl flex flex-col items-center justify-center transition-all duration-300 group"
-            :class="[
-              n <= unlockedLevel 
-                ? 'bg-[#2a2a3e] border-2 border-[#ffbb3344] hover:border-[#ffbb33] cursor-pointer' 
-                : 'bg-[#161625] border-2 border-transparent opacity-40 cursor-not-allowed'
-            ]"
+          <button
+            v-for="lvl in levelsList"
+            :key="lvl.level_number"
+            @click="!lvl.is_locked ? $emit('select-level', lvl.level_number) : null"
+            class="relative aspect-square rounded-2xl flex flex-col items-center justify-center transition-all group p-4"
+            :class="lvl.is_locked ? 'bg-[#1a1a2e] opacity-50 cursor-not-allowed' : 'bg-[#252540] hover:bg-[#2d2d50] hover:-translate-y-1 shadow-lg'"
           >
-            <span class="text-2xl font-bold font-['Fredoka']" :class="n <= unlockedLevel ? 'text-[#ffbb33]' : 'text-[#555]'">
-              {{ n }}
+            <span class="text-base font-black mb-2" :style="{ color: lvl.is_locked ? '#444' : '#00d4aa' }">
+              Level {{ lvl.level_number }}
             </span>
-            <span class="text-[10px] mt-1 uppercase tracking-widest text-[#a0a0b8]">Level</span>
-
-            <div v-if="n > unlockedLevel" class="absolute top-2 right-2 text-[#555]">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            
+            <span v-if="!lvl.is_locked" class="text-sm font-bold text-[#f0f0f0] px-2 leading-snug w-full text-center drop-shadow-md">
+              {{ lvl.title }}
+            </span>
+            
+            <div v-if="lvl.is_locked" class="absolute bottom-3 text-[#444]">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
             </div>
             
-            <div v-if="n < unlockedLevel" class="absolute bottom-2 right-2 text-[#00d4aa]">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            <div v-else-if="lvl.is_completed" class="absolute bottom-2 right-2 text-[#00d4aa]">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
             </div>
           </button>
         </div>
-
         <div class="px-8 py-4 bg-[#11111b] text-center">
           <p class="text-xs text-[#a0a0b8]">
-            💡 通關當前關卡即可解鎖下一關。目前進度：{{ unlockedLevel }} / {{ totalLevels }}
+            💡 通關當前關卡即可解鎖下一關。目前進度：{{ completedCount }} / {{ totalLevelsCount }} 關卡
           </p>
         </div>
       </div>
@@ -55,12 +52,18 @@
 </template>
 
 <script setup>
+import { computed } from 'vue';
+
 const props = defineProps({
   isOpen: Boolean,
   courseId: String,
   courseTitle: String,
   courseIcon: String,
-  unlockedLevel: Number, // 目前解鎖到哪一關 (來自資料庫)
+  unlockedLevel: [Number, String],
+  levelsList: {
+    type: Array,
+    default: () => []
+  },
   totalLevels: { type: Number, default: 20 }
 });
 
@@ -71,6 +74,9 @@ const selectLevel = (n) => {
     emit('select-level', { courseId: props.courseId, levelId: n });
   }
 };
+
+const totalLevelsCount = computed(() => props.levelsList.length);
+const completedCount = computed(() => props.levelsList.filter(l => l.is_completed).length);
 </script>
 
 <style scoped>
