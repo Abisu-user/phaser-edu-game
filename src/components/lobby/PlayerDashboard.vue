@@ -66,6 +66,8 @@
             @open-level-selector="openLevelSelector"
           />
 
+          <ClassSection v-show="currentSection === 'class'" />
+
           <FriendsSection v-show="currentSection === 'friends'" />
 
           <AchievementsSection
@@ -203,8 +205,9 @@ import AdminSection from './sections/AdminSection.vue';
 import TeacherSection from './sections/TeacherSection.vue';
 import FriendsSection from './sections/FriendsSection.vue';
 import SystemAnnouncement from './sections/admin/SystemAnnouncement.vue';
-import ConfirmModal from '../common/ConfirmModal.vue'; // 補上遺漏的引入
+import ConfirmModal from '../common/ConfirmModal.vue'; 
 import GameLevel from '../level/GameLevel.vue';
+import ClassSection from './sections/ClassSection.vue';
 
 // --- 狀態管理區 ---
 const currentView = ref('lobby'); // 'lobby' 或 'game'
@@ -267,6 +270,7 @@ const sendHeartbeat = async () => {
 const xpPercent = computed(() => {
   return Math.min(Math.floor((currentXP.value / xpPerLevel.value) * 100), 100);
 });
+
 
 // 🌟 開啟關卡選單並載入資料
 const openLevelSelector = async (course) => {

@@ -163,7 +163,8 @@ const isLogoutModalOpen = ref(false);
 // 基礎大廳選單
 const lobbyItems = [
   { id: 'lobby', label: '大廳首頁', icon: '🏠' },
-  { id: 'courses', label: '我的課程', icon: '📚' },
+  { id: 'courses', label: '課程', icon: '📚' },
+  { id: 'class', label: '班級', icon: '🏫' },
   { id: 'friends', label: '好友', icon: '👥' },
   { id: 'achievements', label: '成就', icon: '🎖️' },
   { id: 'leaderboard', label: '排行榜', icon: '🏆' },
@@ -172,8 +173,27 @@ const lobbyItems = [
 
 // 🔥 動態產生分組選單結構
 const sectionedMenus = computed(() => {
+  // 1. 建立基礎的選單陣列
+  const baseItems = [
+    { id: 'lobby', label: '大廳首頁', icon: '🏠' },
+    { id: 'courses', label: '課程', icon: '📚' }
+  ];
+
+  // 🌟 關鍵：只有身份是 student (學生) 時，才加入「我的班級」
+  if (props.playerRole === 'student') {
+    baseItems.push({ id: 'class', label: '班級', icon: '🏫' });
+  }
+
+  // 將剩下的通用選項補上
+  baseItems.push(
+    { id: 'friends', label: '好友', icon: '👥' },
+    { id: 'achievements', label: '成就', icon: '🎖️' },
+    { id: 'leaderboard', label: '排行榜', icon: '🏆' },
+    { id: 'profile', label: '個人檔案', icon: '👤' }
+  );
+
   const menus = [
-    { header: 'Lobby Section', items: lobbyItems }
+    { header: 'Lobby Section', items: baseItems }
   ];
 
   if (props.playerRole === 'admin') {
