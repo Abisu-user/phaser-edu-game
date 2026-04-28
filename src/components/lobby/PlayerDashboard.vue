@@ -64,6 +64,12 @@
             v-show="currentSection === 'courses'" 
             :courseProgress="courseProgress"
             @open-level-selector="openLevelSelector"
+            @open-endless-mode="router.push('/endless-tower')"
+          />
+
+          <EndlessLevel 
+              v-if="showEndlessMode" 
+              @exit="handleExitEndlessMode" 
           />
 
           <ClassSection v-show="currentSection === 'class'" />
@@ -195,6 +201,7 @@ import DashboardHeader from './DashboardHeader.vue';
 import LevelUpModal from './LevelUpModal.vue';
 import { BADGE_LIST } from '../../game/config/badges';
 import { levels as staticLevels } from '../../game/scenes/LevelConfig.js';
+import { useRouter } from 'vue-router';
 
 import LobbySection from './sections/LobbySection.vue';
 import CoursesSection from './sections/CoursesSection.vue';
@@ -208,6 +215,7 @@ import SystemAnnouncement from './sections/admin/SystemAnnouncement.vue';
 import ConfirmModal from '../common/ConfirmModal.vue'; 
 import GameLevel from '../level/GameLevel.vue';
 import ClassSection from './sections/ClassSection.vue';
+import EndlessLevel from '../roguelike/EndlessLevel.vue';
 
 // --- 狀態管理區 ---
 const currentView = ref('lobby'); // 'lobby' 或 'game'
@@ -215,6 +223,8 @@ const currentCourseId = ref('');
 const selectedLevelId = ref(1);
 const levelsList = ref([]);
 const globalNotification = ref(null); // 補上遺漏的全域通知
+const showEndlessMode = ref(false);
+const router = useRouter();
 
 const playerName = ref('遊客模式');
 const courseProgress = ref({ python: 0, javascript: 0 });
@@ -265,6 +275,14 @@ const sendHeartbeat = async () => {
   } catch (error) {
     console.error('心跳發送失敗:', error);
   }
+};
+
+const handleOpenEndlessMode = () => {
+  showEndlessMode.value = true;
+};
+
+const handleExitEndlessMode = () => {
+  showEndlessMode.value = false;
 };
 
 const xpPercent = computed(() => {

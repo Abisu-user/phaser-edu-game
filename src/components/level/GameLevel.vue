@@ -36,23 +36,6 @@
         <div class="flex-1 relative w-full p-4 flex items-center justify-center min-h-0">
           <div id="game-container" class="w-full h-full flex items-center justify-center"></div>
         </div>
-
-        <div class="h-28 w-full px-8 py-4 flex gap-8 justify-center bg-[#11111b] border-t flex-shrink-0" style="border-color:#333355;">
-          <div class="text-center flex-1 max-w-xs">
-            <p class="text-xs mb-1" style="color:#a0a0b8;">怪物血量</p>
-            <div class="w-full h-3 rounded-full overflow-hidden" style="background:#1e1e2e;">
-              <div class="h-full w-1/3 rounded-full" style="background:linear-gradient(90deg,#ff6b6b,#ff3333);box-shadow:0 0 10px rgba(255,107,107,0.5);"></div>
-            </div>
-            <p class="text-xs mt-1" style="color:#ff6b6b;">25 / 80 HP</p>
-          </div>
-          <div class="text-center flex-1 max-w-xs">
-            <p class="text-xs mb-1" style="color:#a0a0b8;">你的法力</p>
-            <div class="w-full h-3 rounded-full overflow-hidden" style="background:#1e1e2e;">
-              <div class="h-full w-4/5 rounded-full" style="background:linear-gradient(90deg,#a78bfa,#8b5cf6);box-shadow:0 0 10px rgba(167,139,250,0.5);"></div>
-            </div>
-            <p class="text-xs mt-1" style="color:#a78bfa;">80 / 100 MP</p>
-          </div>
-        </div>
       </div>
 
       <CodeEditorPanel 

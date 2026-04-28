@@ -5,6 +5,60 @@
       <p style="color:#a0a0b8;">選擇基礎的邏輯教學，或是挑戰管理員精心設計的關卡！</p>
     </div>
 
+    <div 
+      @click="isEndlessUnlocked ? $emit('open-endless-mode') : null"
+      class="mb-10 relative overflow-hidden rounded-2xl group transition-all duration-300 border-2"
+      :class="[
+        isEndlessUnlocked 
+          ? 'cursor-pointer border-fuchsia-500/40 hover:border-fuchsia-400 shadow-[0_0_20px_rgba(217,70,239,0.15)] hover:shadow-[0_0_40px_rgba(217,70,239,0.3)]' 
+          : 'cursor-not-allowed border-slate-800 opacity-80 grayscale-[40%]'
+      ]"
+      :style="{ background: isEndlessUnlocked ? 'linear-gradient(135deg, #1a1025 0%, #2d1b4e 100%)' : 'linear-gradient(135deg, #181825 0%, #11111b 100%)' }"
+    >
+      <div v-if="isEndlessUnlocked" class="absolute top-0 right-0 w-72 h-72 bg-fuchsia-500/20 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none transition-transform group-hover:scale-110"></div>
+      <div v-if="isEndlessUnlocked" class="absolute bottom-0 left-0 w-48 h-48 bg-indigo-500/20 rounded-full blur-3xl -ml-10 -mb-10 pointer-events-none"></div>
+
+      <div class="p-8 md:p-10 flex flex-col md:flex-row items-center justify-between relative z-10">
+        <div class="flex-1">
+          <div class="flex items-center gap-3 mb-3">
+            <span v-if="isEndlessUnlocked" class="px-3 py-1 bg-fuchsia-500/20 text-fuchsia-300 text-sm font-bold rounded-md border border-fuchsia-500/30">
+              ⚡ 全新挑戰
+            </span>
+            <span v-else class="px-3 py-1 bg-slate-800 text-slate-400 text-sm font-bold rounded-md border border-slate-700 flex items-center gap-1.5">
+              🔒 尚未解鎖
+            </span>
+          </div>
+          
+          <h2 class="text-3xl md:text-4xl font-bold mb-3 tracking-wide" 
+              :class="isEndlessUnlocked ? 'text-white' : 'text-slate-500'"
+              style="font-family:'Fredoka',sans-serif;">
+            【挑戰】無盡程式塔
+          </h2>
+          
+          <p class="text-lg" :class="isEndlessUnlocked ? 'text-fuchsia-200/70' : 'text-slate-500'">
+            RogueLike 模式：隨機地圖、動態生成、無限難度。<br v-if="!isEndlessUnlocked" />
+            <span v-if="!isEndlessUnlocked" class="text-rose-400/90 text-sm mt-2 block font-medium">※ 需通關所有「基礎邏輯教學」才能解鎖此模式</span>
+            <span v-else>你能用程式邏輯爬到第幾層？</span>
+          </p>
+        </div>
+        
+        <div class="mt-6 md:mt-0 shrink-0">
+          <button 
+            class="px-8 py-4 font-bold text-lg rounded-xl shadow-lg transition-all flex items-center gap-3 border"
+            :class="[
+              isEndlessUnlocked 
+                ? 'bg-gradient-to-r from-fuchsia-600 to-indigo-600 hover:from-fuchsia-500 hover:to-indigo-500 text-white transform group-hover:scale-105 border-fuchsia-400/50' 
+                : 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed'
+            ]"
+            :disabled="!isEndlessUnlocked"
+          >
+            <span>{{ isEndlessUnlocked ? '進入高塔' : '未達條件' }}</span>
+            <span v-if="isEndlessUnlocked" class="text-2xl group-hover:translate-x-1 transition-transform">🚀</span>
+            <span v-else class="text-xl">🔒</span>
+          </button>
+        </div>
+      </div>
+    </div>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       
       <div 
@@ -73,25 +127,28 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['open-level-selector']);
+const emit = defineEmits(['open-level-selector', 'open-endless-mode']);
 
 // === 關卡總數狀態 ===
-// 左邊基礎教學：從靜態設定檔直接算陣列長度
 const totalPythonLevels = ref(staticLevels ? staticLevels.length : 20);
-
-// 右邊管理員關卡：預設為 0，等一下去資料庫抓
 const totalCustomLevels = ref(0); 
+
+// 🔥 新增：判斷無盡模式是否解鎖 (當 python 進度 >= 總關卡數) 🔥
+const isEndlessUnlocked = computed(() => {
+  const currentProgress = props.courseProgress.python || 0;
+  const maxLevels = totalPythonLevels.value || 1;
+  return currentProgress >= maxLevels; // 只要過關數達到或超過總關卡數就解鎖
+});
 
 // === 計算進度條的百分比 ===
 const pythonProgressPercent = computed(() => {
   const progress = props.courseProgress.python || 0;
-  const total = totalPythonLevels.value || 1; // 避免分母為 0
+  const total = totalPythonLevels.value || 1;
   return Math.min(100, (progress / total) * 100);
 });
 
 const customProgressPercent = computed(() => {
   const progress = props.courseProgress.javascript || 0;
-  // 如果資料庫真的 0 關，為了不讓進度條壞掉，分母給 1
   const total = totalCustomLevels.value === 0 ? 1 : totalCustomLevels.value; 
   return Math.min(100, (progress / total) * 100);
 });
@@ -99,7 +156,6 @@ const customProgressPercent = computed(() => {
 // === 去資料庫抓取「實際有幾關」 ===
 const fetchCustomLevelsCount = async () => {
   try {
-    // 透過 head: true 可以只取得數量 (count) 而不用抓下所有資料，效能更好！
     const { count, error } = await supabase
       .from('levels')
       .select('*', { count: 'exact', head: true });
@@ -112,7 +168,6 @@ const fetchCustomLevelsCount = async () => {
   }
 };
 
-// 組件載入時，發送請求計算關卡數量
 onMounted(() => {
   fetchCustomLevelsCount();
 });

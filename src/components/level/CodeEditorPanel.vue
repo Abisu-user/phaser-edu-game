@@ -113,8 +113,20 @@ const typingWordLength = ref(0);
 // 1. 動態從 COMMAND_DICT 產生按鈕與提示
 // ===============================================
 
+// [新增] 手動定義內建的邏輯按鈕
+const BUILTIN_LOGIC = [
+  { id: 'if', label: '❓如果 (if)', type: 'logic' },
+  { id: 'else', label: '⚖️ 否則 (else)', type: 'logic' },
+  { id: 'while', label: '🔄 當 (while)', type: 'logic' },
+  { id: 'function', label: '🔧 函式 (function)', type: 'logic' }
+];
+
+// 將原本 COMMAND_DICT 中非邏輯的指令 (與 for)，加上內建邏輯合併
+const baseCommands = COMMAND_DICT.filter(cmd => cmd.type !== 'logic' || cmd.id === 'for');
+const combinedCommands = [...baseCommands, ...BUILTIN_LOGIC];
+
 // 動態產生的按鈕清單
-const ALL_BLOCKS = COMMAND_DICT.filter(cmd => cmd.type !== 'logic' || cmd.id === 'repeat').map(cmd => {
+const ALL_BLOCKS = combinedCommands.map(cmd => {
   // 自動解析 Emoji 和文字
   const match = cmd.label.match(/([\uD800-\uDBFF][\uDC00-\uDFFF]|\p{Emoji_Presentation})/u);
   const icon = match ? match[0] : '🧩';
@@ -128,7 +140,11 @@ const ALL_BLOCKS = COMMAND_DICT.filter(cmd => cmd.type !== 'logic' || cmd.id ===
 
   // 定義插入的程式碼模板
   let codeSnippet = `${cmd.id}();`;
-  if (cmd.id === 'repeat') codeSnippet = `repeat(3, () => {\n  // 寫入重複動作\n});`;
+  if (cmd.id === 'for') codeSnippet = `for(3, () => {\n  // 寫入重複動作\n});`;
+  else if (cmd.id === 'if') codeSnippet = `if (isWall()) {\n  \n}`;
+  else if (cmd.id === 'else') codeSnippet = `else {\n  \n}`;
+  else if (cmd.id === 'while') codeSnippet = `while (!isGoal()) {\n  \n}`;
+  else if (cmd.id === 'function') codeSnippet = `function mySkill() {\n  \n}`;
 
   return { id: cmd.id, label: labelText, code: codeSnippet, color, icon };
 });
@@ -136,7 +152,7 @@ const ALL_BLOCKS = COMMAND_DICT.filter(cmd => cmd.type !== 'logic' || cmd.id ===
 // 自動補全提示字串 (Snippets)
 const availableSnippets = [
   ...COMMAND_DICT.filter(cmd => cmd.type === 'action').map(cmd => `${cmd.id}();`),
-  'repeat(3, () => {\n  \n});',
+  'for(3, () => {\n  \n});',
   'if (isWall()) {\n  \n}', 
   'while (!isGoal()) {\n  \n}',
   'if (isEnemy()) {\n  \n}'
@@ -164,7 +180,7 @@ const insertCode = (code) => {
     userCode.value = beforeText + textToInsert + afterText;
     nextTick(() => {
       const newCursorPos = startPos + textToInsert.length;
-      if (code.includes('repeat') || code.includes('if') || code.includes('while')) {
+      if (code.includes('for') || code.includes('if') || code.includes('while')) {
         textarea.focus();
         textarea.setSelectionRange(startPos + textToInsert.indexOf('{') + 4, startPos + textToInsert.indexOf('{') + 4);
       } else {
@@ -217,7 +233,7 @@ const applySuggestion = (index) => {
 
   nextTick(() => {
     let newPos = textWithoutTyping.length + suggestion.length;
-    if (suggestion.includes('repeat') || suggestion.includes('if') || suggestion.includes('while')) newPos -= 4;
+    if (suggestion.includes('for') || suggestion.includes('if') || suggestion.includes('while')) newPos -= 4;
     textarea.selectionStart = textarea.selectionEnd = newPos;
     textarea.focus();
     updateSuggestions();
@@ -252,8 +268,8 @@ const handleKeydown = (e) => {
 const handleExecute = () => {
   let codeToRun = userCode.value;
   
-  // 1. 轉換 repeat 迴圈 (將 repeat(3, () => {...}) 轉為標準 for 迴圈)
-  codeToRun = codeToRun.replace(/repeat\s*\(\s*(\d+)\s*,\s*\(\s*\)\s*=>\s*\{([\s\S]*?)\}\s*\);?/g, "for(let i=0; i<$1; i++) { $2 }");
+  // 1. 轉換 for 迴圈 (將 for(3, () => {...}) 轉為標準 for 迴圈)
+  codeToRun = codeToRun.replace(/for\s*\(\s*(\d+)\s*,\s*\(\s*\)\s*=>\s*\{([\s\S]*?)\}\s*\);?/g, "for(let i=0; i<$1; i++) { $2 }");
   
   // 2. 自動遍歷 COMMAND_DICT，替換所有動作與感應器 (不需再手動一條一條加)
   COMMAND_DICT.forEach(cmd => {

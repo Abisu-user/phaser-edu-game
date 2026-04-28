@@ -89,12 +89,32 @@
             <h3 class="text-sm font-bold text-indigo-300 mb-4 flex items-center gap-2 uppercase tracking-wider">
               <span class="w-1.5 h-1.5 rounded-full bg-indigo-400"></span> 開放積木指令
             </h3>
-            <div class="flex flex-wrap gap-2">
-              <label v-for="cmd in allCommands" :key="cmd.id" class="flex items-center gap-2 bg-[#0a0914] border border-indigo-900/50 px-3 py-1.5 rounded-lg cursor-pointer hover:border-indigo-500 transition has-[:checked]:bg-indigo-900/40 has-[:checked]:border-indigo-500">
-                <input type="checkbox" :value="cmd.id" v-model="form.available_commands" class="w-3.5 h-3.5 accent-indigo-500 rounded bg-gray-800 border-gray-600">
-                <span class="text-xs text-gray-300">{{ cmd.label }}</span>
-              </label>
+            
+            <div class="space-y-2">
+              <details 
+                v-for="(group, index) in groupedCommands" 
+                :key="group.name" 
+                class="group bg-[#0a0914] border border-indigo-900/50 rounded-lg overflow-hidden"
+                :open="index === 0" 
+              >
+                <summary class="cursor-pointer px-3 py-2.5 text-xs font-bold text-gray-300 bg-indigo-900/20 hover:bg-indigo-900/40 select-none flex justify-between items-center transition-colors">
+                  {{ group.name }}
+                  <span class="text-indigo-500 group-open:rotate-180 transition-transform duration-200">▼</span>
+                </summary>
+                
+                <div class="p-3 flex flex-wrap gap-2 bg-[#0a0914] border-t border-indigo-900/30">
+                  <label 
+                    v-for="cmd in group.commands" 
+                    :key="cmd.id" 
+                    class="flex items-center gap-2 border border-indigo-900/50 px-3 py-1.5 rounded-lg cursor-pointer hover:border-indigo-500 transition has-[:checked]:bg-indigo-900/40 has-[:checked]:border-indigo-500"
+                  >
+                    <input type="checkbox" :value="cmd.id" v-model="form.available_commands" class="w-3.5 h-3.5 accent-indigo-500 rounded bg-gray-800 border-gray-600">
+                    <span class="text-xs text-gray-300">{{ cmd.label || cmd.id }}</span>
+                  </label>
+                </div>
+              </details>
             </div>
+
           </section>
 
         </div>
@@ -114,13 +134,13 @@
 
         <div class="flex-1 overflow-auto flex items-center justify-center p-8 custom-scrollbar">
           <div class="relative bg-[#1e1c32] shadow-2xl border border-indigo-900/30 transition-all"
-                :style="{ 
-                display: 'grid', 
-                gridTemplateColumns: `repeat(${form.grid_size.cols}, minmax(0, 1fr))`,
-                gridTemplateRows: `repeat(${form.grid_size.rows}, minmax(0, 1fr))`, 
-                width: `${Math.min(form.grid_size.cols * 45, 800)}px`,
-                height: `${Math.min(form.grid_size.rows * 45, 800)}px`
-                }">
+              :style="{ 
+              display: 'grid', 
+              gridTemplateColumns: `repeat(${form.grid_size.cols}, minmax(0, 1fr))`,
+              gridTemplateRows: `repeat(${form.grid_size.rows}, minmax(0, 1fr))`, 
+              width: `${Math.min(form.grid_size.cols * 45, 800)}px`,
+              height: `${Math.min(form.grid_size.rows * 45, 800)}px`
+              }">
             
             <div v-for="cell in cells" :key="cell.key"
                  @mousedown="isDrawing = true; paint(cell.key)"
@@ -176,6 +196,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { supabase } from '../../../../supabase'; 
+import { COMMAND_DICT } from '../../../../game/config/CommandList.js';
 
 const emit = defineEmits(['preview']);
 
@@ -196,18 +217,35 @@ const form = ref({
 const gridMap = ref({});
 const activeBrush = ref('player');
 
-const allCommands = [
-  { id: 'moveUp', label: '⬆️ 向上走' },
-  { id: 'moveDown', label: '⬇️ 向下走' },
-  { id: 'moveLeft', label: '⬅️ 向左走' },
-  { id: 'moveRight', label: '➡️ 向右走' },
-  { id: 'attack', label: '⚔️ 攻擊' },
-  { id: 'repeat', label: '🔁 重複迴圈 (repeat)' },
-  { id: 'while', label: '🔄 條件迴圈 (while)' },
-  { id: 'if', label: '🤔 如果判斷 (if)' },
-  { id: 'isWall', label: '🧱 感知:前方有牆' },
-  { id: 'isEnemy', label: '👾 感知:敵人在旁' }
-];
+const groupedCommands = computed(() => {
+  // 定義你的分類與對應的指令 ID
+  const groups = {
+    '🚶‍♂️ 移動類': ['moveUp', 'moveDown', 'moveLeft', 'moveRight', 'dash'],
+    '⚔️ 動作與戰鬥': ['wait', 'take', 'open', 'attack', 'shoot', 'magic', 'bomb', 'heal'],
+    '👁️ 環境偵測': ['isWall', 'isEnemy', 'isGoal', 'hasKey', 'lowHp'],
+    '🧠 邏輯與控制': ['for', 'while', 'if', 'else', 'function']
+  };
+
+  const result = [];
+  const usedIds = new Set();
+
+  // 將指令分配到各自的分類中
+  for (const [name, ids] of Object.entries(groups)) {
+    const commands = COMMAND_DICT.filter(cmd => ids.includes(cmd.id));
+    if (commands.length > 0) {
+      result.push({ name, commands });
+      commands.forEach(c => usedIds.add(c.id));
+    }
+  }
+
+  // 自動捕捉未被分類的指令，放入「📦 其他」
+  const others = COMMAND_DICT.filter(cmd => !usedIds.has(cmd.id));
+  if (others.length > 0) {
+    result.push({ name: '📦 其他', commands: others });
+  }
+
+  return result;
+});
 
 const brushes = [
   { id: 'player', name: '玩家', icon: '🧙', activeClass: 'bg-indigo-600 text-white shadow-[0_0_15px_rgba(79,70,229,0.5)]', unique: true },
