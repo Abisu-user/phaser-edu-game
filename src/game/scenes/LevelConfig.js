@@ -235,7 +235,7 @@ export const levels = [
       { x: 3, y: 5, type: 'rock' },
       { x: 6, y: 5, type: 'rock' }
     ],
-    restrictions: { maxBlocks: 8, requiredCommands: ['for', 'if', 'else'] },
+    restrictions: { maxBlocks: 15, requiredCommands: ['for', 'if', 'else'] },
     goals: ['在 for 中放入 if-else'],
     availableCommands: ['moveUp', 'moveDown', 'moveRight', 'attack', 'for', 'if', 'else', 'isWall'],
     failMessages: { tooManyBlocks: '🧱 積木太多了！你只需要寫「一次」判斷邏輯，然後用 for 包起來。' },

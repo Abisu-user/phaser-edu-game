@@ -171,11 +171,12 @@ const coins = ref(0);
 const max_hp = ref(100);
 const max_mp = ref(50);
 const max_ap = ref(30);
+const max_atk = ref(10); 
 const bestFloor = ref(0);
 const expPercent = ref(0);
 const avatarUrl = ref(''); 
 
-// 🌟 新增：暫存從大廳抓回來的原始物件，方便開局時「繼承」數值到存檔
+// 暫存從大廳抓回來的原始物件，方便開局時「繼承」數值到存檔
 const rawLobbyData = ref(null);
 
 // 塔的存檔資料
@@ -197,7 +198,7 @@ const fetchPlayerData = async () => {
       .eq('user_id', session.user.id)
       .maybeSingle();
 
-    // 2. 如果高塔還沒有資料 (第一次進來)，則執行初始化
+    // 2. 如果高塔還沒有資料 (第一次進來)，則執行初始化，並預設各項數值
     if (!towerData) {
       console.log("🆕 第一次進入高塔，正在初始化資料...");
       
@@ -216,6 +217,13 @@ const fetchPlayerData = async () => {
             level: profile?.level || 1,
             xp: profile?.xp || 0,
             total_exp: profile?.total_exp || 0,
+            // 🌟 將所有的永久屬性基準值設定好
+            max_hp: 100,
+            max_mp: 50,
+            max_ap: 30,
+            max_atk: 10,
+            coins: 0,
+            best_floor: 1
         }])
         .select()
         .single();
@@ -225,7 +233,7 @@ const fetchPlayerData = async () => {
 
     // 3. 將資料映射到畫面變數
     if (towerData) {
-      rawLobbyData.value = towerData; // 🌟 這裡存下完整資料，供開局使用
+      rawLobbyData.value = towerData; 
       playerName.value = towerData.username;
       avatarUrl.value = towerData.avatar_url;
       playerLevel.value = towerData.level;
@@ -236,6 +244,7 @@ const fetchPlayerData = async () => {
       max_hp.value = towerData.max_hp;
       max_mp.value = towerData.max_mp;
       max_ap.value = towerData.max_ap;
+      max_atk.value = towerData.max_atk || 10; // 🌟 接收永久攻擊力
     }
 
     // 4. 抓取進行中的存檔 (tower_saves)
@@ -267,7 +276,7 @@ const handleStartNew = async () => {
   try {
     isLoading.value = true;
     
-    // 🌟 改動 1：建立新存檔時，從 Lobby 抓取「當前數值」存進 Saves
+    // 建立新存檔時，從 Lobby 抓取「當前大廳數值」存進 Saves 裡面作為該局基底
     const lobby = rawLobbyData.value;
     
     const { data: newSave, error } = await supabase
@@ -281,10 +290,11 @@ const handleStartNew = async () => {
         max_mp: lobby?.max_mp || 50,
         current_ap: lobby?.max_ap || 30,
         max_ap: lobby?.max_ap || 30,
-        coins: lobby?.coins || 0,       // 帶入大廳持有的金幣
-        level: lobby?.level || 1,       // 帶入大廳的等級
-        xp: lobby?.xp || 0,             // 帶入大廳的經驗值
-        total_exp: lobby?.total_exp || 0, // 帶入大廳的總經驗值
+        current_atk: lobby?.max_atk || 10, // 🌟 繼承大廳的永久攻擊力
+        coins: lobby?.coins || 0,       
+        level: lobby?.level || 1,       
+        xp: lobby?.xp || 0,             
+        total_exp: lobby?.total_exp || 0, 
         updated_at: new Date()
       }])
       .select()
@@ -322,7 +332,7 @@ const menus = [
   { name: '成就', icon: '🏅' },
 ];
 
-// 生成隨機粒子樣式 (保持原樣)
+// 生成隨機粒子樣式
 const getParticleStyle = (index) => {
   const size = Math.random() * 4 + 1; 
   const left = Math.random() * 100; 
