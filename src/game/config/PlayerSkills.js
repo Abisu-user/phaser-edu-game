@@ -1,149 +1,178 @@
-// src/game/config/PlayerSkills.js
+import Phaser from 'phaser';
 
-// === 🚀 升級版：非同步飛行物實體 (AsyncProjectile) ===
-// 完美支援純 JS 的 await，讓飛行物能「真的」一格一格移動
+// === 🌟 隱藏的非同步飛行物實體類別 ===
 class AsyncProjectile {
-  constructor(scene, startX, startY, config = {}) {
+  constructor(scene, startX, startY, options = {}) {
     this.scene = scene;
     this.gx = startX;
     this.gy = startY;
+    this.active = true;
     
-    // 飛行物的基礎設定
-    this.emoji = config.emoji || '🏹';
-    this.isSpinning = config.isSpinning || false; // 是否像迴旋鏢一樣旋轉
-    this.duration = config.duration || 150;       // 飛一格的動畫時間
-    this.leaveTrail = config.leaveTrail || false; // 是否留下雷射軌跡
+    // 視覺外觀設定
+    this.emoji = options.emoji || '🚀';
+    this.duration = options.duration || 150;
+    this.isSpinning = options.isSpinning || false;
+    this.leaveTrail = options.leaveTrail || false;
+    this.scale = options.scale || 1;
+
+    // 建立 Phaser 遊戲物件
+    const px = this.scene.startX + this.gx * this.scene.tileSize;
+    const py = this.scene.startY + this.gy * this.scene.tileSize;
     
-    // 建立真正的 Sprite 實體
-    const px = scene.startX + this.gx * scene.tileSize;
-    const py = scene.startY + this.gy * scene.tileSize;
-    this.sprite = scene.add.text(px, py, this.emoji, { fontSize: scene.tileSize * 0.8 + 'px' }).setOrigin(0.5);
-  }
+    this.sprite = this.scene.add.text(px, py, this.emoji, { 
+      fontSize: (this.scene.tileSize * 0.7 * this.scale) + 'px' 
+    }).setOrigin(0.5);
 
-  // 🌟 現在是偵測「飛行物 (p)」的座標，而不是機甲了！
-  isWall(offsetX = 0, offsetY = 0) {
-    const tx = this.gx + offsetX;
-    const ty = this.gy + offsetY;
-
-    // 🌟邊界偵測：如果目標座標小於 0 或大於地圖寬高，就直接視為「牆壁」
-    if (tx < 0 || tx >= this.scene.cols || ty < 0 || ty >= this.scene.rows) {
-      return true; // 撞到地圖外線了！
+    if (this.isSpinning) {
+      this.spinTween = this.scene.tweens.add({
+        targets: this.sprite, angle: 360, duration: 300, repeat: -1
+      });
     }
-    
-    // 檢查牆壁陣列中，是否有任何一面的座標與目標座標重疊
-    return this.scene.walls.some(w => w.gx === tx && w.gy === ty);
   }
 
-  isEnemy(offsetX = 0, offsetY = 0) {
-    const tx = this.gx + offsetX;
-    const ty = this.gy + offsetY;
+  // 共用的移動邏輯
+  async move(dx, dy) {
+    if (!this.active) return false;
+
+    // 更新方向視覺
+    if (!this.isSpinning) {
+      this.sprite.setRotation(Phaser.Math.Angle.Between(0, 0, dx, dy) + Math.PI / 4); // +45度校正 emoji
+    }
+
+    const tx = this.gx + dx;
+    const ty = this.gy + dy;
     
-    // 遍歷場景中的敵人，檢查是否有存活的敵人在此座標上
-    // (假設在 EndlessScene 中，你的敵人存在 this.scene.enemies)
-    return this.scene.enemies.some(enemy => 
-      enemy.active && enemy.gridX === tx && enemy.gridY === ty
-    );
-  }
+    // 檢查邊界與牆壁
+    const isOutOfBounds = tx < 0 || tx >= this.scene.cols || ty < 0 || ty >= this.scene.rows;
+    const isWall = this.scene.walls.some(w => w.gx === tx && w.gy === ty);
 
-  // 開放給玩家與直譯器使用的移動指令 (全加上 async/await)
-  async moveUp() { await this.executeMove(0, -1, 'up'); }
-  async moveDown() { await this.executeMove(0, 1, 'down'); }
-  async moveLeft() { await this.executeMove(-1, 0, 'left'); }
-  async moveRight() { await this.executeMove(1, 0, 'right'); }
+    if (isOutOfBounds || isWall) {
+      this.destroy();
+      return false; // 撞牆，停止移動
+    }
 
-  // 核心移動邏輯 (回傳 Promise，讓迴圈卡住等動畫播完)
-  executeMove(dx, dy, dir) {
-    return new Promise((resolve) => {
-      this.gx += dx;
-      this.gy += dy;
-      const targetPx = this.scene.startX + this.gx * this.scene.tileSize;
-      const targetPy = this.scene.startY + this.gy * this.scene.tileSize;
+    // 實際移動內部座標
+    this.gx = tx;
+    this.gy = ty;
 
-      // 如果是雷射，留下發光的軌跡
-      if (this.leaveTrail) {
-        const beam = this.scene.add.rectangle(targetPx, targetPy, this.scene.tileSize, this.scene.tileSize, 0x00ffff, 0.6);
-        this.scene.tweens.add({ targets: beam, alpha: 0, duration: 300, onComplete: () => beam.destroy() });
-      }
+    // 留下軌跡 (例如雷射)
+    if (this.leaveTrail) {
+      const trail = this.scene.add.rectangle(
+        this.scene.startX + this.gx * this.scene.tileSize, 
+        this.scene.startY + this.gy * this.scene.tileSize, 
+        this.scene.tileSize, this.scene.tileSize, 0x00ffff, 0.3
+      );
+      this.scene.tweens.add({ targets: trail, alpha: 0, duration: 300, onComplete: () => trail.destroy() });
+    }
 
-      // 計算旋轉角度
-      let targetAngle = this.sprite.angle;
-      if (this.isSpinning) {
-        targetAngle += 180;
-      } else {
-        if (dir === 'up') targetAngle = -45;
-        else if (dir === 'down') targetAngle = 135;
-        else if (dir === 'left') targetAngle = -135;
-        else if (dir === 'right') targetAngle = 45;
-      }
+    // 動畫等待
+    const targetPx = this.scene.startX + this.gx * this.scene.tileSize;
+    const targetPy = this.scene.startY + this.gy * this.scene.tileSize;
 
-      // 執行 Phaser 動畫
-      this.scene.tweens.add({
-        targets: this.sprite,
-        x: targetPx,
-        y: targetPy,
-        angle: targetAngle,
-        duration: this.duration,
-        onComplete: () => {
-          this.scene.damageEnemyAt(this.gx, this.gy); // 飛到哪、傷害到哪
-          resolve(); // 🌟 動畫結束，告訴外面的迴圈可以繼續下一步了
-        }
+    await new Promise(resolve => {
+      this.scene.tweens.add({ 
+        targets: this.sprite, x: targetPx, y: targetPy, duration: this.duration, onComplete: resolve 
       });
     });
+
+    // 檢查是否撞到敵人
+    if (this.scene.damageEnemyAt(this.gx, this.gy)) {
+      this.destroy();
+      return false; // 撞到怪，觸發傷害並銷毀
+    }
+
+    return true; // 成功移動到下一格
   }
-  
-  // 自動飛回機甲身邊 (迴旋鏢專用)
-  async returnToPlayer() {
-    return new Promise(resolve => {
-      this.scene.tweens.add({
-        targets: this.sprite,
-        x: this.scene.player.x,
-        y: this.scene.player.y,
-        angle: this.sprite.angle + 720,
-        duration: 400,
-        onComplete: () => {
-          this.destroy();
-          resolve();
-        }
-      });
-    });
+
+  // 產生暴露給使用者的 `p` API 介面
+  createAPI() {
+    // 🌟 幫 p 物件也加上跟全域一樣聰明的參數解析器
+    const createSubSkill = (skillName) => async (arg1, arg2, arg3) => {
+      let dx = 0;
+      let dy = -1; // 預設朝上
+      let behavior = null;
+
+      if (typeof arg1 === 'function') {
+        behavior = arg1; // 支援玩家寫 p.shoot(arror2)
+      } else if (typeof arg1 === 'number' && typeof arg2 === 'number') {
+        dx = Math.sign(arg1);
+        dy = Math.sign(arg2);
+        if (typeof arg3 === 'function') behavior = arg3; // 支援 p.shoot(0, -1, arror2)
+      }
+
+      if (dx === 0 && dy === 0) dy = -1; // 防呆
+      
+      await this.scene.executeCombatSkill(skillName, dx, dy, behavior, this.gx, this.gy);
+    };
+
+    return {
+      // 狀態感知
+      isWall: (relX, relY) => {
+        const tx = this.gx + relX;
+        const ty = this.gy + relY;
+        const isOutOfBounds = tx < 0 || tx >= this.scene.cols || ty < 0 || ty >= this.scene.rows;
+        return isOutOfBounds || this.scene.walls.some(w => w.gx === tx && w.gy === ty);
+      },
+      isEnemy: (relX, relY) => {
+        const tx = this.gx + relX;
+        const ty = this.gy + relY;
+        return this.scene.enemies.some(e => e.gx === tx && e.gy === ty);
+      },
+      
+      // 基礎移動
+      moveLeft: async () => await this.move(-1, 0),
+      moveRight: async () => await this.move(1, 0),
+      moveUp: async () => await this.move(0, -1),
+      moveDown: async () => await this.move(0, 1),
+      
+      // 🌟 換成聰明的發射器
+      shoot: createSubSkill('shoot'),
+      bomb: createSubSkill('bomb'),
+      laser: createSubSkill('laser'),
+      boomerang: createSubSkill('boomerang'),
+    };
   }
 
   destroy() {
-    if (this.sprite) this.sprite.destroy();
+    if (!this.active) return;
+    this.active = false;
+    if (this.spinTween) this.spinTween.stop();
+    this.sprite.destroy();
   }
 }
 
-// === 🌟 內部輔助：強化的參數解析器 (支援精確座標與角度計算) ===
-const parseArgs = (scene, args = {}) => {
-  let dx = scene.playerFacing.dx;
-  let dy = scene.playerFacing.dy;
+// === ⚙️ 輔助函式：解析參數 ===
+const parseArgs = (scene, args) => {
+  let dx = scene.playerFacing ? scene.playerFacing.dx : 0;
+  let dy = scene.playerFacing ? scene.playerFacing.dy : -1;
+  let originX = scene.playerGridX;
+  let originY = scene.playerGridY;
+
+  if (args) {
+    if (args.dx !== undefined) dx = Math.sign(args.dx);
+    if (args.dy !== undefined) dy = Math.sign(args.dy);
+    if (args.originX !== undefined) originX = args.originX;
+    if (args.originY !== undefined) originY = args.originY;
+  }
   
-  if (args.dx !== undefined && args.dy !== undefined) {
-    dx = args.dx; dy = args.dy;
-  } else if (args.dir === 'up') { dx = 0; dy = -1; }
-  else if (args.dir === 'down') { dx = 0; dy = 1; }
-  else if (args.dir === 'left') { dx = -1; dy = 0; }
-  else if (args.dir === 'right') { dx = 1; dy = 0; }
-
-  const angle = Math.atan2(dy, dx) * 180 / Math.PI;
-  const stepDx = dx === 0 ? 0 : Math.sign(dx);
-  const stepDy = dy === 0 ? 0 : Math.sign(dy);
-
-  return { dx, dy, stepDx, stepDy, angle, range: args.range || 1, custom: args };
+  if (dx === 0 && dy === 0) dy = -1; // 防呆
+  const angle = Phaser.Math.RadToDeg(Phaser.Math.Angle.Between(0, 0, dx, dy));
+  
+  return { dx, dy, angle, originX, originY, stepDx: dx, stepDy: dy };
 };
 
+// === 🚀 技能字典 ===
 export const SKILL_DICT = {
-  // === 1. 揮劍 ===
+  // === 1. 揮劍 (近戰，無實體) ===
   'attack': async (scene, args) => {
     return new Promise((resolve) => {
-      const { dx, dy, angle } = parseArgs(scene, args);
-      const tx = scene.playerGridX + Math.sign(dx);
-      const ty = scene.playerGridY + Math.sign(dy);
+      const { dx, dy, angle, originX, originY } = parseArgs(scene, args);
+      const tx = originX + dx;
+      const ty = originY + dy;
       
       const px = scene.startX + tx * scene.tileSize;
       const py = scene.startY + ty * scene.tileSize;
       const slash = scene.add.text(px, py, '⚔️', { fontSize: scene.tileSize + 'px' }).setOrigin(0.5);
-      
       slash.setAngle(angle + 45); 
 
       scene.tweens.add({
@@ -153,85 +182,101 @@ export const SKILL_DICT = {
     });
   },
 
-  // === 2. 射擊 (支援 Async 實體) ===
+  // === 2. 射擊 (箭矢) ===
   'shoot': async (scene, args) => {
+    const { dx, dy, originX, originY } = parseArgs(scene, args);
+    const p = new AsyncProjectile(scene, originX, originY, { emoji: '🏹', duration: 150 });
+    
     if (args && typeof args.behavior === 'function') {
-      // 🌟 使用新的 AsyncProjectile
-      const p = new AsyncProjectile(scene, scene.playerGridX, scene.playerGridY, { emoji: '🏹', isSpinning: false });
-      await args.behavior(p); // 這裡會完美地等待玩家的 await for 迴圈跑完
-      p.destroy();
+      try { await args.behavior(p.createAPI()); } catch(e) {}
     } else {
-      return new Promise((resolve) => {
-        const { dx, dy, angle } = parseArgs(scene, args);
-        const tx = scene.playerGridX + dx;
-        const ty = scene.playerGridY + dy;
-        const endPx = scene.startX + tx * scene.tileSize;
-        const endPy = scene.startY + ty * scene.tileSize;
-        
-        const arrow = scene.add.text(scene.player.x, scene.player.y, '🏹', { fontSize: scene.tileSize*0.7 + 'px' }).setOrigin(0.5);
-        arrow.setAngle(angle + 45);
-
-        scene.tweens.add({
-          targets: arrow, x: endPx, y: endPy, duration: 250,
-          onComplete: () => { arrow.destroy(); scene.damageEnemyAt(tx, ty); resolve(); }
-        });
-      });
+      // 🌟 修改：預設只飛 1 格
+      await p.move(dx, dy);
     }
+    p.destroy();
   },
 
-  // === 3. 炸彈 ===
+  // === 3. 炸彈 (可飛行拋擲，然後爆炸) ===
   'bomb': async (scene, args) => {
-    return new Promise((resolve) => {
-      const { dx, dy } = parseArgs(scene, args);
-      const tx = scene.playerGridX + dx;
-      const ty = scene.playerGridY + dy;
-      const px = scene.startX + tx * scene.tileSize;
-      const py = scene.startY + ty * scene.tileSize;
-
-      const bomb = scene.add.text(scene.player.x, scene.player.y, '💣', { fontSize: scene.tileSize + 'px' }).setOrigin(0.5);
-      
-      scene.tweens.add({
-        targets: bomb, x: px, y: py, angle: 360, duration: 300, ease: 'Quad.easeOut',
-        onComplete: () => {
-          bomb.text = '💥'; bomb.setScale(2.5); scene.cameras.main.shake(300, 0.02);
-          for (let i = -1; i <= 1; i++) {
-            for (let j = -1; j <= 1; j++) { scene.damageEnemyAt(tx + i, ty + j); }
-          }
-          scene.tweens.add({ targets: bomb, alpha: 0, duration: 200, onComplete: () => { bomb.destroy(); resolve(); } });
-        }
-      });
-    });
-  },
-
-  // === 4. 雷射 (支援 Async 實體) ===
-  'laser': async (scene, args) => {
+    const { dx, dy, originX, originY } = parseArgs(scene, args);
+    const p = new AsyncProjectile(scene, originX, originY, { emoji: '💣', duration: 200, isSpinning: true, scale: 1.2 });
+    
     if (args && typeof args.behavior === 'function') {
-      const p = new AsyncProjectile(scene, scene.playerGridX, scene.playerGridY, { emoji: '⚡', duration: 80, leaveTrail: true });
-      await args.behavior(p);
-      p.destroy();
+      try { await args.behavior(p.createAPI()); } catch(e) {}
     } else {
-      return new Promise((resolve) => {
-        const { stepDx, stepDy } = parseArgs(scene, args);
-        scene.cameras.main.shake(150, 0.01);
-        
-        let tx = scene.playerGridX;
-        let ty = scene.playerGridY;
+      // 🌟 修改：預設只往前拋 1 格就準備爆炸
+      await p.move(dx, dy);
+    }
 
-        for (let i = 1; i <= 15; i++) {
-          tx += stepDx; ty += stepDy;
-          if (tx < 0 || tx >= scene.cols || ty < 0 || ty >= scene.rows) break;
-          if (scene.walls.some(w => w.gx === tx && w.gy === ty)) break;
-          
-          scene.damageEnemyAt(tx, ty); 
-          const beam = scene.add.rectangle(scene.startX + tx * scene.tileSize, scene.startY + ty * scene.tileSize, scene.tileSize, scene.tileSize, 0x00ffff, 0.5);
-          scene.tweens.add({ targets: beam, alpha: 0, duration: 300, onComplete: () => beam.destroy() });
-        }
-        scene.time.delayedCall(300, resolve);
+    // 引爆邏輯 (不管有沒有跑完，最終一定會爆炸)
+    if (p.active) {
+      p.sprite.setText('💥');
+      p.sprite.setScale(2.5);
+      p.sprite.setRotation(0);
+      if (p.spinTween) p.spinTween.stop();
+      scene.cameras.main.shake(300, 0.02);
+      
+      for (let i = -1; i <= 1; i++) {
+        for (let j = -1; j <= 1; j++) { scene.damageEnemyAt(p.gx + i, p.gy + j); }
+      }
+      
+      await new Promise(resolve => {
+        scene.tweens.add({ targets: p.sprite, alpha: 0, duration: 200, onComplete: resolve });
       });
+      p.destroy();
     }
   },
 
-  // === 5. 衝刺 ===
+  // === 4. 雷射 (瞬間留下軌跡) ===
+  'laser': async (scene, args) => {
+    const { dx, dy, originX, originY } = parseArgs(scene, args);
+    const p = new AsyncProjectile(scene, originX, originY, { emoji: '⚡', duration: 50, leaveTrail: true });
+    
+    if (args && typeof args.behavior === 'function') {
+      try { await args.behavior(p.createAPI()); } catch(e) {}
+    } else {
+      // 🌟 修改：預設雷射只貫穿 1 格
+      const tx = p.gx + dx;
+      const ty = p.gy + dy;
+      const isOutOfBounds = tx < 0 || tx >= scene.cols || ty < 0 || ty >= scene.rows;
+      const isWall = scene.walls.some(w => w.gx === tx && w.gy === ty);
+      
+      if (!isOutOfBounds && !isWall) {
+         p.gx = tx; p.gy = ty;
+         scene.damageEnemyAt(p.gx, p.gy); // 直接造成傷害
+
+         // 畫軌跡
+         const trail = scene.add.rectangle(
+            scene.startX + p.gx * scene.tileSize, scene.startY + p.gy * scene.tileSize, 
+            scene.tileSize, scene.tileSize, 0x00ffff, 0.5
+         );
+         scene.tweens.add({ targets: trail, alpha: 0, duration: 300, onComplete: () => trail.destroy() });
+         
+         const targetPx = scene.startX + p.gx * scene.tileSize;
+         const targetPy = scene.startY + p.gy * scene.tileSize;
+         await new Promise(res => scene.tweens.add({ targets: p.sprite, x: targetPx, y: targetPy, duration: 50, onComplete: res }));
+      }
+    }
+    p.destroy();
+  },
+
+  // === 9. 迴旋鏢 (飛出去再飛回來) ===
+  'boomerang': async (scene, args) => {
+    const { dx, dy, originX, originY } = parseArgs(scene, args);
+    const p = new AsyncProjectile(scene, originX, originY, { emoji: '🪃', duration: 150, isSpinning: true });
+
+    if (args && typeof args.behavior === 'function') {
+      try { await args.behavior(p.createAPI()); } catch(e) {}
+    } else {
+      // 🌟 修改：預設往前 1 格，再飛回來
+      if (await p.move(dx, dy)) {
+        await p.move(-dx, -dy);
+      }
+    }
+    p.destroy();
+  },
+
+  // === 其他非實體技能保留 ===
   'dash': async (scene, args) => {
     return new Promise((resolve) => {
       const { dx, dy } = parseArgs(scene, args);
@@ -249,12 +294,11 @@ export const SKILL_DICT = {
     });
   },
 
-  // === 6. 破壞牆壁 ===
   'hack_wall': async (scene, args) => {
     return new Promise((resolve) => {
-      const { dx, dy } = parseArgs(scene, args);
-      const tx = scene.playerGridX + dx;
-      const ty = scene.playerGridY + dy;
+      const { dx, dy, originX, originY } = parseArgs(scene, args);
+      const tx = originX + dx;
+      const ty = originY + dy;
       
       const wallIndex = scene.walls.findIndex(w => w.gx === tx && w.gy === ty);
       if (wallIndex !== -1) {
@@ -266,63 +310,6 @@ export const SKILL_DICT = {
     });
   },
 
-  // === 7. 散彈 ===
-  'spread_shot': async (scene, args) => {
-    const { stepDx, stepDy } = parseArgs(scene, args);
-    const dirs = [
-      { dx: stepDx, dy: stepDy },
-      { dx: stepDx === 0 ? -1 : stepDx, dy: stepDy === 0 ? -1 : stepDy },
-      { dx: stepDx === 0 ? 1 : stepDx, dy: stepDy === 0 ? 1 : stepDy }
-    ];
-    await Promise.all(dirs.map(d => SKILL_DICT['shoot'](scene, { dx: d.dx, dy: d.dy })));
-  },
-
-  // === 8. 資料抓取 ===
-  'pull': async (scene, args) => {
-    return new Promise((resolve) => {
-      const { dx, dy, stepDx, stepDy } = parseArgs(scene, args);
-      const targetEnemy = scene.enemies.find(e => e.gx === scene.playerGridX + dx && e.gy === scene.playerGridY + dy);
-
-      if (targetEnemy) {
-        targetEnemy.gx = scene.playerGridX + stepDx;
-        targetEnemy.gy = scene.playerGridY + stepDy;
-        const px = scene.startX + targetEnemy.gx * scene.tileSize;
-        const py = scene.startY + targetEnemy.gy * scene.tileSize;
-        scene.tweens.add({ targets: targetEnemy.sprite, x: px, y: py, duration: 150, onComplete: resolve });
-      } else resolve();
-    });
-  },
-
-  // === 9. 迴旋鏢 (支援 Async 實體與自動返回) ===
-  'boomerang': async (scene, args) => {
-    if (args && typeof args.behavior === 'function') {
-      const p = new AsyncProjectile(scene, scene.playerGridX, scene.playerGridY, { emoji: '🪃', isSpinning: true });
-      await args.behavior(p);
-      await p.returnToPlayer(); // 迴旋鏢的特徵：飛完會自動飛回來！
-    } else {
-      return new Promise((resolve) => {
-        const { dx, dy } = parseArgs(scene, args);
-        const tx = scene.playerGridX + dx;
-        const ty = scene.playerGridY + dy;
-        const px = scene.startX + tx * scene.tileSize;
-        const py = scene.startY + ty * scene.tileSize;
-        const rang = scene.add.text(scene.player.x, scene.player.y, '🪃', { fontSize: scene.tileSize + 'px' }).setOrigin(0.5);
-        
-        scene.tweens.add({
-          targets: rang, x: px, y: py, angle: 360, duration: 300,
-          onComplete: () => {
-            scene.damageEnemyAt(tx, ty); 
-            scene.tweens.add({
-              targets: rang, x: scene.player.x, y: scene.player.y, angle: 720, duration: 300,
-              onComplete: () => { rang.destroy(); resolve(); }
-            });
-          }
-        });
-      });
-    }
-  },
-
-  // === 10. 旋風斬 ===
   'whirlwind': async (scene) => {
     return new Promise((resolve) => {
       scene.player.fillColor = 0xffaa00; 
@@ -344,7 +331,6 @@ export const SKILL_DICT = {
     });
   },
 
-  // === 11. 補血 ===
   'heal': async (scene) => {
     return new Promise((resolve) => {
       const heart = scene.add.text(scene.player.x, scene.player.y, '💖', { fontSize: scene.tileSize + 'px' }).setOrigin(0.5);
@@ -355,7 +341,7 @@ export const SKILL_DICT = {
 
 // === 🧠 微型直譯器：全面支援 Async/Await ===
 export const compileToBehavior = (uiQueue) => {
-  return async (p) => { // 🌟 改為 async function，支援 p 物件的 await
+  return async (p) => { 
     let loopTimes = 1;
     let startIndex = 0;
 
@@ -378,15 +364,14 @@ export const compileToBehavior = (uiQueue) => {
 
           let isMet = false;
           if (condition === 'isWall') {
-            isMet = p.isWall(p.dx, p.dy); 
+            isMet = p.isWall(p.dx || 0, p.dy || -1); 
           }
           else if (condition === 'isEnemy') {
-            isMet = p.isEnemy(p.dx, p.dy);
+            isMet = p.isEnemy(p.dx || 0, p.dy || -1);
           }
 
           const actionToRun = isMet ? trueAction : (elseCmd === 'else' ? falseAction : null);
 
-          // 🌟 加上 await，確保積木編譯模式下動畫也能同步
           if (actionToRun === 'moveUp') await p.moveUp();
           else if (actionToRun === 'moveDown') await p.moveDown();
           else if (actionToRun === 'moveLeft') await p.moveLeft();

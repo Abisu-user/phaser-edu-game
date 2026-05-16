@@ -1,39 +1,35 @@
 <template>
-  <div class="tower-battle h-full w-full flex flex-col bg-[#0B0B12] relative">
+  <div class="tower-battle h-full w-full flex flex-col bg-[#05050A] relative text-slate-300 font-sans">
     
     <transition name="fade">
       <div v-if="showClearModal" class="absolute inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-md">
-        <div class="w-[600px] bg-[#1A1A24] border border-emerald-500/50 rounded-3xl p-8 shadow-[0_0_40px_rgba(16,185,129,0.3)] flex flex-col gap-6 text-center transform transition-all">
-          
-          <div class="space-y-2">
-            <div class="text-4xl animate-bounce">🎉</div>
-            <h3 class="text-emerald-400 font-black text-2xl tracking-widest">區域突破成功！</h3>
-            <p class="text-slate-400 text-sm">系統正在重組下一層的空間數據...</p>
+        <div class="w-[660px] bg-[#1A1A24] border border-emerald-500/50 rounded-[2rem] p-9 shadow-[0_0_40px_rgba(16,185,129,0.3)] flex flex-col gap-7 text-center transform transition-all">
+          <div class="space-y-2.5">
+            <div class="text-5xl animate-bounce">🎉</div>
+            <h3 class="text-emerald-400 font-black text-3xl tracking-widest">區域突破成功！</h3>
+            <p class="text-slate-400 text-[15px]">系統正在重組下一層的空間數據...</p>
           </div>
-          
-          <div class="flex flex-col gap-3 mt-2">
-            <div class="text-sm text-emerald-500 font-bold tracking-widest text-left flex items-center gap-2">
-              <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+          <div class="flex flex-col gap-3.5 mt-2">
+            <div class="text-[15px] text-emerald-500 font-bold tracking-widest text-left flex items-center gap-2.5">
+              <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
               偵測到可用模組，請選擇一項升級：
             </div>
-            
-            <div class="grid grid-cols-3 gap-4">
+            <div class="grid grid-cols-3 gap-4.5">
               <button 
                 v-for="reward in currentRewards" 
                 :key="reward.id"
                 @click="selectReward(reward)"
-                class="group border border-slate-600 bg-slate-800/80 hover:bg-emerald-900/40 hover:border-emerald-400 rounded-xl p-5 flex flex-col items-center gap-3 transition-all duration-300 transform hover:-translate-y-2 hover:shadow-[0_10px_20px_rgba(16,185,129,0.25)] cursor-pointer"
+                class="group border border-slate-600 bg-slate-800/80 hover:bg-emerald-900/40 hover:border-emerald-400 rounded-2xl p-6 flex flex-col items-center gap-3.5 transition-all duration-300 transform hover:-translate-y-2 hover:shadow-[0_10px_20px_rgba(16,185,129,0.25)] cursor-pointer"
               >
-                <span class="text-4xl group-hover:scale-125 transition-transform duration-300">{{ reward.icon }}</span>
-                <div class="flex flex-col items-center">
-                  <span class="text-sm font-black text-slate-200 group-hover:text-emerald-300 tracking-wider">{{ reward.name }}</span>
-                  <span class="text-[11px] font-medium text-slate-400 group-hover:text-emerald-100/70 mt-1">{{ reward.desc }}</span>
+                <span class="text-5xl group-hover:scale-125 transition-transform duration-300">{{ reward.icon }}</span>
+                <div class="flex flex-col items-center mt-1">
+                  <span class="text-[15px] font-black text-slate-200 group-hover:text-emerald-300 tracking-wider">{{ reward.name }}</span>
+                  <span class="text-xs font-medium text-slate-400 group-hover:text-emerald-100/70 mt-1.5">{{ reward.desc }}</span>
                 </div>
               </button>
             </div>
           </div>
-          
-          <button @click="proceedToNextFloor" class="py-3 mt-4 rounded-xl border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800 font-bold tracking-widest transition-all">
+          <button @click="proceedToNextFloor" class="py-3.5 mt-5 rounded-xl border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800 font-bold tracking-widest transition-all text-[15px]">
             放棄獎勵，直接進入下一層 ＞
           </button>
         </div>
@@ -42,124 +38,216 @@
 
     <transition name="fade">
       <div v-if="showMenu" class="absolute inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md">
-        <div class="w-80 bg-[#1A1A24] border border-[#2A2A40] rounded-2xl p-6 shadow-2xl flex flex-col gap-4 text-center">
-          <h3 class="text-indigo-400 font-bold text-lg mb-2">機甲控制系統</h3>
-          <button @click="showMenu = false" class="py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold transition-all">繼續探索</button>
-          <button @click="confirmExit('save')" class="py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all shadow-[0_0_15px_rgba(79,70,229,0.4)]">暫時中斷 (儲存並退出)</button>
-          <button @click="confirmExit('abandon')" class="py-3 rounded-xl border border-rose-900/50 bg-rose-950/20 hover:bg-rose-600 text-rose-400 hover:text-white font-bold transition-all">終止連線 (放棄進度)</button>
+        <div class="w-[350px] bg-[#1A1A24] border border-[#2A2A40] rounded-3xl p-7 shadow-2xl flex flex-col gap-5 text-center">
+          <h3 class="text-indigo-400 font-bold text-xl mb-2">機甲控制系統</h3>
+          <button @click="showMenu = false" class="py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold transition-all text-[15px]">繼續探索</button>
+          <button @click="confirmExit('save')" class="py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all shadow-[0_0_15px_rgba(79,70,229,0.4)] text-[15px]">暫時中斷 (儲存並退出)</button>
+          <button @click="confirmExit('abandon')" class="py-3.5 rounded-xl border border-rose-900/50 bg-rose-950/20 hover:bg-rose-600 text-rose-400 hover:text-white font-bold transition-all text-[15px]">終止連線 (放棄進度)</button>
         </div>
       </div>
     </transition>
 
-   <header class="h-16 flex items-center justify-between px-6 border-b border-[#2A2A40] bg-[#131320]">
-      <div class="flex items-center gap-5">
-        <button @click="showMenu = true" class="text-slate-500 hover:text-white text-sm font-bold border border-slate-800 px-3 py-1 rounded transition-colors flex items-center gap-2">
-          ⚙️ 系統選單
-        </button>
-        <h2 class="text-xl font-black text-white tracking-widest">第 {{ floor }} 層</h2>
+    <header class="h-16 flex items-center justify-between px-7 border-b border-indigo-500/20 bg-[#0D0D17] shrink-0 z-50">
+      <div class="flex items-center gap-7">
+        <button @click="showMenu = true" class="px-3.5 py-2 rounded-lg border border-slate-700 bg-slate-800/40 text-[13px] font-bold hover:bg-slate-700 transition-all shadow-sm">⚙️ 選單</button>
+        <div class="flex flex-col">
+          <span class="text-[11px] text-indigo-400 font-black tracking-tighter uppercase">Current Location</span>
+          <h2 class="text-xl font-black text-white leading-none tracking-wide mt-0.5">ENDLESS TOWER - {{ floor }}F</h2>
+        </div>
       </div>
-      
-      <div class="flex gap-6 items-center">
-        <div class="text-yellow-400 font-mono font-bold flex items-center gap-2 text-lg">
-          <span>💰</span> {{ coins }}
-        </div>
-        
-        <div class="flex flex-col w-48 ml-2">
-          <div class="flex justify-between items-end mb-1">
-            <span class="text-xs text-indigo-400 font-bold uppercase tracking-wider">Level : {{ level }}</span>
-            <span class="text-[10px] text-indigo-300 font-mono">{{ xp }} / {{ 1000 }}</span>
-          </div>
-          <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden shadow-[inset_0_0_5px_rgba(0,0,0,0.8)]">
-            <div class="h-full bg-gradient-to-r from-indigo-500 to-fuchsia-500 shadow-[0_0_10px_#d946ef] transition-all duration-1000" :style="{ width: (xp / 1000 * 100) + '%' }"></div>
-          </div>
-        </div>
-        
-        <div class="flex items-center gap-2 ml-4">
-          <span class="text-rose-500 font-black text-xs italic">HP : {{ hp }}/{{ maxHp }}</span>
-          <div class="w-24 h-3 bg-black rounded-full overflow-hidden border border-slate-800">
-            <div class="h-full bg-gradient-to-r from-rose-700 to-rose-500 transition-all duration-300" :style="{ width: (hp / maxHp * 100) + '%' }"></div>
-          </div>
-          
-          <span class="text-cyan-500 font-black text-xs italic ml-2">MP : {{ mp }}/{{ maxMp }}</span>
-          <div class="w-24 h-3 bg-black rounded-full overflow-hidden border border-slate-800">
-            <div class="h-full bg-gradient-to-r from-cyan-700 to-cyan-500 transition-all duration-300" :style="{ width: (mp / maxMp * 100) + '%' }"></div>
-          </div>
-          
-          <span class="text-fuchsia-500 font-black text-xs italic ml-2">AP : {{ ap }}/{{ maxAp }}</span>
-          <div class="w-24 h-3 bg-black rounded-full overflow-hidden border border-slate-800">
-            <div class="h-full bg-gradient-to-r from-fuchsia-700 to-fuchsia-500 transition-all duration-300" :style="{ width: (ap / maxAp * 100) + '%' }"></div>
-          </div>
 
-          <div class="flex items-center justify-center ml-2 bg-orange-950/40 border border-orange-800/50 px-3 py-1 rounded-lg">
-            <span class="text-orange-500 font-black text-sm italic">⚔️ ATK : {{ attack || 10 }}</span>
+      <div class="flex items-center gap-5">
+        <div class="flex items-center gap-4.5 bg-black/40 px-5 py-2.5 rounded-xl border border-white/5 shadow-inner">
+          <div class="flex items-center gap-3.5 border-r border-white/10 pr-5">
+            <span class="text-[13px] font-black text-indigo-500">LV.{{ level }}</span>
+            <div class="w-32 h-2 bg-slate-800 rounded-full overflow-hidden">
+              <div class="h-full bg-indigo-500 shadow-[0_0_8px_#6366f1] transition-all" :style="{ width: (xp / (level * 100) * 100) + '%' }"></div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 pl-1.5">
+            <span class="text-[15px]">💰</span>
+            <span class="text-[15px] font-mono font-bold text-yellow-500">{{ coins }}</span>
           </div>
         </div>
       </div>
     </header>
 
-    <main class="flex-1 flex overflow-hidden p-4 gap-4">
-      <div class="relative flex-1 bg-black rounded-2xl border border-[#2A2A40] overflow-hidden shadow-[inset_0_0_50px_rgba(0,0,0,0.8)]">
+    <main class="flex-1 flex overflow-hidden p-2.5 gap-2.5">
+      
+      <aside class="w-[280px] bg-[#0D0D17]/80 backdrop-blur-md border border-white/5 rounded-xl flex flex-col gap-6 p-5 overflow-y-auto custom-scrollbar shadow-xl">
         
-        <div class="absolute top-4 left-4 z-50 pointer-events-none transition-all duration-300">
-          <div class="bg-[#1A1A24]/90 backdrop-blur-md border border-indigo-500/50 rounded-xl p-4 shadow-[0_0_25px_rgba(79,70,229,0.3)] min-w-[200px]">
-            <div class="text-[10px] uppercase tracking-[0.2em] text-indigo-400 font-black mb-2 flex items-center gap-2">
-              <span class="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></span>Mission Objectives
-            </div>
-            <div class="text-white font-bold text-sm leading-relaxed whitespace-pre-line">{{ currentObjective || '系統連線中...' }}</div>
+        <div>
+          <div class="text-[11px] font-black text-indigo-400 uppercase tracking-widest mb-3.5 border-b border-indigo-500/20 pb-1.5">Mission Objective</div>
+          <div class="text-[15px] font-bold text-slate-200 leading-relaxed whitespace-pre-line bg-indigo-500/5 p-3.5 rounded-lg border border-indigo-500/10">
+            {{ currentObjective || '載入數據中...' }}
           </div>
         </div>
 
+        <div>
+          <div class="text-[11px] font-black text-rose-400 uppercase tracking-widest mb-3.5 border-b border-rose-500/20 pb-1.5">Mech Status</div>
+          <div class="space-y-3.5 bg-black/30 p-3.5 rounded-lg border border-white/5 shadow-inner">
+            <div v-for="stat in stats" :key="stat.label" class="flex flex-col gap-2">
+              <div class="flex justify-between items-end leading-none">
+                <span :class="stat.colorClass" class="text-[11px] font-black italic">{{ stat.label }}</span>
+                <span class="text-[11px] font-mono font-bold text-white">{{ stat.val }} / {{ stat.max }}</span>
+              </div>
+              <div class="w-full h-2 bg-[#0B0B12] rounded-full overflow-hidden border border-white/5">
+                <div class="h-full transition-all" :class="stat.bgClass" :style="{ width: (stat.val / stat.max * 100) + '%' }"></div>
+              </div>
+            </div>
+            <div class="flex justify-between items-center bg-orange-950/30 border border-orange-500/30 px-3.5 py-2.5 rounded-lg mt-2.5">
+              <span class="text-[11px] font-black text-orange-500 italic">⚔️ ATK</span>
+              <span class="text-[13px] font-mono font-black text-orange-400">{{ attack }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="text-[11px] font-black text-amber-400 uppercase tracking-widest mb-3.5 border-b border-amber-500/20 pb-1.5 flex justify-between items-end">
+            <span>Tactical Backpack</span>
+            <transition name="fade">
+              <span v-if="actionMessage" class="text-emerald-400 normal-case text-[10px]">{{ actionMessage }}</span>
+            </transition>
+          </div>
+          
+          <div class="flex flex-col gap-3 bg-black/30 p-2.5 rounded-lg border border-white/5 shadow-inner min-h-[66px] max-h-[240px] overflow-y-auto custom-scrollbar">
+            <div v-if="consumableItems.length === 0" class="py-7 text-[11px] text-slate-600 text-center flex items-center justify-center font-bold tracking-widest">
+              背包內無可用道具
+            </div>
+            
+            <button
+              v-for="item in consumableItems"
+              :key="item.id"
+              @click="useItem(item)"
+              class="relative group bg-[#11111B] border border-white/10 hover:border-amber-500/50 rounded-lg p-3.5 flex items-center gap-4.5 transition-all duration-300 ease-out shadow-[inset_0_0_10px_rgba(245,158,11,0.02)] active:scale-95 text-left transform-gpu hover:scale-105 hover:shadow-[0_10px_20px_-5px_rgba(245,158,11,0.25)] hover:z-20"
+              :title="item.desc"
+            >
+              <div class="text-4xl shrink-0 group-hover:drop-shadow-[0_0_5px_rgba(245,158,11,0.5)]">
+                {{ item.icon }}
+              </div>
+              
+              <div class="flex flex-col flex-1 overflow-hidden">
+                <div class="flex justify-between items-center">
+                  <span class="text-[13px] font-bold text-slate-200 group-hover:text-amber-300 truncate">{{ item.name }}</span>
+                  <span class="text-[11px] font-mono text-amber-500 font-black bg-amber-900/30 px-2 py-1 rounded ml-2">x{{ item.quantity }}</span>
+                </div>
+                <span class="text-[11px] text-slate-500 truncate mt-1 tracking-tight">{{ item.desc }}</span>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <div class="text-[11px] font-black text-emerald-400 uppercase tracking-widest mb-3.5 border-b border-emerald-500/20 pb-1.5">System Status</div>
+          <div class="space-y-2.5 bg-emerald-500/5 p-3.5 rounded-lg border border-emerald-500/10">
+            <div class="flex justify-between text-[13px]"><span class="text-slate-400 font-bold">當前回合</span><span class="text-emerald-300 font-mono font-bold">TURN {{ currentTurn }}</span></div>
+            <div class="flex justify-between text-[13px]"><span class="text-slate-400 font-bold">掃描深度</span><span class="text-emerald-300 font-mono font-bold">{{ floor * 100 }}m</span></div>
+          </div>
+        </div>
+
+        <div class="mt-auto pt-2.5">
+          <div class="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-3.5 border-b border-slate-700 pb-1.5">Legend</div>
+          <div class="grid grid-cols-2 gap-3 text-[11px] font-bold text-slate-400">
+            <div class="flex items-center gap-2.5"><span class="w-3 h-3 rounded-sm bg-indigo-500 shadow-[0_0_5px_#6366f1]"></span> 玩家機甲</div>
+            <div class="flex items-center gap-2.5"><span class="w-3 h-3 rounded-sm bg-fuchsia-500 shadow-[0_0_5px_#d946ef]"></span> 數據終端</div>
+            <div class="flex items-center gap-2.5"><span class="w-3 h-3 rounded-sm bg-rose-500"></span> 威脅目標</div>
+            <div class="flex items-center gap-2.5"><span class="w-3 h-3 rounded-sm bg-emerald-500"></span> 起始座標</div>
+          </div>
+        </div>
+      </aside>
+
+      <div class="flex-1 bg-black rounded-xl border border-white/5 overflow-hidden relative shadow-2xl">
         <div id="endless-game-container" class="w-full h-full"></div>
       </div>
 
-      <aside class="w-[400px] bg-[#11111B]/90 backdrop-blur-xl border border-[#2A2A40] rounded-2xl flex flex-col overflow-hidden shadow-2xl relative z-40">
-        <div class="p-4 border-b border-[#2A2A40] font-bold text-indigo-400 flex items-center gap-2">
-          <span class="animate-pulse">💻</span> 戰術指令控制台
-        </div>
-        
-        <div class="flex-1 p-4 overflow-hidden flex flex-col gap-4">
-          <div class="h-1/2 flex flex-col">
-            <div class="text-xs text-slate-400 mb-2 font-bold tracking-wider">📥 模組資料庫：</div>
-            <div class="flex-1 overflow-y-auto pr-2 space-y-2 custom-scrollbar">
-              <details v-for="(cat, index) in commandCategories" :key="index" :open="cat.open" class="group bg-[#1A1A24]/80 rounded-xl border border-[#2A2A40] overflow-hidden transition-all duration-300">
-                <summary class="cursor-pointer p-3 text-sm font-bold text-slate-300 hover:text-white hover:bg-white/5 flex justify-between items-center select-none transition-colors">
-                  <span>{{ cat.name }}</span><span class="group-open:rotate-180 transition-transform duration-300 text-slate-500 text-xs">▼</span>
-                </summary>
-                <div class="p-3 pt-1 grid grid-cols-2 gap-2 bg-[#0B0B12]/50 border-t border-[#2A2A40]/50">
-                  <button v-for="cmd in cat.commands" :key="cmd.id" @click="insertCode(cmd.id)" class="text-xs py-2 px-2 rounded-lg border transition-all duration-300 text-left truncate flex items-center gap-1.5" :class="getThemeClasses(cat.theme)" :title="cmd.label">
-                    {{ cmd.label }}
-                  </button>
+      <aside class="w-[440px] flex flex-col gap-2.5">
+        <div class="h-[60%] bg-[#131320] border border-white/5 rounded-xl flex flex-col overflow-hidden shadow-2xl relative z-40">
+          <div class="px-5 py-2.5 bg-black/40 border-b border-white/5 flex justify-between items-center shrink-0">
+            <span class="text-[11px] font-black text-indigo-400 uppercase tracking-widest">Code Editor</span>
+            <button @click="clearCode" class="text-[11px] text-rose-400 hover:text-white transition-colors">CLEAN</button>
+          </div>
+          
+          <transition name="fade">
+            <div v-if="commandPreview.length > 0" class="bg-[#0A0A10] border-b border-indigo-500/20 flex gap-2.5 overflow-x-auto custom-scrollbar items-center shrink-0 p-2.5 shadow-inner">
+              <span class="text-[10px] font-black text-indigo-500/70 shrink-0 ml-2.5">EXPECTED:</span>
+              <div class="flex gap-2 shrink-0 px-2.5">
+                <span v-for="(icon, index) in commandPreview" :key="index" class="w-7 h-7 flex items-center justify-center bg-indigo-900/30 border border-indigo-500/30 rounded text-[13px] text-indigo-200 shadow-[0_0_8px_rgba(99,102,241,0.15)] animate-pulse" :style="{ animationDelay: `${index * 0.1}s` }">
+                  {{ icon }}
+                </span>
+              </div>
+            </div>
+          </transition>
+
+          <div class="flex-1 relative flex overflow-hidden">
+            <div ref="lineNumbersRef" class="w-9 bg-black/20 flex flex-col items-center py-4.5 text-[11px] text-slate-600 font-mono border-r border-white/5 shrink-0 overflow-hidden select-none">
+              <span v-for="n in lineCount" :key="n" class="leading-relaxed">{{ n }}</span>
+            </div>
+            
+            <textarea 
+              ref="codeEditor"
+              v-model="codeContent" 
+              class="flex-1 p-4.5 bg-transparent text-indigo-300 font-mono text-[15px] resize-none focus:outline-none overflow-y-auto custom-scrollbar leading-relaxed"
+              placeholder="// Enter command..."
+              spellcheck="false"
+              @scroll="syncScroll"
+              @keydown="handleEditorKeyDown" 
+              @keyup="checkAutocomplete"
+            ></textarea>
+
+            <transition name="fade">
+              <div v-if="showSuggestions" class="absolute z-50 bg-[#1A1A24] border border-indigo-500/50 rounded-lg shadow-xl pb-1 min-w-[165px] bottom-1 left-14 max-h-[176px] overflow-y-auto custom-scrollbar shadow-[0_0_15px_rgba(79,70,229,0.3)]">
+                <div class="px-3.5 py-2 text-[10px] font-black text-indigo-500 uppercase tracking-widest border-b border-indigo-500/30 bg-black/40 sticky top-0">系統建議指令</div>
+                
+                <div 
+                  v-for="s in suggestions" 
+                  :key="s" 
+                  @mousedown.prevent="applySuggestion(s)" 
+                  class="px-4.5 py-2.5 text-[13px] font-mono text-indigo-300 hover:bg-indigo-600 hover:text-white cursor-pointer transition-colors"
+                >
+                  {{ s }}()
                 </div>
-              </details>
+              </div>
+            </transition>
+          </div>
+
+          <transition name="fade">
+            <div v-if="errorMessage" class="shrink-0 p-4.5 bg-rose-950/95 border-t border-rose-500/50 text-rose-200 shadow-xl flex items-start justify-between backdrop-blur-sm z-50 shadow-[0_-4px_20px_rgba(225,29,72,0.3)]">
+              <span class="text-[15px] font-medium flex-1 mr-4.5">⚠️ {{ errorMessage }}</span>
+              <button @click="errorMessage = ''" class="text-rose-400 hover:text-white text-[22px] leading-none font-bold">×</button>
+            </div>
+          </transition>
+        </div>
+
+        <div class="h-[40%] bg-[#0D0D17] border border-white/5 rounded-xl flex flex-col overflow-hidden">
+          <div class="px-4.5 py-2.5 bg-black/40 border-b border-white/5 text-[11px] font-black text-slate-500 uppercase tracking-widest">Command Library</div>
+          <div class="flex-1 p-3.5 overflow-y-auto custom-scrollbar">
+            <div v-for="cat in commandCategories" :key="cat.name" class="mb-4.5">
+              <div class="text-[11px] text-slate-500 mb-2.5 px-1">{{ cat.name }}</div>
+              <div class="grid grid-cols-2 gap-2">
+                <button v-for="cmd in cat.commands" :key="cmd.id" @click="insertCode(cmd.id)" class="text-xs py-2 px-2.5 rounded-md border border-white/5 bg-white/5 hover:bg-white/10 transition-all flex items-center gap-2.5">
+                  <span class="text-[13px]">{{ cmd.icon || '🔹' }}</span> {{ cmd.label }}
+                </button>
+              </div>
             </div>
           </div>
-
-          <div class="h-1/2 flex flex-col bg-[#1E1E2E] rounded-xl border overflow-hidden relative shadow-inner transition-colors duration-300" :class="errorMessage ? 'border-rose-500 shadow-[0_0_15px_rgba(225,29,72,0.4)]' : 'border-slate-700/50'">
-              <div class="flex justify-between items-center px-3 py-2 bg-[#181825] border-b border-slate-700/50 z-10 relative">
-                <div class="text-xs font-bold text-slate-300 flex items-center gap-2"><span>📝</span> 程式碼編輯器</div>
-                <button @click="clearCode" class="text-[10px] text-rose-400 hover:text-white px-2 py-1 rounded bg-rose-950/30 border border-rose-900/50 hover:bg-rose-600 transition-colors">清空程式碼</button>
-              </div>
-
-              <transition name="fade">
-                <div v-if="errorMessage" class="absolute bottom-6 right-6 z-50 bg-rose-900/95 border border-rose-500/50 text-rose-200 px-4 py-3 rounded-lg shadow-xl flex items-center justify-between backdrop-blur-sm max-w-[80%] shadow-[0_4px_20px_rgba(225,29,72,0.3)]">
-                  <span class="text-sm font-medium flex-1 mr-4">⚠️ {{ errorMessage }}</span>
-                  <button @click="errorMessage = ''" class="text-rose-400 hover:text-white text-xl leading-none font-bold">×</button>
-                </div>
-              </transition>
-              
-              <div class="flex-1 relative flex overflow-hidden">
-                <div ref="lineNumbersRef" class="w-8 bg-[#181825] border-r border-slate-700/50 flex flex-col items-center py-4 text-[10px] text-slate-600 font-mono select-none overflow-hidden">
-                  <span v-for="n in lineCount" :key="n" class="mb-1 leading-relaxed">{{ n }}</span>
-                </div>
-               <textarea ref="codeEditor" v-model="codeContent" @scroll="syncScroll" @keydown.tab.prevent="handleTab" @keydown="handleAutoClose" @keyup="checkAutocomplete" class="flex-1 w-full h-full p-4 bg-transparent text-indigo-300 font-mono text-sm resize-none focus:outline-none overflow-y-auto custom-scrollbar leading-relaxed" placeholder="// 輸入程式碼...&#10;// 例如: moveUp();" spellcheck="false"></textarea>
-              </div>
+          <div class="m-3.5 flex gap-2.5">
+            <button 
+              v-if="isAiming" 
+              @click="cancelAiming" 
+              class="flex-1 py-3.5 bg-rose-950/40 border border-rose-900 hover:bg-rose-600 text-rose-300 hover:text-white font-black rounded-lg shadow-lg active:scale-95 transition-all text-[15px] tracking-widest"
+            >
+              🚫 取消瞄準
+            </button>
+            <button 
+              v-else 
+              @click="executeCode" 
+              class="flex-1 py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-lg shadow-lg shadow-indigo-500/20 active:scale-95 transition-all text-[15px] tracking-widest disabled:opacity-50 disabled:cursor-not-allowed" 
+              :disabled="!codeContent.trim() || errorMessage !== ''"
+            >
+              EXECUTE PROGRAM
+            </button>
           </div>
         </div>
-
-        <button @click="executeCode" class="m-4 relative overflow-hidden py-3 rounded-xl font-black text-white transition-all duration-300 flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 hover:-translate-y-0.5" :class="codeContent.trim().length > 0 && !errorMessage ? 'bg-gradient-to-r from-indigo-600 to-fuchsia-600 shadow-[0_0_20px_rgba(99,102,241,0.4)]' : 'bg-slate-800 border border-slate-700'" :disabled="codeContent.trim().length === 0 || isAiming || errorMessage !== ''">
-          <span v-if="codeContent.trim().length > 0 && !errorMessage" class="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 -translate-x-[150%] animate-[sweep_2s_ease-in-out_infinite]"></span>
-          <span class="relative z-10">▶</span> <span class="relative z-10 tracking-widest">編譯並啟動機甲</span>
-        </button>
       </aside>
     </main>
   </div>
@@ -168,51 +256,81 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'; 
 import { COMMAND_DICT } from '../../game/config/CommandList.js'; 
-// 🌟 引入剛剛寫的獎勵模組
 import { getRandomRewards } from '../../game/config/RewardList.js';
 
-// 🌟 Props 增加 attack
-const props = defineProps(['floor', 'hp', 'maxHp', 'mp', 'maxMp', 'ap', 'maxAp', 'attack', 'coins', 'level', 'xp', 'totalExp']);
-const emit = defineEmits(['stop', 'abandon', 'init-game', 'execute', 'update-stats', 'floor-cleared']);
+const props = defineProps(['floor', 'hp', 'maxHp', 'mp', 'maxMp', 'ap', 'maxAp', 'attack', 'coins', 'level', 'xp', 'totalExp', 'inventory']);
+const emit = defineEmits(['stop', 'abandon', 'init-game', 'execute', 'update-stats', 'floor-cleared', 'update-inventory']);
 
 const showMenu = ref(false); 
 const codeContent = ref('');
 const codeEditor = ref(null);
 const errorMessage = ref("");
 const lineNumbersRef = ref(null);
-
 const showClearModal = ref(false);
 const currentObjective = ref('');
 const isAiming = ref(false);
 const pendingCommand = ref(null);
-
-// 🌟 儲存當前抽到的獎勵
 const currentRewards = ref([]);
+const currentTurn = ref(1); 
+const actionMessage = ref('');
 
-const VALID_KEYWORDS = [
-  'function', 'let', 'const', 'var', 'for', 'while', 'if', 'else', 'await', 'async', 'return', 'true', 'false', 'p',
-  'moveUp', 'moveDown', 'moveLeft', 'moveRight', 'wait', 'dash', 'take', 'open',
-  'attack', 'shoot', 'spread_shot', 'magic', 'bomb', 'laser', 'whirlwind', 'boomerang', 'pull', 'heal',
-  'isWall', 'isEnemy', 'isGoal'
-];
+const consumableItems = computed(() => {
+  return (props.inventory || []).filter(item => item.type === 'consumable');
+});
 
-const handleAutoClose = async (e) => {
-  const pairs = { '{': '}', '[': ']', '(': ')', '"': '"', "'": "'" };
-  const openChar = e.key;
-  const closeChar = pairs[openChar];
+const availableCommands = computed(() => {
+  return COMMAND_DICT.filter(cmd => {
+    if (!cmd.reqModule) return true;
+    return (props.inventory || []).some(i => i.id === cmd.reqModule);
+  });
+});
 
-  if (closeChar) {
-    e.preventDefault(); 
-    const el = codeEditor.value;
-    if (!el) return;
-    const start = el.selectionStart;
-    const end = el.selectionEnd;
-    const text = codeContent.value;
-    codeContent.value = text.substring(0, start) + openChar + closeChar + text.substring(end);
-    await nextTick();
-    el.selectionStart = el.selectionEnd = start + 1;
+// 🌟 修正：將 validKeywords 改為大寫 VALID_KEYWORDS 確保與下方變數呼叫一致
+const VALID_KEYWORDS = computed(() => {
+  const jsKeywords = ['let', 'const', 'var', 'await', 'async', 'return', 'true', 'false', 'p'];
+  return [...jsKeywords, ...availableCommands.value.map(c => c.id)];
+});
+
+const useItem = (item) => {
+  const newInventory = JSON.parse(JSON.stringify(props.inventory || []));
+  const itemIndex = newInventory.findIndex(i => i.id === item.id);
+
+  if (itemIndex === -1) return;
+
+  let effectMsg = '';
+  if (item.id === 'potion_small') {
+    const healAmount = 30;
+    emit('update-stats', { hp: Math.min(props.maxHp, props.hp + healAmount) });
+    effectMsg = `+${healAmount} HP`;
+  } else if (item.id === 'potion_large') {
+    const healAmount = 100;
+    emit('update-stats', { hp: Math.min(props.maxHp, props.hp + healAmount) });
+    effectMsg = `+${healAmount} HP`;
+  } else if (item.id === 'ap_battery') {
+    const apRestore = 20;
+    emit('update-stats', { ap: Math.min(props.maxAp, props.ap + apRestore) });
+    effectMsg = `+${apRestore} AP`;
+  } else {
+    window.dispatchEvent(new CustomEvent('use-battle-item', { detail: { itemId: item.id } }));
+    effectMsg = `使用 ${item.name}`;
   }
+
+  newInventory[itemIndex].quantity -= 1;
+  if (newInventory[itemIndex].quantity <= 0) {
+    newInventory.splice(itemIndex, 1);
+  }
+
+  emit('update-inventory', newInventory);
+
+  actionMessage.value = effectMsg;
+  setTimeout(() => { actionMessage.value = ''; }, 2000);
 };
+
+const stats = computed(() => [
+  { label: 'HP', val: props.hp, max: props.maxHp, bgClass: 'bg-rose-500 shadow-[0_0_8px_#ef4444]', colorClass: 'text-rose-500' },
+  { label: 'MP', val: props.mp, max: props.maxMp, bgClass: 'bg-cyan-500 shadow-[0_0_8px_#06b6d4]', colorClass: 'text-cyan-500' },
+  { label: 'AP', val: props.ap, max: props.maxAp, bgClass: 'bg-fuchsia-500 shadow-[0_0_8px_#d946ef]', colorClass: 'text-fuchsia-500' },
+]);
 
 const confirmExit = (type) => {
   showMenu.value = false;
@@ -222,36 +340,34 @@ const confirmExit = (type) => {
   }
 };
 
-// 🌟 處理過關事件：抽出 3 個獎勵
 const handleFloorCleared = () => {
-  console.log("✅ [TowerBattle.vue] 收到 'tower-floor-cleared' 訊號，準備抽取獎勵顯示過關視窗！");
   currentRewards.value = getRandomRewards(3);
   showClearModal.value = true;
 };
 
-// 🌟 點擊選擇獎勵
 const selectReward = (reward) => {
-  console.log(`🎁 玩家選擇了獎勵: ${reward.name}`);
-  // 1. 將當前狀態包裝起來傳給 apply 計算
-  const currentStats = {
-    hp: props.hp, maxHp: props.maxHp,
-    mp: props.mp, maxMp: props.maxMp,
-    ap: props.ap, maxAp: props.maxAp,
-    attack: props.attack || 10,
-    coins: props.coins, xp: props.xp, level: props.level
-  };
-  
-  // 2. 獲取變更後的數值
-  const newStats = reward.apply(currentStats);
-  
-  // 3. 發送更新事件給 EndlessLevel
-  emit('update-stats', newStats);
-  
-  // 4. 進入下一層
+  if (!reward.type || reward.type === 'stat') {
+    const currentStats = {
+      hp: props.hp, maxHp: props.maxHp,
+      mp: props.mp, maxMp: props.maxMp,
+      ap: props.ap, maxAp: props.maxAp,
+      attack: props.attack || 10,
+      coins: props.coins, xp: props.xp, level: props.level
+    };
+    emit('update-stats', reward.apply(currentStats));
+  }
+
+  else if (reward.type === 'relic') {
+    // 透過事件傳遞給 Phaser 遊戲引擎
+    window.dispatchEvent(new CustomEvent('tower-add-relic', { detail: reward.relicId }));
+    
+    // 顯示提示文字
+    actionMessage.value = `安裝晶片: ${reward.name}`;
+    setTimeout(() => { actionMessage.value = ''; }, 3000);
+  }
   proceedToNextFloor();
 };
 
-// 🌟 點擊前往下一層
 const proceedToNextFloor = () => {
   showClearModal.value = false;
   codeContent.value = '';
@@ -263,10 +379,6 @@ const lineCount = computed(() => {
   const lines = codeContent.value.split('\n').length;
   return Math.max(25, lines);
 });
-
-const syncScroll = (e) => {
-  if (lineNumbersRef.value) { lineNumbersRef.value.scrollTop = e.target.scrollTop; }
-};
 
 const insertCode = (commandId) => {
   const needTargetingSkills = ['attack', 'shoot', 'magic', 'bomb', 'laser', 'dash', 'hack_wall', 'pull', 'boomerang', 'spread_shot'];
@@ -288,6 +400,26 @@ const insertCode = (commandId) => {
   else { snippet = `${commandId}();\n`; }
   codeContent.value += snippet;
 };
+
+const commandPreview = computed(() => {
+  if (!codeContent.value) return [];
+  const lines = codeContent.value.split(/[\n;]+/);
+  const preview = [];
+  
+  const iconMap = {
+    'moveUp': '↑', 'moveDown': '↓', 'moveLeft': '←', 'moveRight': '→',
+    'attack': '⚔️', 'shoot': '🔫', 'wait': '⏳', 'take': '🖐️', 'dash': '⚡',
+    'magic': '✨', 'bomb': '💣', 'heal': '💖'
+  };
+
+  for (const line of lines) {
+    const match = line.match(/([a-zA-Z_0-9]+)\s*\(/);
+    if (match && iconMap[match[1]]) {
+      preview.push(iconMap[match[1]]);
+    }
+  }
+  return preview;
+});
 
 const cancelAiming = () => {
   isAiming.value = false;
@@ -345,6 +477,7 @@ const executeCode = () => {
   if (props.ap >= totalApCost) {
     emit('update-stats', { ap: Math.max(0, props.ap - totalApCost) });
     emit('execute', codeContent.value); 
+    currentTurn.value++;
   } else {
     alert(`⚡ 系統警告：行動值 (AP) 不足！\n執行此程式需要 ${totalApCost} AP，但目前僅剩 ${props.ap} AP。`);
   }
@@ -356,20 +489,13 @@ const commandCategories = computed(() => {
   const combatIds = ['attack', 'shoot', 'magic', 'bomb', 'heal', 'laser', 'spread_shot', 'pull', 'boomerang', 'whirlwind'];
   
   return [
-    { name: '🏃‍♂️ 移動與動作', theme: 'indigo', open: true, commands: COMMAND_DICT.filter(c => moveIds.includes(c.id)) },
-    { name: '👁️ 條件與感知', theme: 'emerald', open: false, commands: COMMAND_DICT.filter(c => c.type === 'sensor') },
-    { name: '⚙️ 互動與機制', theme: 'amber', open: false, commands: COMMAND_DICT.filter(c => interactIds.includes(c.id)) },
-    { name: '⚔️ 攻擊與戰鬥', theme: 'rose', open: false, commands: COMMAND_DICT.filter(c => combatIds.includes(c.id)) },
-    { name: '🧠 邏輯控制', theme: 'pink', open: false, commands: COMMAND_DICT.filter(c => c.type === 'logic') }
+    { name: '🏃‍♂️ 移動與動作', theme: 'indigo', open: true, commands: availableCommands.value.filter(c => moveIds.includes(c.id)) },
+    { name: '👁️ 條件與感知', theme: 'emerald', open: false, commands: availableCommands.value.filter(c => c.type === 'sensor') },
+    { name: '⚙️ 互動與機制', theme: 'amber', open: false, commands: availableCommands.value.filter(c => interactIds.includes(c.id)) },
+    { name: '⚔️ 攻擊與戰鬥', theme: 'rose', open: false, commands: availableCommands.value.filter(c => combatIds.includes(c.id)) },
+    { name: '🧠 邏輯控制', theme: 'pink', open: false, commands: availableCommands.value.filter(c => c.type === 'logic') }
   ].filter(cat => cat.commands && cat.commands.length > 0);
 });
-
-const handleTab = (e) => {
-  const start = e.target.selectionStart;
-  const end = e.target.selectionEnd;
-  codeContent.value = codeContent.value.substring(0, start) + "  " + codeContent.value.substring(end);
-  nextTick(() => { e.target.selectionStart = e.target.selectionEnd = start + 2; });
-};
 
 const validateCode = () => {
   errorMessage.value = "";
@@ -385,7 +511,9 @@ const validateCode = () => {
       continue;
     }
     if (word.length <= 1) continue;
-    if (!VALID_KEYWORDS.includes(word) && !declaredVariables.includes(word)) {
+    
+    // 🌟 修正：因為 VALID_KEYWORDS 是 computed 屬性，這裡必須加上 .value 取值
+    if (!VALID_KEYWORDS.value.includes(word) && !declaredVariables.includes(word)) {
       errorMessage.value = `❌ 語法錯誤：系統不認識 '${word}' 這個指令。您是不是拼錯了？`;
       return; 
     }
@@ -398,29 +526,76 @@ const showSuggestions = ref(false);
 const suggestions = ref([]);
 const currentWord = ref("");
 
+const handleEditorKeyDown = async (e) => {
+  const el = e.target;
+  const key = e.key;
+
+  if (key === 'Tab') {
+    e.preventDefault();
+    if (showSuggestions.value && suggestions.value.length > 0) {
+      applySuggestion(suggestions.value[0], el);
+      return;
+    }
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    codeContent.value = codeContent.value.substring(0, start) + "  " + codeContent.value.substring(end);
+    await nextTick();
+    el.selectionStart = el.selectionEnd = start + 2;
+    return;
+  }
+
+  const pairs = { '{': '}', '[': ']', '(': ')', '"': '"', "'": "'" };
+  const closeChars = ['}', ']', ')', '"', "'"];
+  const start = el.selectionStart;
+  const end = el.selectionEnd;
+  const text = codeContent.value;
+
+  if (closeChars.includes(key) && text.charAt(start) === key) {
+    e.preventDefault(); 
+    el.selectionStart = el.selectionEnd = start + 1; 
+    return;
+  }
+  const closeChar = pairs[key];
+  if (closeChar) {
+    e.preventDefault(); 
+    codeContent.value = text.substring(0, start) + key + closeChar + text.substring(end);
+    await nextTick();
+    el.selectionStart = el.selectionEnd = start + 1; 
+  }
+};
+
 const checkAutocomplete = (e) => {
-  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Enter'].includes(e.key)) {
+  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Enter', 'Tab'].includes(e.key)) {
     showSuggestions.value = false;
     return;
   }
-  const cursorPosition = e.target.selectionStart;
+  
+  const el = codeEditor.value || document.querySelector('textarea');
+  if (!el) return;
+
+  const cursorPosition = el.selectionStart;
   const textBeforeCursor = codeContent.value.substring(0, cursorPosition);
   const match = textBeforeCursor.match(/[a-zA-Z_]+$/);
   
   if (match) {
     currentWord.value = match[0];
-    if (currentWord.value.length >= 1 && !VALID_KEYWORDS.includes(currentWord.value)) {
-        suggestions.value = VALID_KEYWORDS.filter(k => k.startsWith(currentWord.value));
+    // 🌟 修正：這裡也同樣需要加上 .value
+    if (currentWord.value.length >= 1 && !VALID_KEYWORDS.value.includes(currentWord.value)) {
+        suggestions.value = VALID_KEYWORDS.value.filter(k => k.startsWith(currentWord.value));
         showSuggestions.value = suggestions.value.length > 0;
     } else { showSuggestions.value = false; }
   } else { showSuggestions.value = false; }
 };
 
-const applySuggestion = (suggestion) => {
-  const cursorPosition = codeEditor.value.selectionStart;
+const applySuggestion = (suggestion, targetEl = null) => {
+  const el = targetEl || codeEditor.value || document.querySelector('textarea');
+  if (!el) return; 
+  
+  const cursorPosition = el.selectionStart;
   const textBeforeCursor = codeContent.value.substring(0, cursorPosition);
   const textAfterCursor = codeContent.value.substring(cursorPosition);
   const newTextBefore = textBeforeCursor.replace(/[a-zA-Z_]+$/, suggestion);
+  
   const isKeyword = ['function', 'let', 'const', 'for', 'while', 'if', 'else', 'await'].includes(suggestion);
   const appendText = isKeyword ? ' ' : '()';
 
@@ -429,21 +604,16 @@ const applySuggestion = (suggestion) => {
 
   nextTick(() => {
     const newCursorPos = newTextBefore.length + (isKeyword ? 1 : 1);
-    codeEditor.value.selectionStart = codeEditor.value.selectionEnd = newCursorPos;
-    codeEditor.value.focus();
+    el.selectionStart = el.selectionEnd = newCursorPos;
+    el.focus();
     validateCode(); 
   });
 };
 
-const getThemeClasses = (theme) => {
-  const themes = {
-    indigo: 'bg-indigo-950/40 border-indigo-800/50 text-indigo-300 hover:bg-indigo-600 hover:text-white hover:border-indigo-400 hover:shadow-[0_0_15px_rgba(79,70,229,0.4)]',
-    emerald: 'bg-emerald-950/40 border-emerald-800/50 text-emerald-300 hover:bg-emerald-600 hover:text-white hover:border-emerald-400 hover:shadow-[0_0_15px_rgba(16,185,129,0.4)]',
-    amber: 'bg-amber-950/40 border-amber-800/50 text-amber-300 hover:bg-amber-600 hover:text-white hover:border-amber-400 hover:shadow-[0_0_15px_rgba(245,158,11,0.4)]',
-    rose: 'bg-rose-950/40 border-rose-800/50 text-rose-300 hover:bg-rose-600 hover:text-white hover:border-rose-400 hover:shadow-[0_0_15px_rgba(225,29,72,0.4)]',
-    pink: 'bg-pink-950/40 border-pink-800/50 text-pink-300 hover:bg-pink-600 hover:text-white hover:border-pink-400 hover:shadow-[0_0_15px_rgba(236,72,153,0.4)]'
-  };
-  return themes[theme] || themes.indigo;
+const syncScroll = (e) => {
+  if (lineNumbersRef.value) {
+    lineNumbersRef.value.scrollTop = e.target.scrollTop;
+  }
 };
 
 onMounted(() => {
@@ -453,40 +623,22 @@ onMounted(() => {
   window.addEventListener('tower-coin-collected', (e) => emit('update-stats', { coins: props.coins + e.detail.amount }));
   window.addEventListener('tower-target-selected', handleTargetSelected);
   window.addEventListener('tower-objective-updated', handleObjectiveUpdate); 
-  window.addEventListener('tower-floor-cleared', handleFloorCleared); 
+  window.addEventListener('tower-floor-cleared', handleFloorCleared);
 });
 
 onUnmounted(() => {
   window.removeEventListener('tower-target-selected', handleTargetSelected);
   window.removeEventListener('tower-objective-updated', handleObjectiveUpdate); 
-  window.removeEventListener('tower-floor-cleared', handleFloorCleared); 
+  window.removeEventListener('tower-floor-cleared', handleFloorCleared);
 });
 </script>
 
 <style scoped>
-.fade-enter-active, .fade-leave-active {
-  transition: opacity 0.3s ease;
-}
-.fade-enter-from, .fade-leave-to {
-  opacity: 0;
-}
-
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #475569; 
-  border-radius: 4px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #6366f1; 
-}
-
-@keyframes sweep {
-  0% { transform: translateX(-150%) skewX(12deg); }
-  100% { transform: translateX(250%) skewX(12deg); }
-}
+.fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+.custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #6366f1; }
+@keyframes sweep { 0% { transform: translateX(-150%) skewX(12deg); } 100% { transform: translateX(250%) skewX(12deg); } }
 </style>

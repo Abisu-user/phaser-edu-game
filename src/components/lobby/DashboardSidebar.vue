@@ -167,7 +167,7 @@ const lobbyItems = [
   { id: 'class', label: '班級', icon: '🏫' },
   { id: 'friends', label: '好友', icon: '👥' },
   { id: 'achievements', label: '成就', icon: '🎖️' },
-  { id: 'leaderboard', label: '排行榜', icon: '🏆' },
+  { id: 'leaderboard', label: '全服排行榜', icon: '🏆' },
   { id: 'profile', label: '個人檔案', icon: '👤' }
 ];
 
@@ -188,7 +188,7 @@ const sectionedMenus = computed(() => {
   baseItems.push(
     { id: 'friends', label: '好友', icon: '👥' },
     { id: 'achievements', label: '成就', icon: '🎖️' },
-    { id: 'leaderboard', label: '排行榜', icon: '🏆' },
+    { id: 'leaderboard', label: '全服排行榜', icon: '🏆' },
     { id: 'profile', label: '個人檔案', icon: '👤' }
   );
 

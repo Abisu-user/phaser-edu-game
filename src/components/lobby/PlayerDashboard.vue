@@ -81,8 +81,11 @@
             :badges="badges"
           />
 
-          <div v-show="currentSection === 'leaderboard'">排行榜即將推出...</div>
-          
+          <LeaderboardSection 
+            v-if="currentSection === 'leaderboard'" 
+            :currentUserId="currentUser?.id" 
+          />
+
           <ProfileSection 
             v-show="currentSection === 'profile'"
             :playerId="currentId"
@@ -216,6 +219,7 @@ import ConfirmModal from '../common/ConfirmModal.vue';
 import GameLevel from '../level/GameLevel.vue';
 import ClassSection from './sections/ClassSection.vue';
 import EndlessLevel from '../roguelike/EndlessLevel.vue';
+import LeaderboardSection from './sections/LeaderboardSection.vue';
 
 // --- 狀態管理區 ---
 const currentView = ref('lobby'); // 'lobby' 或 'game'
@@ -251,6 +255,7 @@ const hasUnreadMessages = ref(false);
 const activeAdminTab = ref('system');
 const isForceLogoutModalOpen = ref(false);
 const activeTeacherTab = ref('overview');
+const stat_points = ref(0);
 
 const emit = defineEmits(['enter-game', 'logout']);
 
@@ -357,6 +362,9 @@ const addExperience = async (gainAmount) => {
     currentLevel.value = newLevel;
     currentXP.value = newXP;
     
+    // 🌟 [關鍵修改] 塔外升級也要給予屬性點
+    stat_points.value += (levelsGained * 5);
+    
     isLevelUpModalOpen.value = true;
     setTimeout(() => { isLevelUpModalOpen.value = false; }, 5000);
   }
@@ -367,7 +375,8 @@ const addExperience = async (gainAmount) => {
       await supabase.from('profiles').update({
         xp: newXP,
         level: newLevel,
-        total_exp: currentTotalXP.value 
+        total_exp: currentTotalXP.value,
+        stat_points: stat_points.value // 🌟 確保塔外升級的點數有寫進資料庫
       }).eq('id', user.id);
     }
   } catch (err) {
@@ -447,7 +456,8 @@ const fetchLobbyData = async () => {
     const { count } = await supabase.from('user_progress').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
     clearedLevelsCount.value = count || 0;
 
-    const { data: profile } = await supabase.from('profiles').select('id, xp, level, username, avatar_url, role, total_exp, last_login_at, consecutive_days').eq('id', user.id).single();
+    // 🌟 注意：這裡的 select 加入了 stat_points
+    const { data: profile } = await supabase.from('profiles').select('id, xp, level, username, avatar_url, role, total_exp, last_login_at, consecutive_days, stat_points').eq('id', user.id).single();
 
     if (profile) {
       currentId.value = profile.id || '';
@@ -458,10 +468,23 @@ const fetchLobbyData = async () => {
       playerName.value = profile.username || '遊客模式';
       playerRole.value = profile.role || 'student';
 
+      let shouldUpdateDB = false;
+
+      const { data: towerCheck } = await supabase.from('tower_lobby').select('max_hp').eq('user_id', user.id).maybeSingle();
+
+      let currentPoints = profile.stat_points;
+      
+      const hasNeverUpgraded = !towerCheck || (towerCheck.max_hp === 100 && towerCheck.max_atk === 10);
+
+      if ((currentPoints === 0 || currentPoints === null) && profile.level > 1 && hasNeverUpgraded) {
+          currentPoints = (profile.level - 1) * 5;
+          shouldUpdateDB = true;
+          console.log(`🎁 補發點數：${currentPoints}`);
+      }
+
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       let currentStreak = profile.consecutive_days || 1;
-      let shouldUpdateDB = false;
 
       if (profile.last_login_at) {
         const lastLoginDate = new Date(profile.last_login_at);
@@ -476,8 +499,13 @@ const fetchLobbyData = async () => {
 
       consecutiveDays.value = currentStreak;
 
+      // 如果有連續登入變更，或是觸發了補償機制，就寫回資料庫
       if (shouldUpdateDB) {
-        await supabase.from('profiles').update({ last_login_at: new Date().toISOString(), consecutive_days: currentStreak }).eq('id', user.id);
+        await supabase.from('profiles').update({ 
+          last_login_at: new Date().toISOString(), 
+          consecutive_days: currentStreak,
+          stat_points: currentPoints // 🌟 順便把補償的點數寫入
+        }).eq('id', user.id);
       }
     }
   } catch (err) {

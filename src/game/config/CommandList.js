@@ -1,41 +1,35 @@
 export const COMMAND_DICT = [
-  // --- 移動類 ---
-  { id: 'moveUp',    label: '⬆️ 向上走 (moveUp)', type: 'action', ap: 1 },
-  { id: 'moveDown',  label: '⬇️ 向下走 (moveDown)', type: 'action', ap: 1 },
-  { id: 'moveLeft',  label: '⬅️ 向左走 (moveLeft)', type: 'action', ap: 1 },
-  { id: 'moveRight', label: '➡️ 向右走 (moveRight)', type: 'action', ap: 1 },
-  { id: 'wait',      label: '⏳ 等待 (wait)',   type: 'action', ap: 0 },
-  { id: 'dash',      label: '💨 衝刺 (dash)',   type: 'action', ap: 2 },
+  // === 🟢 基礎指令 (無須解鎖) ===
+  { id: 'moveUp', label: '⬆️ 向上走 (moveUp)', type: 'action', ap: 1, desc: '驅動機甲向北方移動一個座標單位。', example: 'moveUp();' },
+  { id: 'moveDown', label: '⬇️ 向下走 (moveDown)', type: 'action', ap: 1, desc: '驅動機甲向南方移動一個座標單位。', example: 'moveDown();' },
+  { id: 'moveLeft', label: '⬅️ 向左走 (moveLeft)', type: 'action', ap: 1, desc: '驅動機甲向西方移動一個座標單位。', example: 'moveLeft();' },
+  { id: 'moveRight', label: '➡️ 向右走 (moveRight)', type: 'action', ap: 1, desc: '驅動機甲向東方移動一個座標單位。', example: 'moveRight();' },
+  { id: 'wait', label: '⏳ 等待 (wait)', type: 'action', ap: 0, desc: '原地執行系統待機，不消耗行動值。', example: 'wait();' },
+  { id: 'take', label: '🤏 撿起 (take)', type: 'action', ap: 1, desc: '回收當前座標上的數據碎片或掉落物品。', example: 'take();' },
+  { id: 'open', label: '🚪 打開 (open)', type: 'action', ap: 1, desc: '解鎖並開啟鄰近的數據後門。', example: 'open();' },
+  { id: 'attack', label: '⚔️ 揮劍 (attack)', type: 'action', ap: 1, desc: '近距離物理輸出，對相鄰目標造成損害。', example: 'attack();' },
+  { id: 'shoot', label: '🏹 射擊 (shoot)', type: 'action', ap: 1, desc: '遠程數據彈幕，射程較長但傷害穩定。', example: 'shoot();' },
+  { id: 'isWall', label: '🧱 前方有牆壁 (isWall)', type: 'sensor', ap: 0, desc: '偵測是否存在無法通行的阻擋數據。', example: 'isWall(0, 1);' },
+  { id: 'isEnemy', label: '👾 遇到敵人 (isEnemy)', type: 'sensor', ap: 0, desc: '偵測是否存在具備敵意的數據生命體。', example: 'isEnemy(1, 0);' },
+  { id: 'isGoal', label: '🏁 抵達終點 (isGoal)', type: 'sensor', ap: 0, desc: '檢測目標座標是否為區域出口。', example: 'isGoal(0, 0);' },
+  { id: 'if', label: '🤔 如果 (if)', type: 'logic', ap: 0, desc: '邏輯判定分支。', example: 'if (isEnemy(0, 1)) {\n  attack();\n}' },
+  { id: 'else', label: '🔄 否則 (else)', type: 'logic', ap: 0, desc: '與 if 配合使用的備援區塊。', example: 'else {\n  moveUp();\n}' },
+  { id: 'for', label: '🔁 重複 (for)', type: 'logic', ap: 0, desc: '根據設定的次數重複執行邏輯。', example: 'for(let i=0; i<4; i++) {\n  moveRight();\n}' },
+  { id: 'while', label: '🌀 當 (while)', type: 'logic', ap: 0, desc: '只要指定條件成立就持續執行。', example: 'while (!isWall(0, 1)) {\n  moveUp();\n}' },
+  { id: 'function', label: '📦 函式 (function)', type: 'logic', ap: 0, desc: '將常用的操作封裝起來以便重複調用。', example: 'function patrol() {\n  moveUp();\n}' },
+  { id: 'break', label: '🛑 中斷 (break)', type: 'logic', ap: 0, desc: '強制跳出當前的迴圈結構。', example: 'break;' },
 
-  // --- 互動類 ---
-  { id: 'take', label: '🤏 撿起 (take)', type: 'action', ap: 1 },
-  { id: 'open', label: '🚪 打開 (open)', type: 'action', ap: 1 },
-
-  // --- 攻擊與戰鬥類 ---
-  { id: 'attack',      label: '⚔️ 揮劍 (attack)',    type: 'action', ap: 1 },
-  { id: 'shoot',       label: '🏹 射擊 (shoot)',     type: 'action', ap: 1 },
-  { id: 'spread_shot', label: '🏹 散彈 (spread_shot)',type: 'action', ap: 2 },
-  { id: 'magic',       label: '🔥 魔法 (magic)',     type: 'action', mp: 1 },
-  { id: 'bomb',        label: '💣 放炸彈 (bomb)',    type: 'action', ap: 2 },
-  { id: 'laser',       label: '⚡ 雷射 (laser)',     type: 'action', ap: 3 },
-  { id: 'whirlwind',   label: '🌪️ 旋風斬 (whirlwind)',type: 'action', ap: 2 },
-  { id: 'boomerang',   label: '🪃 迴旋鏢 (boomerang)',type: 'action', ap: 1 },
-  { id: 'pull',        label: '🧲 資料抓取 (pull)',  type: 'action', ap: 1 },
-  { id: 'hack_wall',   label: '🗑️ 垃圾回收 (hack_wall)', type: 'action', ap: 1 },
-  { id: 'heal',        label: '💖 補血 (heal)',      type: 'action', mp: 1 },
-
-  // --- 條件感知類 (回傳 True/False) ---
-  { id: 'isWall',  label: '🧱 前方有牆壁 (isWall)', type: 'sensor', ap: 0 },
-  { id: 'isEnemy', label: '👾 遇到敵人 (isEnemy)',   type: 'sensor', ap: 0 },
-  { id: 'isGoal',  label: '🏁 抵達終點 (isGoal)',   type: 'sensor', ap: 0 },
-  { id: 'hasKey',  label: '🔑 有鑰匙 (hasKey)',     type: 'sensor', ap: 0 },
-  { id: 'lowHp',   label: '🩸 血量過低 (lowHp)',   type: 'sensor', ap: 0 },
-
-  // --- 邏輯控制類 ---
-  { id: 'if',       label: '🤔 如果 (if)',       type: 'logic', ap: 0 },
-  { id: 'else',     label: '🔄 否則 (else)',     type: 'logic', ap: 0 },
-  { id: 'for',      label: '🔁 重複 (for)',      type: 'logic', ap: 0 },
-  { id: 'while',    label: '🌀 當 (while)',      type: 'logic', ap: 0 },
-  { id: 'function', label: '📦 函式 (function)', type: 'logic', ap: 0 },
-  { id: 'break',    label: '🛑 中斷 (break)',    type: 'logic', ap: 0 },
+  // === 🔴 進階指令 (需在商店購買模組解鎖) ===
+  { id: 'dash', label: '💨 衝刺 (dash)', type: 'action', ap: 2, reqModule: 'module_dash', desc: '消耗大量能量執行瞬間位移。', example: 'dash();' },
+  { id: 'spread_shot', label: '🏹 散彈 (spread_shot)', type: 'action', ap: 2, reqModule: 'module_spread', desc: '扇形擴散射擊。', example: 'spread_shot();' },
+  { id: 'magic', label: '🔥 魔法 (magic)', type: 'action', mp: 1, reqModule: 'module_magic', desc: '消耗MP釋放高能脈衝。', example: 'magic();' },
+  { id: 'bomb', label: '💣 放炸彈 (bomb)', type: 'action', ap: 2, reqModule: 'module_bomb', desc: '部署延時炸彈造成 3x3 範圍傷害。', example: 'bomb();' },
+  { id: 'laser', label: '⚡ 雷射 (laser)', type: 'action', ap: 3, reqModule: 'module_laser', desc: '發射貫穿型高能射線。', example: 'laser();' },
+  { id: 'whirlwind', label: '🌪️ 旋風斬 (whirlwind)', type: 'action', ap: 2, reqModule: 'module_whirlwind', desc: '對周圍 8 格發動全方位打擊。', example: 'whirlwind();' },
+  { id: 'boomerang', label: '🪃 迴旋鏢 (boomerang)', type: 'action', ap: 1, reqModule: 'module_boomerang', desc: '拋射會折返的數據環刃。', example: 'boomerang();' },
+  { id: 'pull', label: '🧲 資料抓取 (pull)', type: 'action', ap: 1, reqModule: 'module_pull', desc: '將遠方的目標強制拉拽至鄰近位置。', example: 'pull();' },
+  { id: 'hack_wall', label: '🗑️ 垃圾回收 (hack_wall)', type: 'action', ap: 1, reqModule: 'module_hack', desc: '強制格式化前方的障礙物。', example: 'hack_wall();' },
+  { id: 'heal', label: '💖 補血 (heal)', type: 'action', mp: 1, reqModule: 'module_heal', desc: '消耗MP恢復機甲結構值。', example: 'heal();' },
+  { id: 'hasKey', label: '🔑 有鑰匙 (hasKey)', type: 'sensor', ap: 0, reqModule: 'module_radar', desc: '檢查是否持有訪問金鑰。', example: 'if (hasKey()) {\n  open();\n}' },
+  { id: 'lowHp', label: '🩸 血量過低 (lowHp)', type: 'sensor', ap: 0, reqModule: 'module_radar', desc: '當 HP 低於 30% 時回傳 True。', example: 'if (lowHp()) {\n  heal();\n}' }
 ];

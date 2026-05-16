@@ -53,10 +53,36 @@ export const REWARD_POOL = [
   }
 ];
 
+
+export const REWARD_DICT = [
+  // --- 元素附魔 ---
+  {
+    id: 'relic_fire', name: '紅炎核心', desc: '攻擊附帶火焰，對敵人造成燃燒視覺。',
+    icon: '🔥', type: 'relic', relicId: 'element_fire'
+  },
+  {
+    id: 'relic_lightning', name: '高壓線圈', desc: '攻擊附帶雷電特效。',
+    icon: '⚡', type: 'relic', relicId: 'element_lightning'
+  },
+  {
+    id: 'relic_ice', name: '絕對零度', desc: '攻擊附帶冰凍特效。',
+    icon: '❄️', type: 'relic', relicId: 'element_ice'
+  },
+  
+  // --- 物理變異 ---
+  {
+    id: 'relic_cleave', name: '空間震盪器', desc: '攻擊範圍擴散至目標的左右兩側 (橫掃)。',
+    icon: '🌊', type: 'relic', relicId: 'modifier_cleave'
+  },
+  {
+    id: 'relic_double', name: '超頻齒輪', desc: '攻擊將會連續發動兩次 (連擊)。',
+    icon: '⚔️', type: 'relic', relicId: 'modifier_double'
+  }
+];
 /**
  * 隨機抽出 N 個不重複的獎勵
  */
 export const getRandomRewards = (count = 3) => {
-  const shuffled = [...REWARD_POOL].sort(() => 0.5 - Math.random());
+  const shuffled = [...REWARD_POOL, ...REWARD_DICT].sort(() => 0.5 - Math.random());
   return shuffled.slice(0, count);
 };
