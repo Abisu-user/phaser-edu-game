@@ -18,42 +18,47 @@
       <div v-if="isEndlessUnlocked" class="absolute top-0 right-0 w-72 h-72 bg-fuchsia-500/20 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none transition-transform group-hover:scale-110"></div>
       <div v-if="isEndlessUnlocked" class="absolute bottom-0 left-0 w-48 h-48 bg-indigo-500/20 rounded-full blur-3xl -ml-10 -mb-10 pointer-events-none"></div>
 
-      <div class="p-8 md:p-10 flex flex-col md:flex-row items-center justify-between relative z-10">
+      <div class="p-8 md:p-10 flex flex-col md:flex-row items-center justify-between relative z-10 font-serif">
         <div class="flex-1">
-          <div class="flex items-center gap-3 mb-3">
-            <span v-if="isEndlessUnlocked" class="px-3 py-1 bg-fuchsia-500/20 text-fuchsia-300 text-sm font-bold rounded-md border border-fuchsia-500/30">
-              ⚡ 全新挑戰
+          <div class="flex items-center gap-3 mb-4">
+            <span v-if="isEndlessUnlocked" class="px-3 py-1.5 bg-[#2A1810] text-[#DAA520] text-sm font-black rounded-sm border-2 border-[#593922] shadow-[inset_0_0_5px_rgba(218,165,32,0.2)]">
+              ✨ 遠古試煉
             </span>
-            <span v-else class="px-3 py-1 bg-slate-800 text-slate-400 text-sm font-bold rounded-md border border-slate-700 flex items-center gap-1.5">
-              🔒 尚未解鎖
+            <span v-else class="px-3 py-1.5 bg-[#0F0805] text-[#593922] text-sm font-black rounded-sm border-2 border-[#1C110C] flex items-center gap-1.5 shadow-inner">
+              🔒 結界封印中
             </span>
           </div>
           
-          <h2 class="text-3xl md:text-4xl font-bold mb-3 tracking-wide" 
-              :class="isEndlessUnlocked ? 'text-white' : 'text-slate-500'"
-              style="font-family:'Fredoka',sans-serif;">
-            【挑戰】無盡程式塔
+          <h2 class="text-3xl md:text-4xl font-black mb-3 tracking-widest drop-shadow-[0_2px_2px_rgba(0,0,0,1)]" 
+              :class="isEndlessUnlocked ? 'text-[#FFD700]' : 'text-[#593922]'">
+            【深淵】無盡地下城
           </h2>
           
-          <p class="text-lg" :class="isEndlessUnlocked ? 'text-fuchsia-200/70' : 'text-slate-500'">
-            RogueLike 模式：隨機地圖、動態生成、無限難度。<br v-if="!isEndlessUnlocked" />
-            <span v-if="!isEndlessUnlocked" class="text-rose-400/90 text-sm mt-2 block font-medium">※ 需通關所有「基礎邏輯教學」才能解鎖此模式</span>
-            <span v-else>你能用程式邏輯爬到第幾層？</span>
+          <p class="text-lg font-bold" :class="isEndlessUnlocked ? 'text-[#D7CCC8]' : 'text-[#593922]'">
+            迷宮法則：變幻莫測的通道、未知的魔物、無盡的深淵。<br v-if="!isEndlessUnlocked" />
+            <span v-if="!isEndlessUnlocked" class="text-[#8B0000] text-sm mt-2 block font-black drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">
+              ※ 需完成所有「初級魔法與劍術試煉」才能解除封印
+            </span>
+            <span v-else class="text-[#A08060] drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">
+              你能憑藉法術與劍刃深入到第幾層？
+            </span>
           </p>
         </div>
         
         <div class="mt-6 md:mt-0 shrink-0">
           <button 
-            class="px-8 py-4 font-bold text-lg rounded-xl shadow-lg transition-all flex items-center gap-3 border"
+            @click="isEndlessUnlocked ? $emit('open-endless-mode') : null"
+            class="px-8 py-4 font-black text-lg rounded-sm shadow-[0_4px_15px_rgba(0,0,0,0.5)] transition-all flex items-center gap-3 border-2 tracking-widest active:translate-y-1"
             :class="[
               isEndlessUnlocked 
-                ? 'bg-gradient-to-r from-fuchsia-600 to-indigo-600 hover:from-fuchsia-500 hover:to-indigo-500 text-white transform group-hover:scale-105 border-fuchsia-400/50' 
-                : 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed'
+                ? 'bg-gradient-to-br from-[#8B0000] to-[#4A0000] text-[#FFD700] border-[#DAA520] hover:shadow-[0_0_20px_rgba(218,165,32,0.3)] hover:scale-105 group' 
+                : 'bg-[#0F0805] text-[#3A2318] border-[#1C110C] cursor-not-allowed opacity-60 grayscale'
             ]"
             :disabled="!isEndlessUnlocked"
           >
-            <span>{{ isEndlessUnlocked ? '進入高塔' : '未達條件' }}</span>
-            <span v-if="isEndlessUnlocked" class="text-2xl group-hover:translate-x-1 transition-transform">🚀</span>
+            <span class="drop-shadow-md">{{ isEndlessUnlocked ? '踏入深淵' : '封印未解' }}</span>
+            
+            <span v-if="isEndlessUnlocked" class="text-2xl group-hover:translate-x-1.5 transition-transform">⚔️</span>
             <span v-else class="text-xl">🔒</span>
           </button>
         </div>

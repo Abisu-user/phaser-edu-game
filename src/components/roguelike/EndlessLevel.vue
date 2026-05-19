@@ -16,18 +16,20 @@
         :maxMp="maxMp"
         :ap="ap"
         :maxAp="maxAp"
-        :atk="atk"  
+        :attack="atk"  
         :coins="coins"
         :level="level"
         :xp="xp"
         :totalExp="totalExp"
-        :inventory="inventory"   @stop="handleStopAndSave"
+        :inventory="inventory"   
+        @stop="handleStopAndSave"
         @abandon="handleAbandonGame"
         @init-game="initPhaser"
         @execute="handleExecute"
         @update-stats="handleUpdateStats"
         @floor-cleared="handleNextFloor"
-        @update-inventory="handleUpdateInventory" />
+        @update-inventory="handleUpdateInventory" 
+      />
     </transition>
   </div>
 </template>
@@ -61,7 +63,10 @@ const xp = ref(0);
 const totalExp = ref(0);
 const inventory = ref([]);
 
-// 🌟 新增：存放當前地圖資料
+// 🌟 修正 1：補上遺漏的 stat_points 宣告，避免升級時報錯崩潰！
+const stat_points = ref(0); 
+
+// 存放當前地圖資料
 const mapData = ref(null);
 
 const handleStart = async (data) => {
@@ -84,7 +89,8 @@ const handleStart = async (data) => {
     xp.value = data.xp || 0;
     totalExp.value = data.total_exp || 0;
     inventory.value = data.inventory || [];
-    // 🌟 讀取地圖資料 (如果有存檔的話)
+    stat_points.value = data.stat_points || 0;
+    
     mapData.value = data.map_data || null;
     
     if (currentUserId.value) {
@@ -94,14 +100,11 @@ const handleStart = async (data) => {
   isGameStarted.value = true;
 };
 
-// 🌟 處理戰鬥中消耗道具的事件
 const handleUpdateInventory = async (newInventory) => {
   inventory.value = newInventory;
   
-  // 1. 更新當下這局的存檔
   await saveToTowerSaves();
 
-  // 2. 立即同步回「大廳資料庫」，防止玩家中途跳GAME導致道具沒扣到
   if (currentUserId.value) {
     try {
       await supabase
@@ -117,14 +120,13 @@ const handleUpdateInventory = async (newInventory) => {
 const saveToTowerSaves = async () => {
   if (!currentUserId.value) return;
   
-  // 🌟 存檔前，先向遊戲引擎索取最新的地圖狀態 (包含玩家走到哪了)
   let currentMapData = mapData.value;
   if (game.value) {
     const scene = game.value.scene.getScene('EndlessScene');
     if (scene && typeof scene.exportMapState === 'function') {
       try {
         currentMapData = scene.exportMapState();
-        mapData.value = currentMapData; // 同步到 Vue 變數
+        mapData.value = currentMapData; 
       } catch (err) {
         console.warn("地圖資料匯出失敗", err);
       }
@@ -133,33 +135,35 @@ const saveToTowerSaves = async () => {
 
   console.log("💾 正在同步當前進度至 tower_saves...");
   await supabase
-    .from('tower_saves')
+    .from('tower_saves') 
     .upsert({
         user_id: currentUserId.value,
-        current_floor: floor.value,
+        
+        // 🌟 修正：把欄位名稱加回 current_ 前綴，對齊你的資料庫！
+        current_floor: floor.value, 
         current_hp: hp.value,
         max_hp: maxHp.value,
         current_mp: mp.value,
         max_mp: maxMp.value,
         current_ap: ap.value,
         max_ap: maxAp.value,
-        current_atk: maxAtk.value, 
+        current_atk: atk.value,  
         max_atk: maxAtk.value,     
+        
         coins: coins.value,
         level: level.value,
         xp: xp.value,
         total_exp: totalExp.value,
-        map_data: currentMapData, // 🌟 寫入地圖 JSON
-        inventory: inventory.value, // 🌟 寫入背包資料
+        map_data: currentMapData,
+        inventory: inventory.value, 
         updated_at: new Date()
-        }, { onConflict: 'user_id' });
+    }, { onConflict: 'user_id' }); // 確保衝突時更新
 };
 
 const handleNextFloor = async () => {
   console.log("🚀 [EndlessLevel] 準備進入下一層...");
   floor.value++;
   
-  // 🌟 進入下一層時，必須清除舊地圖，讓系統重新生成新地形
   mapData.value = null; 
   await saveToTowerSaves(); 
   
@@ -171,67 +175,117 @@ const handleNextFloor = async () => {
   }
 };
 
-const handleStopAndSave = () => {
-  isGameStarted.value = false; 
-  setTimeout(async () => {
-    await saveToTowerSaves();
-    if (game.value) {
-      game.value.destroy(true);
-      game.value = null;
+const handleStopAndSave = async () => {
+  console.log("💾 [暫時中斷] 正在打包所有戰局資料存入 tower_saves...");
+
+  let currentMapState = null;
+  if (game.value) {
+    const currentScene = game.value.scene.getScene('EndlessScene');
+    if (currentScene) {
+      currentMapState = currentScene.exportMapState();
     }
-  }, 50);
-};
+  }
 
-const handleAbandonGame = () => {
-  isGameStarted.value = false; 
-  setTimeout(async () => {
-    if (!currentUserId.value) return;
+  let lobbyDataToRestore = null;
 
-    try {
+  try {
+    if (currentUserId.value) {
       const { data: lobbyData } = await supabase
         .from('tower_lobby')
-        .select('best_floor')
+        .select('*')
         .eq('user_id', currentUserId.value)
         .single();
-        
-      const oldBestFloor = lobbyData?.best_floor || 0;
+      
+      lobbyDataToRestore = lobbyData;
 
+      await supabase
+        .from('tower_saves')
+        .upsert({
+          user_id: currentUserId.value,
+          
+          // 🌟 修正：把欄位名稱加回 current_ 前綴！
+          current_floor: floor.value,
+          map_data: currentMapState,
+          inventory: inventory.value,
+          coins: coins.value,
+          current_hp: hp.value,
+          max_hp: maxHp.value,
+          current_mp: mp.value,
+          max_mp: maxMp.value,
+          current_ap: ap.value,
+          max_ap: maxAp.value,
+          current_atk: atk.value
+          
+        }, { onConflict: 'user_id' }); // 🌟 補上這個設定，確保如果已有存檔會直接覆蓋
+      
+      console.log("✅ [tower_saves] 局內資料已安全暫存。");
+    }
+  } catch (err) {
+    console.error("❌ 暫時中斷存檔失敗:", err);
+  }
+
+  isGameStarted.value = false;
+  resetLocalStatsToDefault(lobbyDataToRestore);
+};
+
+const handleAbandonGame = async () => {
+  console.log("💀 [終結連線] 開始結算永久資源，並格式化戰局...");
+
+  try {
+    if (currentUserId.value) {
+      const { data: lobbyData } = await supabase
+        .from('tower_lobby') 
+        .select('*')
+        .eq('user_id', currentUserId.value)
+        .single();
+
+      const oldBestFloor = lobbyData?.best_floor || 1;
+      const newBestFloor = floor.value > oldBestFloor ? floor.value : oldBestFloor;
+      const totalCoins = (lobbyData?.coins || 0) + coins.value;
+      const finalInventory = inventory.value; 
+
+      console.log("☁️ 正在將永久資源傳遞給 tower_lobby...");
+      
+      // 🌟 修正 4：把清除寫死狀態的多餘呼叫刪掉，只保留有傳 lobbyData 的這行
+      resetLocalStatsToDefault(lobbyData);
+      
       await supabase
         .from('tower_lobby')
         .update({
-            coins: coins.value,           
-            level: level.value,           
-            xp: xp.value,               
-            total_exp: totalExp.value,  
-            best_floor: Math.max(oldBestFloor, floor.value), 
-            updated_at: new Date()
+          best_floor: newBestFloor,
+          coins: totalCoins,
+          inventory: finalInventory
         })
         .eq('user_id', currentUserId.value);
 
+      console.log("✅ 永久資源已成功回收至大廳！");
+
+      console.log("🧹 正在清空 tower_saves 暫存資料...");
       await supabase
         .from('tower_saves')
         .delete()
         .eq('user_id', currentUserId.value);
-
-    } catch (err) {
-      console.error("❌ 結算失敗:", err);
-    } finally {
-      if (game.value) {
-        game.value.destroy(true);
-        game.value = null;
-      }
+        
+      console.log("🗑️ tower_saves 暫存檔已安全抹除。");
     }
-  }, 50);
+  } catch (err) {
+    console.error("❌ 終結連線資料結算或清除失敗:", err);
+  }
+
+  floor.value = 1;
+  mapData.value = null; 
+  inventory.value = [];
+  coins.value = 0;
+  
+  isGameStarted.value = false;
 };
 
 const handleUpdateStats = async (newStats) => {
-  let isLeveledUp = false;
-
   // 更新本地變數
   if (newStats.maxHp !== undefined) maxHp.value = newStats.maxHp;
   if (newStats.maxMp !== undefined) maxMp.value = newStats.maxMp;
   if (newStats.maxAp !== undefined) maxAp.value = newStats.maxAp;
-  if (newStats.atk !== undefined) atk.value = newStats.atk;
+  if (newStats.attack !== undefined) atk.value = newStats.attack;
   if (newStats.hp !== undefined) hp.value = Math.min(newStats.hp, maxHp.value);
   if (newStats.mp !== undefined) mp.value = Math.min(newStats.mp, maxMp.value);
   if (newStats.ap !== undefined) ap.value = Math.min(newStats.ap, maxAp.value);
@@ -240,42 +294,38 @@ const handleUpdateStats = async (newStats) => {
 
   // 處理經驗值與升級邏輯
   if (newStats.xp !== undefined) {
-  xp.value = newStats.xp;
-  let pointsGained = 0;
-  
-  while (xp.value >= level.value * 100) {
-    xp.value -= level.value * 100; 
-    level.value++;
-    // 🌟 核心變更：不再自動加 HP/ATK，改為給予屬性點 (例如每級 5 點)
-    pointsGained += 5;
-  }
-
-  if (pointsGained > 0) {
-    // 更新本地顯示
-    stat_points.value = (stat_points.value || 0) + pointsGained;
+    xp.value = newStats.xp;
+    let pointsGained = 0;
     
-    // 同步到雲端，讓玩家在大廳可以分配
-    await supabase.from('profiles').update({ 
-      level: level.value, 
-      xp: xp.value,
-      stat_points: stat_points.value 
-    }).eq('id', currentUserId.value);
+    while (xp.value >= level.value * 100) {
+      xp.value -= level.value * 100; 
+      level.value++;
+      pointsGained += 5;
+    }
 
-    await supabase.from('tower_lobby').update({ 
-      level: level.value, 
-      xp: xp.value,
-      stat_points: stat_points.value 
-    }).eq('user_id', currentUserId.value);
+    if (pointsGained > 0) {
+      stat_points.value = (stat_points.value || 0) + pointsGained;
+      
+      await supabase.from('profiles').update({ 
+        level: level.value, 
+        xp: xp.value,
+        stat_points: stat_points.value 
+      }).eq('id', currentUserId.value);
+
+      await supabase.from('tower_lobby').update({ 
+        level: level.value, 
+        xp: xp.value,
+        stat_points: stat_points.value 
+      }).eq('user_id', currentUserId.value);
+    }
   }
-}
 
-  // 1. 同步至當前戰鬥存檔 (tower_saves) - 確保重新整理後戰鬥狀態還在
+  // 1. 同步至當前戰鬥存檔 (tower_saves)
   await saveToTowerSaves();
 
-  // 2. 🌟 [關鍵同步] 如果有變動，同步至「外部大廳」與「高塔大廳」資料庫
+  // 2. 同步外部大廳與高塔大廳
   if (currentUserId.value) {
     try {
-      // 同步更新「外部大廳」的全服等級 (profiles 表)
       await supabase
         .from('profiles')
         .update({
@@ -285,23 +335,19 @@ const handleUpdateStats = async (newStats) => {
         })
         .eq('id', currentUserId.value);
 
-      // 同步更新「高塔大廳」的等級 (tower_lobby 表)
       await supabase
         .from('tower_lobby')
         .update({
           level: level.value,
           xp: xp.value,
-          total_exp: totalExp.value,
-          max_hp: maxHp.value,
-          max_atk: atk.value,
-          max_mp: maxMp.value,
-          max_ap: maxAp.value
+          total_exp: totalExp.value
+          // 🌟 修正 3：刪除這裡的 max_hp, max_atk 等，嚴格禁止局內升級污染大廳！
         })
         .eq('user_id', currentUserId.value);
 
-      console.log(`[🔄 同步成功] 等級: ${level.value} 已同步至全服存檔`);
+      console.log(`[🔄 同步成功] 等級: ${level.value} 已同步`);
     } catch (err) {
-      console.error('同步全服等級失敗:', err);
+      console.error('同步等級失敗:', err);
     }
   }
 };
@@ -319,7 +365,6 @@ const handleExecute = (commandIds) => {
   }
 };
 
-// 🌟 新增：讓 Phaser 剛啟動時可以跟 Vue 索取最新的地圖資料
 const provideInitData = (e) => {
   e.detail.data = {
     floor: floor.value,
@@ -337,21 +382,51 @@ onUnmounted(() => {
 
 const initPhaser = async () => {
   await nextTick();
-  if (game.value) game.value.destroy(true);
+  if (game.value) {
+    game.value.destroy(true);
+    game.value = null;
+  }
 
-  const config = {
-    type: Phaser.AUTO,
-    parent: 'endless-game-container',
-    width: '100%',
-    height: '100%',
-    transparent: true,
-    physics: {
-      default: 'arcade',
-      arcade: { debug: false }
-    },
-    scene: [EndlessScene]
-  };
-  game.value = new Phaser.Game(config);
+  setTimeout(() => {
+    if (!isGameStarted.value) return;
+
+    const config = {
+      type: Phaser.AUTO,
+      parent: 'endless-game-container',
+      width: '100%',
+      height: '100%',
+      transparent: true,
+      physics: {
+        default: 'arcade',
+        arcade: { debug: false }
+      },
+      scene: [EndlessScene]
+    };
+    game.value = new Phaser.Game(config);
+    console.log("🎮 [Phaser] 容器尺寸已穩定，遊戲引擎成功安全啟動。");
+  }, 100);
+};
+
+const resetLocalStatsToDefault = (lobbyData) => {
+  if (!lobbyData) {
+    maxHp.value = 100;   hp.value = 100;
+    maxMp.value = 50;    mp.value = 50;
+    maxAp.value = 10;    ap.value = 10;
+    atk.value = 10;      maxAtk.value = 10;
+    return;
+  }
+
+  maxHp.value = lobbyData.max_hp || 100;
+  hp.value = lobbyData.max_hp || 100; 
+
+  maxMp.value = lobbyData.max_mp || 50;
+  mp.value = lobbyData.max_mp || 50;
+
+  maxAp.value = lobbyData.max_ap || 10;
+  ap.value = lobbyData.max_ap || 10;
+
+  atk.value = lobbyData.max_atk || 10; 
+  maxAtk.value = lobbyData.max_atk || 10;
 };
 </script>
 

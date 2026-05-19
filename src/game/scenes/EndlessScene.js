@@ -3,15 +3,33 @@ import { ENEMY_DICT } from '../config/Enemies';
 import { HAZARD_DICT } from '../config/Hazards';
 import { ROOM_TYPES, FLOOR_CONFIG } from '../config/LevelRules';
 import { SKILL_DICT, compileToBehavior } from '../config/PlayerSkills';
+import { COMMAND_DICT } from '../config/CommandList';
+
+const AP_COSTS = COMMAND_DICT.reduce((map, cmd) => {
+  map[cmd.id] = cmd.ap !== undefined ? cmd.ap : 1;
+  return map;
+}, {});
+
+// === 🌟 自訂錯誤類別：斷電中斷 ===
+class OutOfAPError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "OutOfAPError";
+  }
+}
 
 export default class EndlessScene extends Phaser.Scene {
   constructor() {
     super({ key: 'EndlessScene' });
   }
 
+  // ==========================================
+  // 1. 初始化與生命週期 (Init & Lifecycle)
+  // ==========================================
   init(data) {
     this.currentFloor = data?.floor;
     this.mapData = data?.mapData;
+    this.isGameOverInterrupted = false;
 
     if (this.currentFloor === undefined) {
       const event = new CustomEvent('tower-request-init-data', { detail: { data: {} } });
@@ -22,6 +40,9 @@ export default class EndlessScene extends Phaser.Scene {
     
     console.log(`🎮 [EndlessScene] 初始化樓層: ${this.currentFloor}`);
     this.levelConfig = FLOOR_CONFIG ? FLOOR_CONFIG.getDifficulty(this.currentFloor) : { gridSize: 10, enemyCount: 2, allowedEnemies: ['patrol_bug'], winCondition: { type: 'reach_goal' } };
+
+    this.turnCounter = 1;
+    this.isPlayerTurn = true;
   }
 
   preload() {
@@ -29,19 +50,30 @@ export default class EndlessScene extends Phaser.Scene {
   }
 
   create() {
-    console.log("🛠️ [EndlessScene] 場景物件生成中...");
+    console.log("📜 [EndlessScene] 展開地下城地圖卷軸...");
     
+    // 🌟 1. 設定畫布背景底色 (深色石板/泥土感)
+    this.cameras.main.setBackgroundColor(0x150C08); // 深邃的地下城暗角底色
+
+    // 初始化陣列與狀態
     this.enemies = [];
     this.hazards = [];
     this.walls = [];
     this.coins = [];
     this.keys = [];
     this.relics = [];
-    this.terminal = null;
-    
+    this.terminal = null; // 奇幻化：通往下層的古代石碑/傳送陣
     this.enemiesKilled = 0;
     this.keysCollected = 0;
+    this.playerAttack = 10;
+
+    // 回合與 AP(行動耐力) 系統初始化
+    this.currentAp = this.maxAp;
+    this.turnCounter = 1;
+    this.isPlayerTurn = true;
+    this.isGameOverInterrupted = false;
     
+    // 網格設定
     const baseSize = this.levelConfig.gridSize || 10; 
     const extraSize = Math.floor(this.currentFloor / 3);
     this.cols = Math.min(baseSize + extraSize, 20); 
@@ -50,12 +82,14 @@ export default class EndlessScene extends Phaser.Scene {
 
     this.setupGrid();
 
+    // 監聽晶片(遺物)安裝
     const onAddRelic = (e) => {
         if (!this.relics.includes(e.detail)) this.relics.push(e.detail);
-        console.log("當前已安裝晶片:", this.relics);
+        console.log("💎 當前已獲得女神祝福(遺物):", this.relics);
     };
     window.addEventListener('tower-add-relic', onAddRelic);
 
+    // 地圖生成或讀檔
     if (this.mapData) {
       this.restoreMapState(this.mapData);
     } else {
@@ -63,60 +97,50 @@ export default class EndlessScene extends Phaser.Scene {
       this.generateLevel();
     }
 
+    // 🌟 2. UI 瞄準系統 (魔法軌跡)
     this.isTargeting = false;
     this.ENABLE_AIMING_UI = false; 
     
-    this.targetingOverlay = this.add.rectangle(
-        this.scale.width / 2, this.scale.height / 2, 
-        this.scale.width, this.scale.height, 
-        0x000000, 0.6
-    ).setDepth(40).setVisible(false);
-
-    this.targetHighlight = this.add.rectangle(0, 0, this.tileSize, this.tileSize, 0x00ff00, 0.4)
-        .setStrokeStyle(2, 0x00ff00)
-        .setDepth(50) 
-        .setVisible(false);
-
+    // 遮罩：施法時的暗角
+    this.targetingOverlay = this.add.rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x000000, 0.7).setDepth(40).setVisible(false);
+    
+    // 目標高光：從螢光綠改成「發光的魔法金框」
+    this.targetHighlight = this.add.rectangle(0, 0, this.tileSize, this.tileSize, 0xDAA520, 0.3)
+      .setStrokeStyle(3, 0xFFD700, 0.8) // 金色邊框
+      .setDepth(50)
+      .setVisible(false);
+      
+    // 瞄準線：魔法流動軌跡
     this.aimingLine = this.add.graphics().setDepth(45);
 
+    // 綁定輸入事件 (滑鼠/觸控描繪法術軌跡)
     this.input.on('pointermove', (pointer) => {
       if (!this.ENABLE_AIMING_UI || !this.isTargeting || !this.targetHighlight || !this.aimingLine) return;
-      
       const { gx, gy } = this.getGridFromPointer(pointer);
       this.aimingLine.clear();
       this.targetHighlight.setVisible(false);
 
       if (gx >= 0 && gx < this.cols && gy >= 0 && gy < this.rows) {
         const path = this.findPath(this.playerGridX, this.playerGridY, gx, gy);
-
         if (path) {
           const px = this.startX + gx * this.tileSize;
           const py = this.startY + gy * this.tileSize;
           this.targetHighlight.setPosition(px, py).setVisible(true);
 
-          this.aimingLine.lineStyle(4, 0x00ff00, 0.7); 
+          // ✨ 可行走路徑：魔力流動的金色軌跡
+          this.aimingLine.lineStyle(5, 0xDAA520, 0.8); 
           this.aimingLine.beginPath();
-          
-          const playerPx = this.startX + this.playerGridX * this.tileSize;
-          const playerPy = this.startY + this.playerGridY * this.tileSize;
-          this.aimingLine.moveTo(playerPx, playerPy);
-
+          this.aimingLine.moveTo(this.startX + this.playerGridX * this.tileSize, this.startY + this.playerGridY * this.tileSize);
           for (let p of path) {
-            const nodePx = this.startX + p.x * this.tileSize;
-            const nodePy = this.startY + p.y * this.tileSize;
-            this.aimingLine.lineTo(nodePx, nodePy);
+            this.aimingLine.lineTo(this.startX + p.x * this.tileSize, this.startY + p.y * this.tileSize);
           }
           this.aimingLine.strokePath();
         } else {
-          const playerPx = this.startX + this.playerGridX * this.tileSize;
-          const playerPy = this.startY + this.playerGridY * this.tileSize;
-          const px = this.startX + gx * this.tileSize;
-          const py = this.startY + gy * this.tileSize;
-
-          this.aimingLine.lineStyle(4, 0xff0000, 0.5); 
+          // 🩸 死路/障礙物：魔力斷絕的暗紅色
+          this.aimingLine.lineStyle(5, 0x8B0000, 0.6); 
           this.aimingLine.beginPath();
-          this.aimingLine.moveTo(playerPx, playerPy);
-          this.aimingLine.lineTo(px, py);
+          this.aimingLine.moveTo(this.startX + this.playerGridX * this.tileSize, this.startY + this.playerGridY * this.tileSize);
+          this.aimingLine.lineTo(this.startX + gx * this.tileSize, this.startY + gy * this.tileSize);
           this.aimingLine.strokePath();
         }
       }
@@ -125,35 +149,72 @@ export default class EndlessScene extends Phaser.Scene {
     this.input.on('pointerdown', (pointer) => {
       if (!this.ENABLE_AIMING_UI || !this.isTargeting) return;
       const { gx, gy } = this.getGridFromPointer(pointer);
-      
       if (gx >= 0 && gx < this.cols && gy >= 0 && gy < this.rows) {
         const path = this.findPath(this.playerGridX, this.playerGridY, gx, gy);
         if (!path) {
-          console.log("❌ 死路！請點擊綠線可抵達的範圍。");
-          this.cameras.main.shake(150, 0.01); 
+          console.log("❌ 死路！法術軌跡被阻擋。");
+          this.cameras.main.shake(200, 0.015); // 增加一點死路的碰撞震動感
           return; 
         }
         this.finishTargeting(gx, gy, path);
       }
     });
 
+    // === 🌟 核心：因果律狀態機接管玩家詠唱 ===
     this.events.off('PLAYER_EXECUTE');
-    this.events.on('PLAYER_EXECUTE', (payload) => {
-      if (typeof payload === 'string') {
-          this.executeRawCode(payload); 
-      } else {
-          this.executeTurnSequence(payload); 
+    this.events.on('PLAYER_EXECUTE', async (payload) => {
+      if (!this.isPlayerTurn) {
+          console.log("⏳ 施法硬直中！魔力尚未平息。");
+          return;
       }
+      this.isPlayerTurn = false;
+
+      // 1. 執行玩家回合 (法術詠唱)
+      if (typeof payload === 'string') {
+          await this.executeRawCode(payload); 
+      } else {
+          await this.executeTurnSequence(payload); 
+      }
+
+      // 2. 檢查石碑/下層傳送陣 (如果破關，直接 return 終止後續)
+      if (this.checkTerminalState()) return; 
+
+      // 3. 怪物回合 (魔物行動)
+      await this.processEnemyTurns();
+
+      // 4. 重置回合 (魔力回充)
+      this.resetTurn();
     }, this);
 
     const onStartTargeting = () => this.startTargeting();
     const onCancelTargeting = () => this.cancelTargeting();
-
+    const onRetryGame = () => {
+       console.log("🔄 [Phaser] 時光倒流：重新載入迷宮...");
+       
+       this.isGameOverInterrupted = false; // 解除死亡鎖定
+       
+       // 強制傳入 floor: 1 以及空的 mapData，保證地圖重骰！
+       this.scene.restart({ floor: 1, mapData: null });
+    };
+    const onSyncStats = (e) => {
+        this.playerAttack = e.detail.attack;
+        
+        // 如果是滿 AP 的狀態 (通常是剛換層)，就連當前 AP 一起擴充
+        if (this.currentAp === this.maxAp) {
+            this.maxAp = e.detail.maxAp;
+            this.currentAp = this.maxAp;
+        } else {
+            this.maxAp = e.detail.maxAp;
+        }
+        this.emitApUpdate(); // 通知 UI 更新行動耐力
+    };
+    window.addEventListener('tower-retry-game', onRetryGame);
     window.addEventListener('tower-start-targeting', onStartTargeting);
     window.addEventListener('tower-cancel-targeting', onCancelTargeting);
+    window.addEventListener('tower-sync-player-stats', onSyncStats);
 
     this.events.once('shutdown', () => {
-      console.log("🧹 [EndlessScene] 場景關閉，正在清理全域監聽器...");
+      console.log("🧹 [EndlessScene] 地圖卷軸收起，清理法力殘留...");
       window.removeEventListener('tower-start-targeting', onStartTargeting);
       window.removeEventListener('tower-cancel-targeting', onCancelTargeting);
       window.removeEventListener('tower-add-relic', onAddRelic);
@@ -161,143 +222,40 @@ export default class EndlessScene extends Phaser.Scene {
     
     this.showFloorObjective();
     this.updateObjectiveUI();
-  }
-  
-  updateObjectiveUI() {
-    const cond = this.levelConfig.winCondition;
-    let text = "";
-
-    if (cond.type === 'reach_goal') {
-      text = "🎯 目標：抵達終點";
-    } else if (cond.type === 'kill_enemies') {
-      text = `🎯 目標：\n1. 擊殺怪物 (${this.enemiesKilled}/${cond.targetValue})\n2. 抵達終點`;
-    } else if (cond.type === 'collect_keys') {
-      text = `🎯 目標：\n1. 收集鑰匙 (${this.keysCollected}/${cond.targetValue})\n2. 抵達終點`;
-    } else if (cond.type === 'exterminate') {
-      text = `🎯 目標：\n1. 殲滅所有病毒 (剩餘 ${this.enemies.length})\n2. 抵達終點`;
-    }
-
-    window.dispatchEvent(new CustomEvent('tower-objective-updated', { detail: text }));
-  }
-
-  showFloorObjective() {
-      const condition = this.levelConfig.winCondition;
-      let msg = "";
-      if (condition.type === 'kill_enemies') {
-          msg = `本層目標：擊殺至少 ${condition.targetValue} 隻病毒！`;
-      } else if (condition.type === 'collect_keys') {
-          msg = `本層目標：收集 ${condition.targetValue} 把資料金鑰以解鎖終端機！`;
-      } else if (condition.type === 'exterminate') {
-          msg = `本層目標：殲滅所有病毒！`;
-      }
-      
-      if (msg) {
-          this.time.delayedCall(500, () => {
-              this.showErrorMessage(msg, '#1d4ed8', '#1e3a8a'); 
-          });
-      }
-  }
-
-  setupGrid() {
-    const canvasWidth = this.scale.width;
-    const canvasHeight = this.scale.height;
-    const padding = 80; 
-
-    const maxTileW = (canvasWidth - padding) / this.cols;
-    const maxTileH = (canvasHeight - padding) / this.rows;
-    this.tileSize = Math.floor(Math.min(maxTileW, maxTileH));
-    this.tileSize = Phaser.Math.Clamp(this.tileSize, 32, 120);
-
-    const mapWidth = this.cols * this.tileSize;
-    const mapHeight = this.rows * this.tileSize;
-    this.startX = (canvasWidth - mapWidth) / 2 + this.tileSize / 2;
-    this.startY = (canvasHeight - mapHeight) / 2 + this.tileSize / 2;
-
-    for (let y = 0; y < this.rows; y++) {
-      for (let x = 0; x < this.cols; x++) {
-        const px = this.startX + x * this.tileSize;
-        const py = this.startY + y * this.tileSize;
-        
-        this.add.rectangle(px, py, this.tileSize - 2, this.tileSize - 2, 0x08080C)
-            .setStrokeStyle(1, 0x1A1A2E, 0.5);
-      }
-    }
-  }
-
- setupPlayer() {
-    this.playerGridX = Phaser.Math.Between(0, this.cols - 1);
-    this.playerGridY = Phaser.Math.Between(0, this.rows - 1);
-    this.playerFacing = { dx: 0, dy: -1 }; 
-
-    const px = this.startX + this.playerGridX * this.tileSize;
-    const py = this.startY + this.playerGridY * this.tileSize;
-    this.add.rectangle(px, py, this.tileSize - 4, this.tileSize - 4, 0x10b981, 0.1)
-        .setStrokeStyle(2, 0x10b981, 0.8);
-    this.add.text(px, py, 'START', { fontSize: '10px', color: '#10b981' }).setOrigin(0.5, 2.5);
-
-    this.createPlayerGraphic(px, py);
-  }
-
-  createPlayerGraphic(x, y) {
-    if (this.player) this.player.destroy();
+    this.emitApUpdate();
+    window.dispatchEvent(new CustomEvent('tower-turn-started', { detail: { turn: this.turnCounter } }));
     
-    const glow = this.add.circle(0, 0, this.tileSize * 0.5, 0x6366f1, 0.2);
-    this.tweens.add({
-      targets: glow,
-      scale: 1.2,
-      alpha: 0.1,
-      duration: 1000,
-      yoyo: true,
-      repeat: -1
+    // 🌟 收到死亡信號，立刻切斷所有法術詠唱
+    window.addEventListener('tower-game-over-triggered', () => {
+       this.isGameOverInterrupted = true;
     });
-
-    this.playerBody = this.add.rectangle(0, 0, this.tileSize * 0.6, this.tileSize * 0.6, 0x6366f1)
-        .setStrokeStyle(2, 0xffffff);
-        
-    const head = this.add.rectangle(0, -this.tileSize * 0.2, this.tileSize * 0.3, this.tileSize * 0.15, 0xffffff);
-    
-    this.player = this.add.container(x, y, [glow, this.playerBody, head]);
-    this.player.setDepth(20);
   }
 
-  generateLevel() {
-    this.spawnTerminal();
-
-    const wallCount = Math.floor(this.cols * this.rows * 0.20); 
-    this.spawnWalls(wallCount);
-
-    for (let i = 0; i < this.levelConfig.enemyCount; i++) {
-      const enemyIds = this.levelConfig.allowedEnemies;
-      const enemyId = Phaser.Utils.Array.GetRandom(enemyIds) || 'patrol_bug';
-      if (ENEMY_DICT && ENEMY_DICT[enemyId]) this.spawnEnemy(enemyId);
-    }
-
-    const hazardCount = Math.floor(this.cols / 3);
-    for (let i = 0; i < hazardCount; i++) {
-      if (!HAZARD_DICT) break;
-      const hazardIds = Object.keys(HAZARD_DICT);
-      const hazardId = Phaser.Utils.Array.GetRandom(hazardIds);
-      this.spawnHazard(hazardId);
-    }
-
-    this.spawnCoins(3);
-    
-    if (this.levelConfig.keyCount > 0) {
-        this.spawnKeys(this.levelConfig.keyCount);
-    }
+  // ==========================================
+  // 2. 回合與資源管理 (Turn & AP Management)
+  // ==========================================
+  emitApUpdate() {
+    window.dispatchEvent(new CustomEvent('tower-update-ap', { 
+        detail: { current: this.currentAp, max: this.maxAp, turn: this.turnCounter } 
+    }));
   }
 
-  spawnKeys(count) {
-    for (let i = 0; i < count; i++) {
-      const pos = this.getRandomEmptyGrid();
-      if (!pos) break;
-      const fontSize = Math.floor(this.tileSize * 0.6) + 'px';
-      const sprite = this.add.text(pos.px, pos.py, '🔑', { fontSize }).setOrigin(0.5);
-      this.keys.push({ gx: pos.gx, gy: pos.gy, sprite });
-    }
+  resetTurn() {
+    this.turnCounter++;
+    this.currentAp = this.maxAp;
+    this.isPlayerTurn = true;
+    this.emitApUpdate();
+    window.dispatchEvent(new CustomEvent('tower-turn-started', { detail: { turn: this.turnCounter } }));
+    console.log(`🔄 第 ${this.turnCounter} 回合，AP 重置為 ${this.maxAp}。`);
   }
 
+  // ==========================================
+  // 3. 遊戲編譯器與執行器 (Execution Pipeline)
+  // ==========================================
+  
+  // A. 處理積木序列
   async executeTurnSequence(commands) {
+    if (this.isGameOverInterrupted) return;
     if (!commands || commands.length === 0) return;
     console.log("🤖 積木序列開始執行...", commands);
 
@@ -306,6 +264,16 @@ export default class EndlessScene extends Phaser.Scene {
       const cmd = commands[i];
       const skillName = typeof cmd === 'string' ? cmd : cmd.id;
       
+      // 動態扣除 AP
+      const cost = AP_COSTS[skillName] || 1;
+      if (this.currentAp < cost) {
+          this.showBlackoutEffect();
+          this.showErrorMessage(`⚡ AP 不足！無法執行: ${skillName}`, '#b91c1c', '#7f1d1d');
+          break; // AP 不足，中斷回合
+      }
+      this.currentAp -= cost;
+      this.emitApUpdate();
+
       const isProgrammable = ['shoot', 'laser', 'boomerang'].includes(skillName);
       const nextCmd = commands[i + 1];
       const nextSkillName = nextCmd ? (typeof nextCmd === 'string' ? nextCmd : nextCmd.id) : null;
@@ -320,18 +288,94 @@ export default class EndlessScene extends Phaser.Scene {
         await this.runPlayerCommand(cmd);
       }
 
-      const moveCommands = ['moveUp', 'moveDown', 'moveLeft', 'moveRight'];
-      if (moveCommands.includes(skillName)) await this.processEnemyTurns();
-
       await new Promise(r => setTimeout(r, 150));
       i++;
     }
-
-    // 🌟 修改：所有指令陣列跑完之後，才進行終端機判定
-    this.checkTerminalState();
   }
 
+  // B. 處理玩家純文字程式碼 (補回的重要功能)
+  async executeRawCode(userCodeStr) {
+    if (this.isGameOverInterrupted) return;
+    console.log("📜 原始玩家程式碼:\n", userCodeStr);
+
+    let safeCode = userCodeStr;
+    safeCode = safeCode.replace(/function\s+(\w+)\s*\(/g, "async function $1(");
+    safeCode = safeCode.replace(/const\s+(\w+)\s*=\s*(?:async\s*)?\((.*?)\)\s*=>/g, "const $1 = async ($2) =>");
+    safeCode = safeCode.replace(/let\s+(\w+)\s*=\s*(?:async\s*)?\((.*?)\)\s*=>/g, "let $1 = async ($2) =>");
+    safeCode = safeCode.replace(/(?:p\.)?(?:moveUp|moveDown|moveLeft|moveRight|returnToPlayer|shoot|laser|bomb|boomerang|attack|dash)\s*\(/g, (match) => "await " + match);
+    safeCode = safeCode.replace(/await\s+await\s+/g, "await ");
+
+    // ⚡ AP 扣除攔截器
+    const checkAndDeductAP = (skillName) => {
+        const cost = AP_COSTS[skillName] || 1;
+        if (this.currentAp < cost) {
+            throw new OutOfAPError(`指令 [${skillName}] 需要 ${cost} AP，剩餘 ${this.currentAp} AP。`);
+        }
+        this.currentAp -= cost;
+        this.emitApUpdate();
+    };
+
+    const createSkillProxy = (skillName) => async (arg1, arg2, arg3) => {
+        checkAndDeductAP(skillName); 
+        let dx = this.playerFacing.dx, dy = this.playerFacing.dy, behavior = null;
+
+        if (typeof arg1 === 'function') { behavior = arg1; } 
+        else if (typeof arg1 === 'number' && typeof arg2 === 'number') { dx = Math.sign(arg1); dy = Math.sign(arg2); if (typeof arg3 === 'function') behavior = arg3; } 
+        else if (typeof arg1 === 'object' && arg1 !== null) { if (arg1.dx !== undefined) dx = Math.sign(arg1.dx); if (arg1.dy !== undefined) dy = Math.sign(arg1.dy); if (arg1.behavior) behavior = arg1.behavior; }
+        if (dx === 0 && dy === 0) { dx = this.playerFacing.dx; dy = this.playerFacing.dy; }
+
+        await this.executeCombatSkill(skillName, dx, dy, behavior);
+    };
+
+    const attack = createSkillProxy('attack');
+    const shoot = createSkillProxy('shoot');
+    const laser = createSkillProxy('laser');
+    const bomb = createSkillProxy('bomb');
+    const boomerang = createSkillProxy('boomerang');
+
+    const moveWithAP = async (dir) => {
+        checkAndDeductAP(dir); 
+        await this.runPlayerCommand(dir);
+    };
+
+    const moveUp = async () => await moveWithAP('moveUp');
+    const moveDown = async () => await moveWithAP('moveDown');
+    const moveLeft = async () => await moveWithAP('moveLeft');
+    const moveRight = async () => await moveWithAP('moveRight');
+    const dash = async (args) => { checkAndDeductAP('dash'); await SKILL_DICT['dash'](this, args); };
+    
+    const isWall = (dx = this.playerFacing.dx, dy = this.playerFacing.dy) => {
+      return this.walls.some(w => w.gx === this.playerGridX + dx && w.gy === this.playerGridY + dy);
+    };
+
+    const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+
+    try {
+      const runUserLogic = new AsyncFunction(
+        'shoot', 'laser', 'boomerang', 'bomb', 'attack', 'dash', 
+        'moveUp', 'moveDown', 'moveLeft', 'moveRight', 'isWall',
+        `"use strict";\n${safeCode}`
+      );
+      
+      await runUserLogic(shoot, laser, boomerang, bomb, attack, dash, moveUp, moveDown, moveLeft, moveRight, isWall);
+      console.log("✅ 玩家程式碼執行完畢！");
+      
+    } catch (err) {
+      if (err.name === 'OutOfAPError') {
+          console.warn("⚡ 斷電中斷：", err.message);
+          this.showBlackoutEffect();
+          this.showErrorMessage("⚡ 斷電保護觸發！" + err.message, '#b45309', '#78350f');
+      } else {
+          console.error("❌ 程式錯誤：", err.message);
+          this.cameras.main.shake(150, 0.01);
+          this.showErrorMessage(err.message);
+      }
+    }
+  }
+
+  // C. 單一指令執行路由
   async runPlayerCommand(cmd) {
+    if (this.isGameOverInterrupted) return;
     let tx = this.playerGridX;
     let ty = this.playerGridY;
 
@@ -359,8 +403,6 @@ export default class EndlessScene extends Phaser.Scene {
         await new Promise(resolve => {
           this.tweens.add({ targets: this.player, x: px, y: py, duration: 200, onComplete: resolve });
         });
-        
-        // 移動完畢後檢查沿路的金幣、陷阱等互動 (已經移除了終點判定)
         this.checkInteractions();
         return;
       } else {
@@ -388,126 +430,198 @@ export default class EndlessScene extends Phaser.Scene {
     }
   }
 
+  // D. 戰鬥系統統一管線
   async executeCombatSkill(skillName, dx, dy, behaviorFunc, originX = null, originY = null) {
-    // 決定發射起點
     const startX = originX !== null ? originX : this.playerGridX;
     const startY = originY !== null ? originY : this.playerGridY;
 
-    // 只有「玩家自己」發射的技能，才需要轉動機甲面向和閃爍
+    // 記錄面向，並讓冒險者閃爍施法的魔力光芒
     if (originX === null) {
       this.playerFacing = { dx, dy };
       if (this.playerBody) {
-        this.playerBody.fillColor = 0xff0000;
-        setTimeout(() => { if (this.playerBody) this.playerBody.fillColor = 0x6366f1; }, 300);
+        this.playerBody.fillColor = 0xFFD700; // 詠唱時閃爍耀眼金光
+        setTimeout(() => { if (this.playerBody) this.playerBody.fillColor = 0x4299E1; }, 300); // 恢復魔法藍
       }
     }
 
+    // 遺物判定：雙重連擊 (modifier_double)
     const hitCount = this.relics && this.relics.includes('modifier_double') ? 2 : 1;
     let targets = [{ dx, dy }];
     
-    // ... 擴散晶片 (Cleave) 的邏輯保持不變 ...
+    // 遺物判定：狂風劍氣/橫掃 (modifier_cleave)
     if (this.relics && this.relics.includes('modifier_cleave')) {
       if (dx !== 0 && dy === 0) { targets.push({ dx, dy: dy - 1 }); targets.push({ dx, dy: dy + 1 }); } 
       else if (dx === 0 && dy !== 0) { targets.push({ dx: dx - 1, dy }); targets.push({ dx: dx + 1, dy }); } 
       else if (dx !== 0 && dy !== 0) { targets.push({ dx: 0, dy }); targets.push({ dx, dy: 0 }); }
     }
 
+    // 執行連擊迴圈
     for (let i = 0; i < hitCount; i++) {
       const promises = [];
       for (let t of targets) {
         if (skillName === 'attack') {
-          // 攻擊的基準點改為 startX, startY
+          // 基礎物理攻擊特效 (劍刃斬擊)
           const px = this.startX + (startX + t.dx) * this.tileSize;
           const py = this.startY + (startY + t.dy) * this.tileSize;
-          const slash = this.add.text(px, py, '💥', { fontSize: Math.floor(this.tileSize * 0.8) + 'px' }).setOrigin(0.5);
-          this.tweens.add({ targets: slash, scale: 1.5, alpha: 0, duration: 300, onComplete: () => slash.destroy() });
-          this.damageEnemyAt(startX + t.dx, startY + t.dy);
+         const slash = this.add.text(px, py, '✨', { 
+            fontSize: Math.floor(this.tileSize * 1) + 'px' // 稍微放大一點點
+          }).setOrigin(0.5);
+          
+          // 魔力爆發動畫：除了放大與漸隱，加入 90 度旋轉讓它看起來像法術綻放！
+          this.tweens.add({ 
+            targets: slash, 
+            scale: 1.8, 
+            angle: 90, 
+            alpha: 0, 
+            duration: 350, 
+            ease: 'Cubic.easeOut',
+            onComplete: () => slash.destroy() 
+          });
+          
+          // 結算傷害
+          this.damageEnemyAt(startX + t.dx, startY + t.dy, this.playerAttack);
           promises.push(Promise.resolve());
         } else if (SKILL_DICT && SKILL_DICT[skillName]) {
-          // 🌟 關鍵：將 startX 和 startY 傳遞給技能字典！
-          promises.push(SKILL_DICT[skillName](this, { 
-             dx: t.dx, dy: t.dy, 
-             behavior: behaviorFunc, 
-             originX: startX, originY: startY 
-          }));
+          // 施展魔法與其他戰技
+          promises.push(SKILL_DICT[skillName](this, { dx: t.dx, dy: t.dy, behavior: behaviorFunc, originX: startX, originY: startY }));
         }
       }
       await Promise.all(promises);
+      
+      // 如果有連擊，稍微延遲一下讓打擊感更好
       if (hitCount > 1 && i < hitCount - 1) await new Promise(r => setTimeout(r, 150));
     }
   }
 
-  damageEnemyAt(tx, ty) {
+  // ==========================================
+  // 4. 戰鬥邏輯與交互 (Combat & Interactions)
+  // ==========================================
+  damageEnemyAt(tx, ty, damage) { 
+    if (damage === undefined) damage = this.playerAttack;
     const enemyIndex = this.enemies.findIndex(e => e.gx === tx && e.gy === ty);
+    
     if (enemyIndex !== -1) {
       const enemy = this.enemies[enemyIndex];
-      this.cameras.main.shake(150, 0.015); 
+      this.cameras.main.shake(150, 0.015); // 鏡頭震動(打擊感)
       
       const px = this.startX + tx * this.tileSize;
       const py = this.startY + ty * this.tileSize;
 
-      // 🌟 核心：自動偵測被動晶片，附加元素特效
+      // 1. 扣除魔物生命
+      enemy.hp -= damage;
+
+      // 2. 更新血條視覺 (平滑扣血)
+      const hpRatio = Math.max(0, enemy.hp / enemy.maxHp);
+      this.tweens.add({
+        targets: enemy.hpFill,
+        scaleX: hpRatio,
+        duration: 200,
+        ease: 'Power2'
+      });
+
+      // 3. 跳出傷害數字 (奇幻風格的爆擊紅字)
+      const dmgText = this.add.text(px, py - 20, `-${damage}`, { 
+        fontSize: '26px', color: '#FFF8DC', fontFamily: 'serif', fontStyle: 'black', stroke: '#8B0000', strokeThickness: 5 
+      }).setOrigin(0.5).setDepth(60);
+      
+      this.tweens.add({ 
+        targets: dmgText, y: py - 60, alpha: 0, duration: 700, ease: 'Cubic.easeOut', 
+        onComplete: () => dmgText.destroy() 
+      });
+
+      // 4. 附加元素附魔特效 (遺物能力)
       if (this.relics && this.relics.includes('element_fire')) {
           const fire = this.add.text(px, py, '🔥', { fontSize: Math.floor(this.tileSize * 0.9) + 'px' }).setOrigin(0.5);
-          this.tweens.add({ targets: fire, y: py - 20, alpha: 0, duration: 400, onComplete: () => fire.destroy() });
+          this.tweens.add({ targets: fire, y: py - 30, scale: 1.5, alpha: 0, duration: 500, onComplete: () => fire.destroy() });
       }
       if (this.relics && this.relics.includes('element_lightning')) {
           const zap = this.add.text(px, py, '⚡', { fontSize: Math.floor(this.tileSize * 0.9) + 'px' }).setOrigin(0.5);
-          this.tweens.add({ targets: zap, scale: 2, alpha: 0, duration: 250, onComplete: () => zap.destroy() });
+          this.tweens.add({ targets: zap, scale: 2.5, alpha: 0, duration: 300, ease: 'Bounce.easeOut', onComplete: () => zap.destroy() });
       }
       if (this.relics && this.relics.includes('element_ice')) {
           const ice = this.add.text(px, py, '❄️', { fontSize: Math.floor(this.tileSize * 0.9) + 'px' }).setOrigin(0.5);
-          this.tweens.add({ targets: ice, alpha: 0, duration: 500, onComplete: () => ice.destroy() });
+          this.tweens.add({ targets: ice, angle: 90, alpha: 0, duration: 600, onComplete: () => ice.destroy() });
       }
 
-      enemy.sprite.destroy();
-      this.enemies.splice(enemyIndex, 1);
-      
-      this.enemiesKilled++;
-      this.updateObjectiveUI(); 
-      window.dispatchEvent(new CustomEvent('tower-coin-collected', { detail: { amount: 10 } }));
-      
-      if (this.levelConfig.winCondition.type === 'exterminate' && this.enemies.length === 0) {
-          if (this.playerGridX === this.terminal.gx && this.playerGridY === this.terminal.gy) {
-              window.dispatchEvent(new CustomEvent('tower-floor-cleared'));
+      // 5. 判斷是否死亡
+      if (enemy.hp <= 0) {
+        console.log(`💀 魔物消散！`);
+        const reward = enemy.coinReward || 5;
+        
+        // 死亡掉落奉獻金幣
+        const coinText = this.add.text(px, py - 20, `+${reward} 🪙`, { 
+          fontSize: '24px', color: '#FFD700', fontFamily: 'serif', fontStyle: 'bold', stroke: '#593922', strokeThickness: 4
+        }).setOrigin(0.5).setDepth(60);
+
+        this.tweens.add({
+            targets: coinText,
+            y: py - 70,   // 往上飄落
+            alpha: 0,     // 漸隱
+            duration: 1200,
+            ease: 'Power2',
+            onComplete: () => coinText.destroy()
+        });
+
+        // 死亡處理：魔物化為煙塵 (縮小並漸隱)
+        this.tweens.add({
+          targets: enemy.sprite,
+          scale: 0.1, alpha: 0, angle: 180, duration: 300,
+          onComplete: () => {
+            enemy.sprite.destroy();
           }
+        });
+        
+        this.enemies.splice(enemyIndex, 1);
+        this.enemiesKilled++;
+        this.updateObjectiveUI(); 
+        
+        window.dispatchEvent(new CustomEvent('tower-coin-collected', { 
+          detail: { amount: reward } 
+        }));
+        
+        // 若通關條件為「討伐所有魔物」，判定是否開啟下一層
+        if (this.levelConfig.winCondition.type === 'exterminate' && this.enemies.length === 0) {
+            if (this.terminal && this.playerGridX === this.terminal.gx && this.playerGridY === this.terminal.gy) {
+                window.dispatchEvent(new CustomEvent('tower-floor-cleared'));
+            }
+        }
+      } else {
+        // 受擊效果：如果沒死，讓魔物痛苦地閃爍一下
+        this.tweens.add({
+          targets: enemy.spriteText,
+          alpha: 0.2,
+          yoyo: true,
+          duration: 100
+        });
       }
+
       return true;
     }
     return false;
   }
 
   async processEnemyTurns() {
-    const promises = this.enemies.map(enemy => {
-      return new Promise(resolve => {
-        resolve();
-      });
-    });
-    await Promise.all(promises);
-  }
-  
-  checkWinCondition() {
-      const condition = this.levelConfig.winCondition;
-      
-      if (condition.type === 'reach_goal') {
-        return true; 
-      } 
-      else if (condition.type === 'kill_enemies') {
-        return this.enemiesKilled >= condition.targetValue;
-      } 
-      else if (condition.type === 'collect_keys') {
-        return this.keysCollected >= condition.targetValue;
+    if (this.isGameOverInterrupted) return;
+    console.log("👻 怪物回合開始...");
+    
+    // 讓怪物依序行動，避免兩隻怪物走到同一個格子重疊
+    for (let i = 0; i < this.enemies.length; i++) {
+      const enemy = this.enemies[i];
+      const enemyConfig = ENEMY_DICT[enemy.id];
+
+      // 確保字典裡有這隻怪，且有設定 takeTurn 函式
+      if (enemyConfig && typeof enemyConfig.takeTurn === 'function') {
+        await enemyConfig.takeTurn(this, enemy);
+        
+        // 怪物之間稍微停頓，讓玩家看清楚誰在動 (體驗優化)
+        await new Promise(r => setTimeout(r, 100)); 
       }
-      else if (condition.type === 'exterminate') {
-         return this.enemies.length === 0;
-      }
-      return false;
+    }
+    
+    console.log("👻 怪物回合結束！");
   }
 
   checkInteractions() {
-    // 🌟 原本的終端機判斷已經被我移除，改為執行下面的 checkTerminalState() 
-
-    // 陷阱
     this.hazards.forEach(hazard => {
       if (this.playerGridX === hazard.gx && this.playerGridY === hazard.gy) {
         if(HAZARD_DICT && HAZARD_DICT[hazard.id]) {
@@ -519,7 +633,6 @@ export default class EndlessScene extends Phaser.Scene {
       }
     });
 
-    // 金幣
     const coinIndex = this.coins.findIndex(c => c.gx === this.playerGridX && c.gy === this.playerGridY);
     if (coinIndex !== -1) {
       this.coins[coinIndex].sprite.destroy(); 
@@ -527,7 +640,6 @@ export default class EndlessScene extends Phaser.Scene {
       window.dispatchEvent(new CustomEvent('tower-coin-collected', { detail: { amount: 20 } }));
     }
     
-    // 鑰匙
     const keyIndex = this.keys.findIndex(k => k.gx === this.playerGridX && k.gy === this.playerGridY);
     if (keyIndex !== -1) {
       this.keys[keyIndex].sprite.destroy();
@@ -538,27 +650,223 @@ export default class EndlessScene extends Phaser.Scene {
     }
   }
 
-  // 🌟 新增：這是一個獨立的終端機結算函式，只有程式碼跑完才會執行！
   checkTerminalState() {
-      // 確保 terminal 存在，才進行座標比對
       if (this.terminal && this.playerGridX === this.terminal.gx && this.playerGridY === this.terminal.gy) {
           if (this.checkWinCondition()) {
-              console.log("🏁 達成通關條件，準備發送通關事件！");
+              console.log("🏁 達成通關條件，發送通關事件！");
               window.dispatchEvent(new CustomEvent('tower-floor-cleared'));
+              return true; 
           } else {
-              console.log("❌ 抵達終點，但未達成通關條件！");
+              console.log("❌ 抵達終點，未達成通關條件！");
               this.showErrorMessage("尚未達成任務目標，終端機存取被拒！", "#b91c1c", "#7f1d1d");
               this.cameras.main.shake(200, 0.015);
               
-              // 退回一格的特效
               this.playerGridX -= this.playerFacing.dx;
               this.playerGridY -= this.playerFacing.dy;
               
               const px = this.startX + this.playerGridX * this.tileSize;
               const py = this.startY + this.playerGridY * this.tileSize;
               this.tweens.add({ targets: this.player, x: px, y: py, duration: 200, ease: 'Bounce.easeOut' });
+              return false;
           }
       }
+      return false;
+  }
+
+  checkWinCondition() {
+      const condition = this.levelConfig.winCondition;
+      if (condition.type === 'reach_goal') return true; 
+      if (condition.type === 'kill_enemies') return this.enemiesKilled >= condition.targetValue;
+      if (condition.type === 'collect_keys') return this.keysCollected >= condition.targetValue;
+      if (condition.type === 'exterminate') return this.enemies.length === 0;
+      return false;
+  }
+
+  // ==========================================
+  // 5. 視覺反饋與 UI (Visuals & UI)
+  // ==========================================
+  updateObjectiveUI() {
+    const cond = this.levelConfig.winCondition;
+    let text = "";
+    if (cond.type === 'reach_goal') text = "🎯 目標：抵達終點";
+    else if (cond.type === 'kill_enemies') text = `🎯 目標：\n1. 擊殺怪物 (${this.enemiesKilled}/${cond.targetValue})\n2. 抵達終點`;
+    else if (cond.type === 'collect_keys') text = `🎯 目標：\n1. 收集鑰匙 (${this.keysCollected}/${cond.targetValue})\n2. 抵達終點`;
+    else if (cond.type === 'exterminate') text = `🎯 目標：\n1. 殲滅所有病毒 (剩餘 ${this.enemies.length})\n2. 抵達終點`;
+
+    window.dispatchEvent(new CustomEvent('tower-objective-updated', { detail: text }));
+  }
+
+  showFloorObjective() {
+      const condition = this.levelConfig.winCondition;
+      let msg = "";
+      if (condition.type === 'kill_enemies') msg = `本層目標：擊殺至少 ${condition.targetValue} 隻病毒！`;
+      else if (condition.type === 'collect_keys') msg = `本層目標：收集 ${condition.targetValue} 把資料金鑰以解鎖終端機！`;
+      else if (condition.type === 'exterminate') msg = `本層目標：殲滅所有病毒！`;
+      
+      if (msg) {
+          this.time.delayedCall(500, () => {
+              this.showErrorMessage(msg, '#1d4ed8', '#1e3a8a'); 
+          });
+      }
+  }
+
+  // 補回斷電特效
+  showBlackoutEffect() {
+    this.cameras.main.shake(300, 0.015);
+    if (this.playerBody) {
+        this.playerBody.fillColor = 0x333333; 
+        this.time.delayedCall(1000, () => {
+            if (this.playerBody) this.playerBody.fillColor = 0x6366f1; 
+        });
+    }
+    const px = this.startX + this.playerGridX * this.tileSize;
+    const py = this.startY + this.playerGridY * this.tileSize;
+    const sweat = this.add.text(px + 15, py - 30, '💦', { fontSize: '24px' }).setOrigin(0.5);
+    const battery = this.add.text(px, py - 50, '🪫', { fontSize: '32px' }).setOrigin(0.5);
+    
+    this.tweens.add({ 
+        targets: [sweat, battery], y: '-=20', alpha: 0, duration: 1500, ease: 'Sine.easeOut', 
+        onComplete: () => { sweat.destroy(); battery.destroy(); } 
+    });
+  }
+
+  // 補回錯誤提示 UI
+  showErrorMessage(message, bgColor = '#b91c1c', strokeColor = '#7f1d1d') {
+    let translatedMsg = message;
+    if (bgColor === '#b91c1c') {
+        if (message.includes("is not defined")) {
+          translatedMsg = `找不到變數或指令。\n請檢查是不是拼錯字了？`;
+        } else if (message.includes("Unexpected token") || message.includes("Unexpected identifier")) {
+          translatedMsg = `語法結構錯誤！\n請檢查有沒有少寫括號 ()、大括號 {} 或是分號 ; ？`;
+        } else if (message.includes("is not a function")) {
+          translatedMsg = `這不是一個可執行的指令，\n請確認括號 () 的用法！`;
+        }
+    }
+
+    const textStyle = { 
+        fontSize: '18px', fontFamily: 'monospace', color: '#ffffff', backgroundColor: bgColor, 
+        padding: { x: 15, y: 15 }, stroke: strokeColor, strokeThickness: 2, align: 'center',
+        wordWrap: { width: this.scale.width * 0.8 }
+    };
+    
+    const displayMsg = bgColor === '#b91c1c' ? `🐛 系統回報：\n\n${translatedMsg}` : translatedMsg;
+    const errorText = this.add.text(this.scale.width / 2, this.scale.height / 2, displayMsg, textStyle)
+        .setOrigin(0.5).setDepth(100).setAlpha(0);
+
+    this.tweens.add({
+        targets: errorText, alpha: 1, y: this.scale.height / 2 - 30, duration: 300, ease: 'Back.out',
+        onComplete: () => {
+            this.time.delayedCall(4000, () => {
+                this.tweens.add({ targets: errorText, alpha: 0, y: errorText.y - 20, duration: 300, onComplete: () => errorText.destroy() });
+            });
+        }
+    });
+  }
+
+  // ==========================================
+  // 6. 關卡生成與地圖物件 (Level Generation)
+  // ==========================================
+  setupGrid() {
+    const canvasWidth = this.scale.width;
+    const canvasHeight = this.scale.height;
+    const padding = 80; 
+
+    const maxTileW = (canvasWidth - padding) / this.cols;
+    const maxTileH = (canvasHeight - padding) / this.rows;
+    this.tileSize = Math.floor(Math.min(maxTileW, maxTileH));
+    this.tileSize = Phaser.Math.Clamp(this.tileSize, 32, 120);
+
+    const mapWidth = this.cols * this.tileSize;
+    const mapHeight = this.rows * this.tileSize;
+    this.startX = (canvasWidth - mapWidth) / 2 + this.tileSize / 2;
+    this.startY = (canvasHeight - mapHeight) / 2 + this.tileSize / 2;
+
+    for (let y = 0; y < this.rows; y++) {
+      for (let x = 0; x < this.cols; x++) {
+        const px = this.startX + x * this.tileSize;
+        const py = this.startY + y * this.tileSize;
+        
+        // ✨ 奇幻化：深邃的石板地磚 (0x150C08) 與 斑駁的石縫/木紋邊框 (0x3A2318)
+        this.add.rectangle(px, py, this.tileSize - 2, this.tileSize - 2, 0x150C08)
+            .setStrokeStyle(1, 0x3A2318, 0.8);
+      }
+    }
+  }
+
+  setupPlayer() {
+    this.playerGridX = Phaser.Math.Between(0, this.cols - 1);
+    this.playerGridY = Phaser.Math.Between(0, this.rows - 1);
+    this.playerFacing = { dx: 0, dy: -1 }; 
+
+    const px = this.startX + this.playerGridX * this.tileSize;
+    const py = this.startY + this.playerGridY * this.tileSize;
+    
+    // 🧙‍♂️ 玩家降臨的光陣 (魔法藍光)
+    this.add.rectangle(px, py, this.tileSize - 4, this.tileSize - 4, 0x4299E1, 0.15)
+        .setStrokeStyle(2, 0x3182CE, 0.8);
+    this.add.text(px, py, '降臨點', { fontSize: '11px', color: '#63B3ED', fontFamily: 'serif', fontStyle: 'bold' }).setOrigin(0.5, 2.3);
+    
+    // 呼叫建立玩家精靈的邏輯 (假設內部會畫出 🧙‍♂️)
+    this.createPlayerGraphic(px, py);
+  }
+
+  createPlayerGraphic(x, y) {
+    if (this.player) this.player.destroy();
+    const glow = this.add.circle(0, 0, this.tileSize * 0.5, 0x6366f1, 0.2);
+    this.tweens.add({ targets: glow, scale: 1.2, alpha: 0.1, duration: 1000, yoyo: true, repeat: -1 });
+
+    this.playerBody = this.add.rectangle(0, 0, this.tileSize * 0.6, this.tileSize * 0.6, 0x6366f1).setStrokeStyle(2, 0xffffff);
+    const head = this.add.rectangle(0, -this.tileSize * 0.2, this.tileSize * 0.3, this.tileSize * 0.15, 0xffffff);
+    
+    this.player = this.add.container(x, y, [glow, this.playerBody, head]);
+    this.player.setDepth(20);
+  }
+
+  generateLevel() {
+    // 🚪 奇幻化：產生通往更深層的「地下階梯 / 傳送法陣」 (原：Terminal / 數據終端)
+    this.spawnTerminal();
+
+    // 🧱 奇幻化：產生阻擋冒險者的「古老石壁」
+    const wallCount = Math.floor(this.cols * this.rows * 0.20); 
+    this.spawnWalls(wallCount);
+
+    // 👾 奇幻化：召喚深淵魔物
+    for (let i = 0; i < this.levelConfig.enemyCount; i++) {
+      const enemyIds = this.levelConfig.allowedEnemies;
+      // 把預設防錯的怪物從 patrol_bug(巡邏蟲) 改成 slime(史萊姆)
+      const enemyId = Phaser.Utils.Array.GetRandom(enemyIds) || 'slime'; 
+      if (ENEMY_DICT && ENEMY_DICT[enemyId]) this.spawnEnemy(enemyId);
+    }
+
+    // 🕸️ 奇幻化：佈置地下城陷阱 (原：Hazard / 數據危害)
+    const hazardCount = Math.floor(this.cols / 3);
+    for (let i = 0; i < hazardCount; i++) {
+      if (!HAZARD_DICT) break;
+      const hazardIds = Object.keys(HAZARD_DICT);
+      const hazardId = Phaser.Utils.Array.GetRandom(hazardIds);
+      this.spawnHazard(hazardId);
+    }
+
+    // 🪙 奇幻化：散落的奉獻金幣
+    this.spawnCoins(3);
+    
+    // 🗝️ 奇幻化：守關首領的金鑰 (原：權限鑰匙)
+    if (this.levelConfig.keyCount > 0) this.spawnKeys(this.levelConfig.keyCount);
+  }
+
+  spawnKeys(count) {
+    for (let i = 0; i < count; i++) {
+      const pos = this.getRandomEmptyGrid();
+      if (!pos) break;
+      const fontSize = Math.floor(this.tileSize * 0.5) + 'px';
+      // 🗝️ 金色鑰匙
+      const sprite = this.add.text(pos.px, pos.py, '🗝️', { fontSize }).setOrigin(0.5);
+      
+      // 鑰匙底下的微光
+      this.add.circle(pos.px, pos.py, this.tileSize * 0.3, 0xFFD700, 0.15).setDepth(29);
+      
+      this.keys.push({ gx: pos.gx, gy: pos.gy, sprite });
+    }
   }
 
   spawnWalls(count) {
@@ -566,8 +874,15 @@ export default class EndlessScene extends Phaser.Scene {
       const pos = this.getRandomEmptyGrid();
       if (!pos) break; 
       
-      const sprite = this.add.rectangle(pos.px, pos.py, this.tileSize - 4, this.tileSize - 4, 0x475569)
-          .setStrokeStyle(2, 0x1e293b);
+      // 🧱 古老石壁與黑岩
+      const sprite = this.add.rectangle(pos.px, pos.py, this.tileSize - 2, this.tileSize - 2, 0x2A1810)
+          .setStrokeStyle(2, 0x593922); // 厚實的木/岩石邊框
+          
+      // 隨機在石壁上加點青苔或裂縫的質感 (可選)
+      if (Math.random() > 0.7) {
+         this.add.text(pos.px, pos.py, '🌿', { fontSize: '14px', alpha: 0.3 }).setOrigin(0.5);
+      }
+      
       this.walls.push({ gx: pos.gx, gy: pos.gy, sprite });
     }
   }
@@ -576,7 +891,9 @@ export default class EndlessScene extends Phaser.Scene {
     for (let i = 0; i < count; i++) {
       const pos = this.getRandomEmptyGrid();
       if (!pos) break;
-      const fontSize = Math.floor(this.tileSize * 0.5) + 'px';
+      const fontSize = Math.floor(this.tileSize * 0.45) + 'px';
+      
+      // 🪙 奉獻金幣
       const sprite = this.add.text(pos.px, pos.py, '🪙', { fontSize }).setOrigin(0.5);
       this.coins.push({ gx: pos.gx, gy: pos.gy, sprite });
     }
@@ -585,16 +902,62 @@ export default class EndlessScene extends Phaser.Scene {
   spawnEnemy(id) {
     const pos = this.getRandomEmptyGrid();
     if (!pos) return;
-    const fontSize = Math.floor(this.tileSize * 0.6) + 'px';
-    const sprite = this.add.text(pos.px, pos.py, '👾', { fontSize }).setOrigin(0.5);
-    this.enemies.push({ id, gx: pos.gx, gy: pos.gy, sprite });
+
+    // 從字典獲取怪物的設定值 (缺省值設為史萊姆或骷髏)
+    const config = ENEMY_DICT && ENEMY_DICT[id] ? ENEMY_DICT[id] : { hp: 30, damage: 10, symbol: '👾' };
+    
+    const px = this.startX + pos.gx * this.tileSize;
+    const py = this.startY + pos.gy * this.tileSize;
+
+    // 1. 魔物圖示
+    const fontSize = Math.floor(this.tileSize * 0.55) + 'px';
+    const spriteText = this.add.text(0, 0, config.symbol, { fontSize }).setOrigin(0.5);
+    spriteText.setShadow(0, 2, 'rgba(0,0,0,0.8)', 4); // 增加實體感陰影
+
+    // 2. 血條背景 (深木框)
+    const barWidth = this.tileSize * 0.65;
+    const barHeight = 5;
+    const hpBg = this.add.rectangle(0, -this.tileSize * 0.35, barWidth, barHeight, 0x1C110C).setOrigin(0.5)
+        .setStrokeStyle(1, 0x000000);
+    
+    // 3. 血條前景 (暗紅色，設定 Origin(0, 0.5) 確保從左側扣減)
+    const hpFill = this.add.rectangle(-barWidth / 2, -this.tileSize * 0.35, barWidth, barHeight, 0x8B0000).setOrigin(0, 0.5);
+
+    // 4. 攻擊力文字 (顯示在魔物下方，用金黃/橘紅色顯示)
+    const atkText = this.add.text(0, this.tileSize * 0.35, `⚔️${config.damage}`, { 
+      fontSize: '11px', color: '#FF7F50', fontFamily: 'serif', fontStyle: 'bold' 
+    }).setOrigin(0.5);
+
+    // 把所有東西打包進一個 Container
+    const container = this.add.container(px, py, [spriteText, hpBg, hpFill, atkText]).setDepth(30);
+
+    // 將狀態存入 enemies 陣列
+    this.enemies.push({ 
+      id, 
+      gx: pos.gx, 
+      gy: pos.gy, 
+      sprite: container, 
+      hpFill: hpFill,    
+      spriteText: spriteText, 
+      hp: config.hp,
+      maxHp: config.hp
+    });
   }
 
   spawnHazard(id) {
     const pos = this.getRandomEmptyGrid();
     if (!pos) return;
-    const fontSize = Math.floor(this.tileSize * 0.6) + 'px';
-    const sprite = this.add.text(pos.px, pos.py, '⚠️', { fontSize }).setOrigin(0.5);
+    const fontSize = Math.floor(this.tileSize * 0.5) + 'px';
+    
+    // 隨機選擇地下城陷阱圖示
+    const hazardIcons = ['🔥', '🕸️', '🕳️', '🐍'];
+    const icon = hazardIcons[Math.floor(Math.random() * hazardIcons.length)];
+    
+    const sprite = this.add.text(pos.px, pos.py, icon, { fontSize, alpha: 0.8 }).setOrigin(0.5);
+    
+    // 陷阱底下的危險紅光
+    this.add.circle(pos.px, pos.py, this.tileSize * 0.3, 0x8B0000, 0.2).setDepth(15);
+
     this.hazards.push({ id, gx: pos.gx, gy: pos.gy, sprite });
   }
 
@@ -605,11 +968,9 @@ export default class EndlessScene extends Phaser.Scene {
     do {
       const tempPos = this.getRandomEmptyGrid();
       if (!tempPos) break;
-      
       const distance = Math.abs(tempPos.gx - this.playerGridX) + Math.abs(tempPos.gy - this.playerGridY);
-      if (distance >= Math.floor(this.cols / 1.5)) { 
-        pos = tempPos;
-      }
+      // 確保入口距離玩家夠遠
+      if (distance >= Math.floor(this.cols / 1.5)) pos = tempPos;
       attempts++;
     } while (!pos && attempts < 100);
 
@@ -619,19 +980,25 @@ export default class EndlessScene extends Phaser.Scene {
     const px = this.startX + pos.gx * this.tileSize;
     const py = this.startY + pos.gy * this.tileSize;
     
-    let terminalColor = 0x00ff00;
-    if (this.levelConfig.winCondition.type === 'collect_keys') terminalColor = 0xeab308; 
-    if (this.levelConfig.winCondition.type === 'kill_enemies' || this.levelConfig.winCondition.type === 'exterminate') terminalColor = 0xef4444;
+    // 🚪 深淵入口/傳送陣 (依據過關條件變更光芒顏色)
+    let terminalColor = 0xDAA520; // 預設：金色魔法陣
+    if (this.levelConfig.winCondition.type === 'collect_keys') terminalColor = 0xFFD700; // 金黃色(尋找鑰匙)
+    if (this.levelConfig.winCondition.type === 'kill_enemies' || this.levelConfig.winCondition.type === 'exterminate') terminalColor = 0x8B0000; // 暗紅色(討伐任務)
 
-    this.add.circle(px, py, this.tileSize * 0.6, 0xd946ef, 0.15);
-    const sprite = this.add.rectangle(px, py, this.tileSize - 4, this.tileSize - 4, 0xd946ef, 0.2)
-        .setStrokeStyle(3, 0xd946ef, 1);
-    
-    this.add.text(px, py, '🏁', { fontSize: '32px' }).setOrigin(0.5);
+    // 底部的魔法陣光環
+    this.add.circle(px, py, this.tileSize * 0.6, terminalColor, 0.2);
+    // 石雕底座
+    const sprite = this.add.rectangle(px, py, this.tileSize - 6, this.tileSize - 6, 0x2A1810, 0.6)
+        .setStrokeStyle(3, terminalColor, 0.8);
+    // 階梯或門扉
+    this.add.text(px, py, '🚪', { fontSize: '32px' }).setOrigin(0.5);
     
     this.terminal = { gx: pos.gx, gy: pos.gy, sprite };
   }
 
+  // ==========================================
+  // 7. 網格計算與尋路 (Pathfinding & Grids)
+  // ==========================================
   isGridEmpty(gx, gy) {
     if (this.playerGridX === gx && this.playerGridY === gy) return false;
     if (this.terminal && this.terminal.gx === gx && this.terminal.gy === gy) return false;
@@ -652,11 +1019,7 @@ export default class EndlessScene extends Phaser.Scene {
       if (attempts > 200) return null; 
     } while (!this.isGridEmpty(gx, gy));
 
-    return {
-      gx, gy,
-      px: this.startX + gx * this.tileSize,
-      py: this.startY + gy * this.tileSize
-    };
+    return { gx, gy, px: this.startX + gx * this.tileSize, py: this.startY + gy * this.tileSize };
   }
 
   getGridFromPointer(pointer) {
@@ -665,9 +1028,8 @@ export default class EndlessScene extends Phaser.Scene {
     return { gx, gy };
   }
 
-  findPath(startX, startY, targetX, targetY) {
+  findPath(startX, startY, targetX, targetY, avoidHazards = false) {
     if (startX === targetX && startY === targetY) return [];
-
     const queue = [{ x: startX, y: startY, path: [] }];
     const visited = new Set([`${startX},${startY}`]);
     const dirs = [
@@ -684,7 +1046,11 @@ export default class EndlessScene extends Phaser.Scene {
         const ny = y + dy;
 
         if (nx < 0 || nx >= this.cols || ny < 0 || ny >= this.rows) continue;
-        if (this.walls.some(w => w.gx === nx && w.gy === ny)) continue;
+
+        const isWall = this.walls.some(w => w.gx === nx && w.gy === ny);
+        const isHazard = avoidHazards && this.hazards.some(h => h.gx === nx && h.gy === ny);
+
+        if (isWall || isHazard) continue;
 
         if (dx !== 0 && dy !== 0) {
           const hasWallX = this.walls.some(w => w.gx === x + dx && w.gy === y);
@@ -702,175 +1068,29 @@ export default class EndlessScene extends Phaser.Scene {
     return null; 
   }
 
-  async executeRawCode(userCodeStr) {
-    console.log("📜 原始玩家程式碼:\n", userCodeStr);
-
-    let safeCode = userCodeStr;
-    
-    safeCode = safeCode.replace(/function\s+(\w+)\s*\(/g, "async function $1(");
-    safeCode = safeCode.replace(/const\s+(\w+)\s*=\s*(?:async\s*)?\((.*?)\)\s*=>/g, "const $1 = async ($2) =>");
-    safeCode = safeCode.replace(/let\s+(\w+)\s*=\s*(?:async\s*)?\((.*?)\)\s*=>/g, "let $1 = async ($2) =>");
-
-    safeCode = safeCode.replace(/(?:p\.)?(?:moveUp|moveDown|moveLeft|moveRight|returnToPlayer|shoot|laser|bomb|boomerang|attack|dash)\s*\(/g, (match) => {
-      return "await " + match;
-    });
-
-    safeCode = safeCode.replace(/await\s+await\s+/g, "await ");
-
-    const createSkillProxy = (skillName) => async (arg1, arg2, arg3) => {
-        let dx = this.playerFacing.dx;
-        let dy = this.playerFacing.dy;
-        let behavior = null;
-
-        if (typeof arg1 === 'function') {
-            behavior = arg1;
-        } else if (typeof arg1 === 'number' && typeof arg2 === 'number') {
-            dx = Math.sign(arg1); // 強制轉為 -1, 0, 1
-            dy = Math.sign(arg2); // 強制轉為 -1, 0, 1
-            if (typeof arg3 === 'function') behavior = arg3;
-        } else if (typeof arg1 === 'object' && arg1 !== null) {
-            if (arg1.dx !== undefined) dx = Math.sign(arg1.dx);
-            if (arg1.dy !== undefined) dy = Math.sign(arg1.dy);
-            if (arg1.behavior) behavior = arg1.behavior;
-        }
-
-        if (dx === 0 && dy === 0) {
-            dx = this.playerFacing.dx;
-            dy = this.playerFacing.dy;
-        }
-
-        await this.executeCombatSkill(skillName, dx, dy, behavior);
-    };
-
-    const attack = createSkillProxy('attack');
-    const shoot = createSkillProxy('shoot');
-    const laser = createSkillProxy('laser');
-    const bomb = createSkillProxy('bomb');
-    const boomerang = createSkillProxy('boomerang');
-
-    const dash = async (args) => await SKILL_DICT['dash'](this, args);
-    
-    const moveWithTurns = async (dir) => {
-        await this.runPlayerCommand(dir);
-        await this.processEnemyTurns();
-    };
-
-    const moveUp = async () => await moveWithTurns('moveUp');
-    const moveDown = async () => await moveWithTurns('moveDown');
-    const moveLeft = async () => await moveWithTurns('moveLeft');
-    const moveRight = async () => await moveWithTurns('moveRight');
-    
-    const isWall = (dx = this.playerFacing.dx, dy = this.playerFacing.dy) => {
-      const tx = this.playerGridX + dx;
-      const ty = this.playerGridY + dy;
-      return this.walls.some(w => w.gx === tx && w.gy === ty);
-    };
-
-    const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
-
-    try {
-      const runUserLogic = new AsyncFunction(
-        'shoot', 'laser', 'boomerang', 'bomb', 'attack', 'dash', 
-        'moveUp', 'moveDown', 'moveLeft', 'moveRight', 'isWall',
-        `"use strict";\n${safeCode}`
-      );
-
-      await runUserLogic(shoot, laser, boomerang, bomb, attack, dash, moveUp, moveDown, moveLeft, moveRight, isWall);
-      console.log("✅ 玩家程式碼執行完畢！");
-
-      // 🌟 修改：所有手打的程式執行完畢後，也進行終端機檢查
-      this.checkTerminalState();
-
-    } catch (err) {
-      console.error("❌ 程式錯誤：", err.message);
-      this.cameras.main.shake(150, 0.01);
-      this.showErrorMessage(err.message);
-    }
-  }
-
-  showErrorMessage(message, bgColor = '#b91c1c', strokeColor = '#7f1d1d') {
-    let translatedMsg = message;
-    
-    if (bgColor === '#b91c1c') {
-        if (message.includes("is not defined")) {
-          const varName = message.split(" ")[0];
-          translatedMsg = `找不到叫做「${varName}」的變數或指令。\n請檢查是不是拼錯字了？`;
-        } else if (message.includes("Unexpected token") || message.includes("Unexpected identifier")) {
-          translatedMsg = `語法結構錯誤！\n請檢查有沒有少寫括號 ()、大括號 {} 或是分號 ; ？`;
-        } else if (message.includes("is not a function")) {
-          const match = message.match(/(?:p\.)?(\w+) is not a function/);
-          if (match) {
-             translatedMsg = `沒有「${match[1]}」這個指令！\n請檢查大小寫或是否拼錯字了。`;
-          } else {
-             translatedMsg = `這不是一個可執行的指令，\n請確認括號 () 的用法！`;
-          }
-        } else if (message.includes("Cannot read properties of undefined")) {
-          translatedMsg = `發生了未知的錯誤，\n可能是某個變數忘記給值了！`;
-        }
-    }
-
-    const textStyle = { 
-        fontSize: '18px', 
-        fontFamily: 'monospace',
-        color: '#ffffff', 
-        backgroundColor: bgColor, 
-        padding: { x: 15, y: 15 },
-        stroke: strokeColor,
-        strokeThickness: 2,
-        align: 'center',
-        wordWrap: { width: this.scale.width * 0.8 }
-    };
-    
-    const displayMsg = bgColor === '#b91c1c' ? `🐛 系統回報：\n\n${translatedMsg}` : translatedMsg;
-
-    const errorText = this.add.text(this.scale.width / 2, this.scale.height / 2, displayMsg, textStyle)
-        .setOrigin(0.5)
-        .setDepth(100)
-        .setAlpha(0);
-
-    this.tweens.add({
-        targets: errorText,
-        alpha: 1,
-        y: this.scale.height / 2 - 30,
-        duration: 300,
-        ease: 'Back.out',
-        onComplete: () => {
-            this.time.delayedCall(4000, () => {
-                this.tweens.add({
-                    targets: errorText,
-                    alpha: 0,
-                    y: errorText.y - 20,
-                    duration: 300,
-                    onComplete: () => errorText.destroy()
-                });
-            });
-        }
-    });
-  }
-
+  // ==========================================
+  // 8. 狀態存讀與輔助 UI (Save/Load & Aim UI)
+  // ==========================================
   exportMapState() {
     return {
-        playerGridX: this.playerGridX,
-        playerGridY: this.playerGridY,
-        playerFacing: this.playerFacing,
+        playerGridX: this.playerGridX, playerGridY: this.playerGridY, playerFacing: this.playerFacing,
         terminal: this.terminal ? { gx: this.terminal.gx, gy: this.terminal.gy } : null,
         walls: this.walls.map(w => ({ gx: w.gx, gy: w.gy })),
-        enemies: this.enemies.map(e => ({ id: e.id, gx: e.gx, gy: e.gy })),
+        enemies: this.enemies.map(e => ({ id: e.id, gx: e.gx, gy: e.gy, hp: e.hp, maxHp: e.maxHp })),
         hazards: this.hazards.map(h => ({ id: h.id, gx: h.gx, gy: h.gy })),
         coins: this.coins.map(c => ({ gx: c.gx, gy: c.gy })),
         keys: this.keys.map(k => ({ gx: k.gx, gy: k.gy })),
-        enemiesKilled: this.enemiesKilled,
-        keysCollected: this.keysCollected,
+        enemiesKilled: this.enemiesKilled, keysCollected: this.keysCollected,
         relics: [...this.relics]
     };
   }
 
   restoreMapState(data) {
     console.log("♻️ [EndlessScene] 偵測到地圖存檔，正在恢復戰場狀態...");
-    
     this.playerGridX = data.playerGridX;
     this.playerGridY = data.playerGridY;
     this.playerFacing = data.playerFacing || { dx: 0, dy: -1 };
+    
     const px = this.startX + this.playerGridX * this.tileSize;
     const py = this.startY + this.playerGridY * this.tileSize;
     this.createPlayerGraphic(px, py);
@@ -888,42 +1108,63 @@ export default class EndlessScene extends Phaser.Scene {
     }
 
     (data.walls || []).forEach(w => {
-        const wx = this.startX + w.gx * this.tileSize;
-        const wy = this.startY + w.gy * this.tileSize;
-        const sprite = this.add.rectangle(wx, wy, this.tileSize - 4, this.tileSize - 4, 0x475569)
-            .setStrokeStyle(2, 0x1e293b);
+        const sprite = this.add.rectangle(this.startX + w.gx * this.tileSize, this.startY + w.gy * this.tileSize, this.tileSize - 4, this.tileSize - 4, 0x475569).setStrokeStyle(2, 0x1e293b);
         this.walls.push({ gx: w.gx, gy: w.gy, sprite });
     });
 
-    (data.enemies || []).forEach(e => {
+   (data.enemies || []).forEach(e => {
+        // 從字典抓取原本怪物的設定
+        const config = ENEMY_DICT && ENEMY_DICT[e.id] ? ENEMY_DICT[e.id] : { hp: 30, damage: 10, symbol: '👾' };
+        
         const ex = this.startX + e.gx * this.tileSize;
         const ey = this.startY + e.gy * this.tileSize;
+
         const fontSize = Math.floor(this.tileSize * 0.6) + 'px';
-        const sprite = this.add.text(ex, ey, '👾', { fontSize }).setOrigin(0.5);
-        this.enemies.push({ id: e.id, gx: e.gx, gy: e.gy, sprite });
+        const spriteText = this.add.text(0, 0, config.symbol, { fontSize }).setOrigin(0.5);
+
+        const barWidth = this.tileSize * 0.7;
+        const barHeight = 6;
+        const hpBg = this.add.rectangle(0, -this.tileSize * 0.4, barWidth, barHeight, 0x333333).setOrigin(0.5);
+        const hpFill = this.add.rectangle(-barWidth / 2, -this.tileSize * 0.4, barWidth, barHeight, 0xef4444).setOrigin(0, 0.5);
+
+        // 讀取存檔中的血量，如果沒有就給滿血 (相容舊存檔)
+        const currentHp = e.hp !== undefined ? e.hp : config.hp;
+        const maxHp = e.maxHp !== undefined ? e.maxHp : config.hp;
+        hpFill.scaleX = Math.max(0, currentHp / maxHp); // 恢復受傷狀態的血條長度
+
+        const atkText = this.add.text(0, this.tileSize * 0.35, `⚔️${config.damage}`, { 
+          fontSize: '12px', color: '#f87171', fontFamily: 'monospace', fontStyle: 'bold' 
+        }).setOrigin(0.5);
+
+        const container = this.add.container(ex, ey, [spriteText, hpBg, hpFill, atkText]).setDepth(30);
+
+        this.enemies.push({ 
+          id: e.id, 
+          gx: e.gx, 
+          gy: e.gy, 
+          sprite: container, 
+          hpFill: hpFill,    
+          spriteText: spriteText, 
+          hp: currentHp,
+          maxHp: maxHp
+        });
     });
 
     (data.hazards || []).forEach(h => {
-        const hx = this.startX + h.gx * this.tileSize;
-        const hy = this.startY + h.gy * this.tileSize;
         const fontSize = Math.floor(this.tileSize * 0.6) + 'px';
-        const sprite = this.add.text(hx, hy, '⚠️', { fontSize }).setOrigin(0.5);
+        const sprite = this.add.text(this.startX + h.gx * this.tileSize, this.startY + h.gy * this.tileSize, '⚠️', { fontSize }).setOrigin(0.5);
         this.hazards.push({ id: h.id, gx: h.gx, gy: h.gy, sprite });
     });
 
     (data.coins || []).forEach(c => {
-        const cx = this.startX + c.gx * this.tileSize;
-        const cy = this.startY + c.gy * this.tileSize;
         const fontSize = Math.floor(this.tileSize * 0.5) + 'px';
-        const sprite = this.add.text(cx, cy, '🪙', { fontSize }).setOrigin(0.5);
+        const sprite = this.add.text(this.startX + c.gx * this.tileSize, this.startY + c.gy * this.tileSize, '🪙', { fontSize }).setOrigin(0.5);
         this.coins.push({ gx: c.gx, gy: c.gy, sprite });
     });
 
     (data.keys || []).forEach(k => {
-        const kx = this.startX + k.gx * this.tileSize;
-        const ky = this.startY + k.gy * this.tileSize;
         const fontSize = Math.floor(this.tileSize * 0.6) + 'px';
-        const sprite = this.add.text(kx, ky, '🔑', { fontSize }).setOrigin(0.5);
+        const sprite = this.add.text(this.startX + k.gx * this.tileSize, this.startY + k.gy * this.tileSize, '🔑', { fontSize }).setOrigin(0.5);
         this.keys.push({ gx: k.gx, gy: k.gy, sprite });
     });
 
@@ -934,11 +1175,7 @@ export default class EndlessScene extends Phaser.Scene {
 
   startTargeting() {
     if (!this.ENABLE_AIMING_UI) {
-      const dx = this.playerFacing.dx;
-      const dy = this.playerFacing.dy;
-      window.dispatchEvent(new CustomEvent('tower-target-selected', {
-        detail: { dx: dx, dy: dy, distance: 1, fullPath: [] } 
-      }));
+      window.dispatchEvent(new CustomEvent('tower-target-selected', { detail: { dx: this.playerFacing.dx, dy: this.playerFacing.dy, distance: 1, fullPath: [] } }));
       return;
     }
     this.isTargeting = true;
@@ -962,10 +1199,6 @@ export default class EndlessScene extends Phaser.Scene {
     const path = providedPath || this.findPath(this.playerGridX, this.playerGridY, gx, gy);
     if (!path) return;
 
-    let dx = gx - this.playerGridX;
-    let dy = gy - this.playerGridY;
-    window.dispatchEvent(new CustomEvent('tower-target-selected', {
-      detail: { dx: dx, dy: dy, distance: path.length, fullPath: path } 
-    }));
+    window.dispatchEvent(new CustomEvent('tower-target-selected', { detail: { dx: gx - this.playerGridX, dy: gy - this.playerGridY, distance: path.length, fullPath: path } }));
   }
 }

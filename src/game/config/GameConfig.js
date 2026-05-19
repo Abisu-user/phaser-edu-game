@@ -18,15 +18,3 @@ export const config = {
         update: update
     }
 };
-
-function preload() {
-    // 這裡載入圖片，例如：this.load.image('hero', 'assets/hero.png');
-}
-
-function create() {
-    // 這裡把角色放進場景：this.add.text(100, 100, '遊戲畫面載入成功！', { fill: '#fff' });
-}
-
-function update() {
-    // 遊戲迴圈
-}

@@ -1,80 +1,90 @@
 <template>
   <transition name="fade">
-    <div class="absolute inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" @click.self="$emit('close')">
+    <div class="absolute inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 font-serif" @click.self="$emit('close')">
       
-      <div class="w-[1180px] max-w-[95vw] h-[935px] max-h-[90vh] bg-[#0D0D17] border border-fuchsia-500/30 rounded-[1.75rem] shadow-[0_0_60px_rgba(217,70,239,0.2)] flex flex-col overflow-hidden transform transition-all">
+      <div class="w-[1180px] max-w-[95vw] h-[935px] max-h-[90vh] bg-[#2A1810] border-[6px] border-double border-[#8C6239] rounded-sm shadow-[0_20px_60px_rgba(0,0,0,0.9)] flex flex-col overflow-hidden transform transition-all relative">
         
-        <header class="h-20 px-8 bg-gradient-to-r from-fuchsia-900/40 to-transparent border-b border-fuchsia-500/20 flex items-center justify-between shrink-0">
+        <div class="absolute inset-0 bg-[#1A0F0A] opacity-50 pointer-events-none"></div>
+
+        <header class="h-20 px-8 bg-[#150C08] border-b-4 border-[#4A2E1B] flex items-center justify-between shrink-0 relative z-10 shadow-[0_5px_15px_rgba(0,0,0,0.8)]">
           <div class="flex items-center gap-4">
-            <span class="text-3xl">🏪</span>
-            <h2 class="text-2xl font-black text-fuchsia-400 tracking-widest uppercase">24H 補給商店</h2>
+            <span class="text-3xl drop-shadow-[0_2px_2px_rgba(0,0,0,1)]">⚖️</span>
+            <h2 class="text-2xl font-black text-[#FFD700] tracking-widest drop-shadow-[0_2px_4px_rgba(0,0,0,1)]">流浪商行與鍛造鋪</h2>
           </div>
           
           <div class="flex items-center gap-5">
-            <div class="flex items-center gap-3 bg-black/50 px-5 py-2 rounded-full border border-yellow-500/20 shadow-[0_0_15px_rgba(234,179,8,0.15)]">
-              <span class="text-lg">💰</span>
-              <span class="text-yellow-500 font-mono font-bold text-lg">{{ coins }}</span>
+            <div class="flex items-center gap-3 bg-[#0F0805] px-5 py-2 border-2 border-[#593922] shadow-[inset_0_2px_10px_rgba(0,0,0,0.9)] rounded-sm">
+              <span class="text-lg drop-shadow-[0_2px_2px_rgba(0,0,0,1)]">🪙</span>
+              <span class="text-[#FFD700] font-bold text-lg tracking-wider">{{ coins }}</span>
             </div>
-            <button @click="$emit('close')" class="text-slate-400 hover:text-rose-400 text-3xl font-bold transition-colors w-10 h-10 flex items-center justify-center rounded-full hover:bg-rose-500/10">×</button>
+            <button @click="$emit('close')" class="text-[#8C6239] hover:text-[#FF0000] text-4xl font-black transition-colors w-10 h-10 flex items-center justify-center hover:scale-110 drop-shadow-[0_2px_2px_rgba(0,0,0,1)]">×</button>
           </div>
         </header>
 
-        <main class="flex-1 overflow-y-auto p-8 custom-scrollbar flex flex-col gap-10 relative">
+        <main class="flex-1 overflow-y-auto p-8 custom-scrollbar flex flex-col gap-10 relative z-10">
           
           <transition name="fade">
-            <div v-if="successMessage" class="absolute top-10 left-1/2 -translate-x-1/2 z-50 px-8 py-3 bg-emerald-900/90 border border-emerald-500/50 text-emerald-300 rounded-full text-center font-bold text-base tracking-widest shadow-[0_0_25px_rgba(16,185,129,0.5)] backdrop-blur-md">
+            <div v-if="successMessage" class="absolute top-6 left-1/2 -translate-x-1/2 z-50 px-10 py-3 bg-[#EAD8B1] border-4 border-double border-[#8C6239] text-[#8B0000] rounded-sm text-center font-black text-lg tracking-widest shadow-[0_10px_20px_rgba(0,0,0,0.8)]">
               {{ successMessage }}
             </div>
           </transition>
 
           <section>
-            <div class="flex items-center gap-3 mb-5 border-b border-white/10 pb-3">
-              <span class="text-fuchsia-400 text-xl">🧬</span>
-              <h3 class="font-bold text-slate-200 tracking-widest text-lg">核心機體強化 <span class="text-xs text-slate-500 font-normal ml-3">價格將隨強化階級提升</span></h3>
+            <div class="flex items-center gap-3 mb-5 border-b-2 border-[#593922] pb-3">
+              <span class="text-[#DAA520] text-2xl drop-shadow-[0_2px_2px_rgba(0,0,0,1)]">⚒️</span>
+              <h3 class="font-black text-[#F5DEB3] tracking-widest text-xl drop-shadow-[0_2px_2px_rgba(0,0,0,1)]">
+                基礎能力鍛鍊 
+                <span class="text-sm text-[#8C6239] font-bold ml-4">所需奉獻金將隨階級提升</span>
+              </h3>
             </div>
             
             <div class="grid grid-cols-4 gap-6">
               <div 
                 v-for="item in dynamicFixedUpgrades" 
                 :key="item.id"
-                class="bg-[#1A1A24] border border-fuchsia-500/30 hover:border-fuchsia-400 rounded-2xl p-6 flex flex-col gap-4 transition-all duration-300 group relative overflow-hidden shadow-[inset_0_0_20px_rgba(217,70,239,0.05)]"
+                class="bg-[#1C110C] border-2 border-[#593922] hover:border-[#DAA520] rounded-sm p-6 flex flex-col gap-4 transition-all duration-300 group relative overflow-hidden shadow-[inset_0_0_20px_rgba(0,0,0,0.8)]"
               >
-                <div class="absolute top-3 right-3 text-xs font-black font-mono px-2.5 py-1 rounded bg-fuchsia-900/50 text-fuchsia-300 border border-fuchsia-500/30">
+                <div class="absolute top-3 right-3 text-xs font-black px-2.5 py-1 rounded-sm bg-[#8B0000] text-[#FFD700] border border-[#593922] shadow-[1px_1px_0_rgba(0,0,0,0.8)]">
                   Lv.{{ item.currentLevel }}
                 </div>
 
-                <div class="text-[3.5rem] text-center mt-6 mb-3 group-hover:scale-110 transition-transform group-hover:drop-shadow-[0_0_15px_rgba(217,70,239,0.5)]">{{ item.icon }}</div>
+                <div class="text-[3.5rem] text-center mt-6 mb-3 group-hover:scale-110 transition-transform group-hover:drop-shadow-[0_0_15px_rgba(218,165,32,0.4)]">{{ item.icon }}</div>
                 
                 <div class="flex flex-col flex-1 items-center text-center">
-                  <h3 class="text-lg font-black text-slate-200 group-hover:text-fuchsia-300">{{ item.name }}</h3>
-                  <p class="text-xs text-slate-400 mt-2 leading-relaxed">{{ item.desc }}</p>
-                  <p class="text-sm text-fuchsia-400 font-bold mt-3 bg-black/30 px-3 py-1 rounded-lg w-full">當前數值: {{ item.currentStat }}</p>
+                  <h3 class="text-xl font-black text-[#F5DEB3] group-hover:text-[#FFD700] drop-shadow-[0_2px_2px_rgba(0,0,0,1)]">{{ item.name }}</h3>
+                  <p class="text-sm text-[#A08060] mt-2 font-bold leading-relaxed">{{ item.desc }}</p>
+                  <p class="text-sm text-[#DAA520] font-black mt-3 bg-[#0F0805] border border-[#3A2318] shadow-[inset_0_2px_5px_rgba(0,0,0,1)] px-3 py-1.5 w-full">目前能力: {{ item.currentStat }}</p>
                 </div>
 
-                <div class="mt-auto pt-4 border-t border-fuchsia-500/20 flex items-center justify-between">
-                  <div class="flex items-center gap-1.5">
-                    <span class="text-sm">💰</span>
-                    <span class="text-lg font-mono font-bold" :class="coins >= item.price ? 'text-yellow-500' : 'text-rose-500'">{{ item.price }}</span>
+                <div class="mt-auto pt-4 border-t-2 border-[#3A2318] flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">🪙</span>
+                    <span class="text-xl font-bold drop-shadow-[0_1px_1px_rgba(0,0,0,1)]" :class="coins >= item.price ? 'text-[#FFD700]' : 'text-rose-700'">{{ item.price }}</span>
                   </div>
                   <button 
                     @click="buyItem(item)"
                     :disabled="coins < item.price"
-                    class="px-4 py-2 rounded-xl text-sm font-black tracking-widest transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    :class="coins >= item.price ? 'bg-fuchsia-600 hover:bg-fuchsia-500 text-white shadow-[0_0_15px_rgba(217,70,239,0.4)]' : 'bg-slate-800 text-slate-500'"
-                  >購買</button>
+                    class="px-5 py-2 rounded-sm text-sm font-black tracking-widest transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_5px_10px_rgba(0,0,0,0.6)] border-2"
+                    :class="coins >= item.price 
+                      ? 'bg-[#8B0000] hover:bg-[#A52A2A] text-[#FFD700] border-[#DAA520] border-b-[4px] hover:border-b-[2px] hover:translate-y-[2px] active:border-b-[2px] active:translate-y-[2px]' 
+                      : 'bg-[#3E2723] text-[#8C6239] border-[#2A1810] border-b-[2px] translate-y-[2px]'"
+                  >奉獻</button>
                 </div>
               </div>
             </div>
           </section>
 
           <section>
-            <div class="flex items-center justify-between mb-5 border-b border-white/10 pb-3">
+            <div class="flex items-center justify-between mb-5 border-b-2 border-[#593922] pb-3">
               <div class="flex items-center gap-3">
-                <span class="text-emerald-400 text-xl">📦</span>
-                <h3 class="font-bold text-slate-200 tracking-widest text-lg">黑市隨機貨源 <span class="text-xs text-slate-500 font-normal ml-3">根據玩家等級 (Lv.{{ playerLevel }}) 隨機刷新 6 樣商品</span></h3>
+                <span class="text-[#8FBC8F] text-2xl drop-shadow-[0_2px_2px_rgba(0,0,0,1)]">📜</span>
+                <h3 class="font-black text-[#F5DEB3] tracking-widest text-xl drop-shadow-[0_2px_2px_rgba(0,0,0,1)]">
+                  神秘商人的珍稀貨架 
+                  <span class="text-sm text-[#8C6239] font-bold ml-4">根據冒險者等級 (Lv.{{ playerLevel }}) 隨機陳列 6 件珍品</span>
+                </h3>
               </div>
-              <button @click="refreshRandomItems" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-xl border border-slate-600 transition-colors flex items-center gap-2 shadow-md">
-                <span>🔄</span> 刷新貨架 (💰 50)
+              <button @click="refreshRandomItems" class="text-xs bg-[#3E2723] hover:bg-[#5D4037] text-[#D7CCC8] font-bold px-4 py-2 rounded-sm border-2 border-[#8C6239] border-b-4 hover:border-b-2 hover:translate-y-[2px] active:border-b-2 active:translate-y-[2px] transition-all flex items-center gap-2 shadow-[0_4px_10px_rgba(0,0,0,0.6)]">
+                <span>🔄</span> 重新陳列貨物 (🪙 50)
               </button>
             </div>
             
@@ -82,32 +92,34 @@
               <div 
                 v-for="item in randomItems" 
                 :key="item.instanceId"
-                class="bg-[#11111B] border border-white/10 hover:border-emerald-500/50 rounded-2xl p-6 flex flex-col gap-4 transition-all duration-300 group relative overflow-hidden"
+                class="bg-[#EAD8B1] border-[4px] border-double border-[#8C6239] p-6 flex flex-col gap-4 transition-all duration-300 group relative shadow-[4px_4px_15px_rgba(0,0,0,0.6)]"
               >
-                <div class="absolute top-3 left-3 text-[11px] font-black px-2.5 py-1 rounded"
-                  :class="item.type === 'unlock' ? 'bg-amber-900/50 text-amber-400 border border-amber-500/30' : 'bg-emerald-900/50 text-emerald-400 border border-emerald-500/30'">
-                  {{ item.type === 'unlock' ? '指令解鎖' : '消耗品' }}
+                <div class="absolute top-3 left-3 text-xs font-black px-2.5 py-1 rounded-sm shadow-[1px_1px_0_rgba(0,0,0,0.5)]"
+                  :class="item.type === 'unlock' ? 'bg-[#593922] text-[#EAD8B1] border border-[#3A2318]' : 'bg-[#1A2F1A] text-[#8FBC8F] border border-[#0A1A0A]'">
+                  {{ item.type === 'unlock' ? '魔法卷軸' : '秘藥與物資' }}
                 </div>
 
-                <div class="text-[3.5rem] text-center mt-6 mb-3 group-hover:scale-110 transition-transform group-hover:drop-shadow-[0_0_15px_rgba(16,185,129,0.5)]">{{ item.icon }}</div>
+                <div class="text-[3.5rem] text-center mt-6 mb-3 group-hover:scale-110 transition-transform drop-shadow-[0_4px_4px_rgba(0,0,0,0.3)]">{{ item.icon }}</div>
                 
                 <div class="flex flex-col flex-1 items-center text-center">
-                  <h3 class="text-lg font-black text-slate-200 group-hover:text-emerald-300">{{ item.name }}</h3>
-                  <p class="text-[13px] text-slate-400 mt-2 leading-relaxed">{{ item.desc }}</p>
+                  <h3 class="text-xl font-black text-[#3A2318] group-hover:text-[#8B0000]">{{ item.name }}</h3>
+                  <p class="text-sm text-[#593922] mt-2 font-bold leading-relaxed">{{ item.desc }}</p>
                 </div>
 
-                <div class="mt-auto pt-4 border-t border-white/5 flex items-center justify-between">
+                <div class="mt-auto pt-4 border-t-2 border-[#C8B693] flex items-center justify-between">
                   <div class="flex items-center gap-2">
-                    <span class="text-sm">💰</span>
-                    <span class="text-lg font-mono font-bold" :class="coins >= item.price && !item.purchased ? 'text-yellow-500' : 'text-rose-500'">{{ item.price }}</span>
+                    <span class="text-sm">🪙</span>
+                    <span class="text-xl font-bold" :class="coins >= item.price && !item.purchased ? 'text-[#8B0000]' : 'text-zinc-500'">{{ item.price }}</span>
                   </div>
                   <button 
                     @click="buyItem(item)"
                     :disabled="coins < item.price || item.purchased"
-                    class="px-5 py-2 rounded-xl text-sm font-black tracking-widest transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    :class="(coins >= item.price && !item.purchased) ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'bg-slate-800 text-slate-500'"
+                    class="px-6 py-2 rounded-sm text-sm font-black tracking-widest transition-all disabled:opacity-50 disabled:cursor-not-allowed border-2"
+                    :class="(coins >= item.price && !item.purchased) 
+                      ? 'bg-[#1A365D] hover:bg-[#2A4365] text-[#FFF8DC] border-[#4299E1] border-b-[4px] hover:border-b-[2px] hover:translate-y-[2px] active:border-b-[2px] active:translate-y-[2px] shadow-[0_5px_10px_rgba(0,0,0,0.4)]' 
+                      : 'bg-[#C8B693] text-[#8C6239] border-[#A08060] border-b-[2px] translate-y-[2px]'"
                   >
-                    {{ item.purchased ? '售罄' : '購買' }}
+                    {{ item.purchased ? '已售出' : '交易' }}
                   </button>
                 </div>
               </div>
@@ -119,6 +131,17 @@
     </div>
   </transition>
 </template>
+
+<style scoped>
+.fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+
+/* 滾動條改為適合木質的深棕色系 */
+.custom-scrollbar::-webkit-scrollbar { width: 8px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: rgba(20, 10, 5, 0.6); border-radius: 4px; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #593922; border-radius: 4px; border: 1px solid #3A2318; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #8C6239; }
+</style>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
@@ -209,12 +232,3 @@ const buyItem = (item) => {
   }
 };
 </script>
-
-<style scoped>
-.fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
-.custom-scrollbar::-webkit-scrollbar { width: 6px; }
-.custom-scrollbar::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(217, 70, 239, 0.3); border-radius: 4px; }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(217, 70, 239, 0.6); }
-</style>

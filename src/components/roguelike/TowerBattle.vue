@@ -1,193 +1,217 @@
 <template>
-  <div class="tower-battle h-full w-full flex flex-col bg-[#05050A] relative text-slate-300 font-sans">
+  <div class="tower-battle h-full w-full flex flex-col bg-[#110A07] relative text-[#D7CCC8] font-serif">
     
+    <div class="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#3A1C0A]/20 via-[#110A07] to-black pointer-events-none"></div>
+
     <transition name="fade">
-      <div v-if="showClearModal" class="absolute inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-md">
-        <div class="w-[660px] bg-[#1A1A24] border border-emerald-500/50 rounded-[2rem] p-9 shadow-[0_0_40px_rgba(16,185,129,0.3)] flex flex-col gap-7 text-center transform transition-all">
-          <div class="space-y-2.5">
-            <div class="text-5xl animate-bounce">🎉</div>
-            <h3 class="text-emerald-400 font-black text-3xl tracking-widest">區域突破成功！</h3>
-            <p class="text-slate-400 text-[15px]">系統正在重組下一層的空間數據...</p>
+      <div v-if="showClearModal" class="absolute inset-0 z-[110] flex items-center justify-center bg-black/85 backdrop-blur-sm">
+        <div class="w-[660px] bg-[#1C110C] border-[6px] border-double border-[#D4AF37] rounded-sm p-9 shadow-[0_0_50px_rgba(218,165,32,0.4)] flex flex-col gap-7 text-center transform transition-all relative">
+          <div class="absolute inset-0 border border-[#D4AF37]/30 m-2 pointer-events-none"></div>
+          
+          <div class="space-y-2.5 relative z-10">
+            <div class="text-5xl animate-bounce drop-shadow-[0_2px_4px_rgba(0,0,0,1)]">🏆</div>
+            <h3 class="text-[#FFD700] font-black text-3xl tracking-widest drop-shadow-[0_2px_4px_rgba(0,0,0,1)]">階層突破成功！通關獎勵：+{{ floorBonusCoins }} 🪙</h3>
+            <p class="text-[#A08060] font-bold text-[15px]">通往更深淵的階梯已經開啟...</p>
           </div>
-          <div class="flex flex-col gap-3.5 mt-2">
-            <div class="text-[15px] text-emerald-500 font-bold tracking-widest text-left flex items-center gap-2.5">
-              <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
-              偵測到可用模組，請選擇一項升級：
+          <div class="flex flex-col gap-3.5 mt-2 relative z-10">
+            <div class="text-[15px] text-[#8FBC8F] font-black tracking-widest text-left flex items-center gap-2.5 drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">
+              <span class="w-2.5 h-2.5 bg-[#8FBC8F] rounded-full animate-pulse shadow-[0_0_5px_#8FBC8F]"></span>
+              發現遠古遺物，請選擇一項女神的祝福：
             </div>
             <div class="grid grid-cols-3 gap-4.5">
               <button 
                 v-for="reward in currentRewards" 
                 :key="reward.id"
                 @click="selectReward(reward)"
-                class="group border border-slate-600 bg-slate-800/80 hover:bg-emerald-900/40 hover:border-emerald-400 rounded-2xl p-6 flex flex-col items-center gap-3.5 transition-all duration-300 transform hover:-translate-y-2 hover:shadow-[0_10px_20px_rgba(16,185,129,0.25)] cursor-pointer"
+                class="group border-2 border-[#593922] bg-[#2A1810] hover:bg-[#3A2318] hover:border-[#DAA520] rounded-sm p-6 flex flex-col items-center gap-3.5 transition-all duration-300 transform hover:-translate-y-2 hover:shadow-[0_10px_20px_rgba(0,0,0,0.8)] cursor-pointer shadow-[inset_0_0_15px_rgba(0,0,0,1)]"
               >
-                <span class="text-5xl group-hover:scale-125 transition-transform duration-300">{{ reward.icon }}</span>
+                <span class="text-5xl group-hover:scale-125 transition-transform duration-300 drop-shadow-[0_2px_4px_rgba(0,0,0,1)]">{{ reward.icon }}</span>
                 <div class="flex flex-col items-center mt-1">
-                  <span class="text-[15px] font-black text-slate-200 group-hover:text-emerald-300 tracking-wider">{{ reward.name }}</span>
-                  <span class="text-xs font-medium text-slate-400 group-hover:text-emerald-100/70 mt-1.5">{{ reward.desc }}</span>
+                  <span class="text-[15px] font-black text-[#F5DEB3] group-hover:text-[#FFD700] tracking-wider drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">{{ reward.name }}</span>
+                  <span class="text-xs font-bold text-[#A08060] group-hover:text-[#D7CCC8] mt-1.5">{{ reward.desc }}</span>
                 </div>
               </button>
             </div>
           </div>
-          <button @click="proceedToNextFloor" class="py-3.5 mt-5 rounded-xl border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800 font-bold tracking-widest transition-all text-[15px]">
-            放棄獎勵，直接進入下一層 ＞
+          <button @click="proceedToNextFloor" class="py-3.5 mt-5 rounded-sm border-2 border-[#3A2318] text-[#8C6239] hover:text-[#D7CCC8] hover:bg-[#2A1810] hover:border-[#593922] font-black tracking-widest transition-all text-[15px] relative z-10">
+            放棄祝福，直接踏入下一層 ＞
           </button>
         </div>
       </div>
     </transition>
 
     <transition name="fade">
-      <div v-if="showMenu" class="absolute inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md">
-        <div class="w-[350px] bg-[#1A1A24] border border-[#2A2A40] rounded-3xl p-7 shadow-2xl flex flex-col gap-5 text-center">
-          <h3 class="text-indigo-400 font-bold text-xl mb-2">機甲控制系統</h3>
-          <button @click="showMenu = false" class="py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold transition-all text-[15px]">繼續探索</button>
-          <button @click="confirmExit('save')" class="py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-all shadow-[0_0_15px_rgba(79,70,229,0.4)] text-[15px]">暫時中斷 (儲存並退出)</button>
-          <button @click="confirmExit('abandon')" class="py-3.5 rounded-xl border border-rose-900/50 bg-rose-950/20 hover:bg-rose-600 text-rose-400 hover:text-white font-bold transition-all text-[15px]">終止連線 (放棄進度)</button>
+      <div v-if="showMenu" class="absolute inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+        <div class="w-[350px] bg-[#1C110C] border-4 border-double border-[#8C6239] rounded-sm p-7 shadow-2xl flex flex-col gap-5 text-center">
+          <h3 class="text-[#FFD700] font-black text-xl mb-2 tracking-widest drop-shadow-[0_2px_2px_rgba(0,0,0,1)]">冒險者紮營選單</h3>
+          <button @click="showMenu = false" class="py-3.5 rounded-sm border-2 border-[#3A2318] bg-[#2A1810] hover:bg-[#3A2318] hover:border-[#593922] text-[#F5DEB3] font-black transition-all text-[15px] shadow-md border-b-[4px] hover:border-b-[2px] hover:translate-y-[2px]">繼續探索</button>
+          <button @click="confirmExit('save')" class="py-3.5 rounded-sm border-2 border-[#4299E1] bg-[#1A365D] hover:bg-[#2A4365] text-[#FFF8DC] font-black transition-all text-[15px] shadow-[0_5px_15px_rgba(0,0,0,0.6)] border-b-[4px] hover:border-b-[2px] hover:translate-y-[2px]">營地休整 (儲存並回城)</button>
+          <button @click="confirmExit('abandon')" class="py-3.5 rounded-sm border-2 border-[#8B0000] bg-[#3E1010] hover:bg-[#8B0000] text-[#FFD700] hover:text-white font-black transition-all text-[15px] shadow-md border-b-[4px] hover:border-b-[2px] hover:translate-y-[2px]">逃離深淵 (放棄進度)</button>
         </div>
       </div>
     </transition>
 
-    <header class="h-16 flex items-center justify-between px-7 border-b border-indigo-500/20 bg-[#0D0D17] shrink-0 z-50">
+    <transition name="fade">
+      <div v-if="showGameOverModal" class="absolute inset-0 z-[120] flex items-center justify-center bg-black/95 backdrop-blur-md">
+        <div class="w-[550px] bg-[#1A0F0A] border-[6px] border-double border-[#8B0000] rounded-sm p-9 flex flex-col gap-7 text-center shadow-[0_0_50px_rgba(139,0,0,0.5)]">
+          <div class="text-6xl drop-shadow-[0_5px_10px_rgba(255,0,0,0.5)]">💀</div>
+          <h3 class="text-[#FF0000] font-black text-3xl tracking-widest drop-shadow-[0_2px_4px_rgba(0,0,0,1)]">靈魂消散 (討伐失敗)</h3>
+          <div class="flex flex-col gap-4 mt-4">
+            <button @click="handleRetry" class="py-4 bg-[#8B0000] hover:bg-[#A52A2A] text-[#FFD700] font-black rounded-sm border-2 border-[#DAA520] border-b-[4px] hover:border-b-[2px] hover:translate-y-[2px] active:border-b-[2px] active:translate-y-[2px] shadow-lg tracking-widest">🔄 重燃靈魂 (重置並回第 1 階)</button>
+            <button @click="handleExitToLobby" class="py-4 border-2 border-[#593922] bg-[#1C110C] hover:bg-[#2A1810] text-[#A08060] hover:text-[#F5DEB3] font-black rounded-sm tracking-widest transition-colors">🚪 撤退 (返回公會大廳)</button>
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <header class="h-16 flex items-center justify-between px-7 border-b-[4px] border-[#3A2318] bg-[#150C08] shrink-0 z-50 shadow-[0_5px_15px_rgba(0,0,0,0.8)]">
       <div class="flex items-center gap-7">
-        <button @click="showMenu = true" class="px-3.5 py-2 rounded-lg border border-slate-700 bg-slate-800/40 text-[13px] font-bold hover:bg-slate-700 transition-all shadow-sm">⚙️ 選單</button>
+        <button @click="showMenu = true" class="px-4 py-2 rounded-sm border-2 border-[#593922] bg-[#2A1810] hover:bg-[#3A2318] text-[#F5DEB3] text-[13px] font-black transition-all shadow-sm border-b-[4px] hover:border-b-[2px] hover:translate-y-[2px]">⚙️ 紮營</button>
         <div class="flex flex-col">
-          <span class="text-[11px] text-indigo-400 font-black tracking-tighter uppercase">Current Location</span>
-          <h2 class="text-xl font-black text-white leading-none tracking-wide mt-0.5">ENDLESS TOWER - {{ floor }}F</h2>
+          <span class="text-[11px] text-[#8C6239] font-black tracking-widest uppercase drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">Current Location</span>
+          <h2 class="text-xl font-black text-[#FFD700] leading-none tracking-widest mt-0.5 drop-shadow-[0_2px_2px_rgba(0,0,0,1)]">無盡地下城 - B{{ floor }}F</h2>
         </div>
       </div>
 
       <div class="flex items-center gap-5">
-        <div class="flex items-center gap-4.5 bg-black/40 px-5 py-2.5 rounded-xl border border-white/5 shadow-inner">
-          <div class="flex items-center gap-3.5 border-r border-white/10 pr-5">
-            <span class="text-[13px] font-black text-indigo-500">LV.{{ level }}</span>
-            <div class="w-32 h-2 bg-slate-800 rounded-full overflow-hidden">
-              <div class="h-full bg-indigo-500 shadow-[0_0_8px_#6366f1] transition-all" :style="{ width: (xp / (level * 100) * 100) + '%' }"></div>
+        <div class="flex items-center gap-4.5 bg-[#0F0805] px-5 py-2.5 rounded-sm border-2 border-[#593922] shadow-[inset_0_2px_5px_rgba(0,0,0,1)]">
+          <div class="flex items-center gap-3.5 border-r-2 border-[#3A2318] pr-5">
+            <span class="text-[14px] font-black text-[#F5DEB3] drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">Lv.{{ level }}</span>
+            <div class="w-32 h-2.5 bg-[#1C110C] border border-[#000] rounded-full overflow-hidden shadow-inner">
+              <div class="h-full bg-gradient-to-r from-[#4A0E17] to-[#8B0000] shadow-[0_0_8px_#8B0000] transition-all relative" :style="{ width: (xp / (level * 100) * 100) + '%' }">
+                <div class="absolute top-0 left-0 w-full h-[30%] bg-white/20"></div>
+              </div>
             </div>
           </div>
           <div class="flex items-center gap-2 pl-1.5">
-            <span class="text-[15px]">💰</span>
-            <span class="text-[15px] font-mono font-bold text-yellow-500">{{ coins }}</span>
+            <span class="text-[15px] drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">🪙</span>
+            <span class="text-[16px] font-mono font-black text-[#FFD700] drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">{{ coins }}</span>
           </div>
         </div>
       </div>
     </header>
 
-    <main class="flex-1 flex overflow-hidden p-2.5 gap-2.5">
+    <main class="flex-1 flex overflow-hidden p-3 gap-3">
       
-      <aside class="w-[280px] bg-[#0D0D17]/80 backdrop-blur-md border border-white/5 rounded-xl flex flex-col gap-6 p-5 overflow-y-auto custom-scrollbar shadow-xl">
+      <aside class="w-[280px] bg-[#1C110C] border-4 border-[#3A2318] rounded-sm flex flex-col gap-6 p-5 overflow-y-auto custom-scrollbar shadow-[inset_0_0_20px_rgba(0,0,0,1)] z-10">
         
         <div>
-          <div class="text-[11px] font-black text-indigo-400 uppercase tracking-widest mb-3.5 border-b border-indigo-500/20 pb-1.5">Mission Objective</div>
-          <div class="text-[15px] font-bold text-slate-200 leading-relaxed whitespace-pre-line bg-indigo-500/5 p-3.5 rounded-lg border border-indigo-500/10">
-            {{ currentObjective || '載入數據中...' }}
+          <div class="text-[12px] font-black text-[#DAA520] uppercase tracking-widest mb-3.5 border-b-2 border-[#593922] pb-1.5 drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">Quest Objective</div>
+          <div class="text-[15px] font-bold text-[#F5DEB3] leading-relaxed whitespace-pre-line bg-[#0F0805] p-3.5 rounded-sm border border-[#3A2318] shadow-[inset_0_2px_5px_rgba(0,0,0,1)]">
+            {{ currentObjective || '解讀古老石碑中...' }}
           </div>
         </div>
 
         <div>
-          <div class="text-[11px] font-black text-rose-400 uppercase tracking-widest mb-3.5 border-b border-rose-500/20 pb-1.5">Mech Status</div>
-          <div class="space-y-3.5 bg-black/30 p-3.5 rounded-lg border border-white/5 shadow-inner">
+          <div class="text-[12px] font-black text-[#8B0000] uppercase tracking-widest mb-3.5 border-b-2 border-[#8B0000]/50 pb-1.5 drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">Adventurer Status</div>
+          <div class="space-y-3.5 bg-[#0F0805] p-3.5 rounded-sm border border-[#3A2318] shadow-[inset_0_2px_5px_rgba(0,0,0,1)]">
             <div v-for="stat in stats" :key="stat.label" class="flex flex-col gap-2">
               <div class="flex justify-between items-end leading-none">
-                <span :class="stat.colorClass" class="text-[11px] font-black italic">{{ stat.label }}</span>
-                <span class="text-[11px] font-mono font-bold text-white">{{ stat.val }} / {{ stat.max }}</span>
+                <span class="text-[12px] font-black italic drop-shadow-[0_1px_1px_rgba(0,0,0,1)]" :style="{ color: stat.colorClass.replace('text-', '') }">
+                  {{ stat.label === 'HP' ? '❤️ HP' : (stat.label === 'MP' ? '🔮 MP' : '⚡ AP') }}
+                </span>
+                <span class="text-[12px] font-black text-[#FFF8DC] drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">{{ stat.val }} / {{ stat.max }}</span>
               </div>
-              <div class="w-full h-2 bg-[#0B0B12] rounded-full overflow-hidden border border-white/5">
-                <div class="h-full transition-all" :class="stat.bgClass" :style="{ width: (stat.val / stat.max * 100) + '%' }"></div>
+              <div class="w-full h-2.5 bg-[#1C110C] border border-black rounded-full overflow-hidden shadow-inner">
+                <div class="h-full transition-all relative" :class="stat.bgClass" :style="{ width: (stat.val / stat.max * 100) + '%' }">
+                  <div class="absolute top-0 left-0 w-full h-[30%] bg-white/20"></div>
+                </div>
               </div>
             </div>
-            <div class="flex justify-between items-center bg-orange-950/30 border border-orange-500/30 px-3.5 py-2.5 rounded-lg mt-2.5">
-              <span class="text-[11px] font-black text-orange-500 italic">⚔️ ATK</span>
-              <span class="text-[13px] font-mono font-black text-orange-400">{{ attack }}</span>
+            <div class="flex justify-between items-center bg-[#3E1010] border border-[#8B0000] px-3.5 py-2.5 rounded-sm mt-3 shadow-inner">
+              <span class="text-[12px] font-black text-[#FF7F50] italic drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">⚔️ 攻擊力 (ATK)</span>
+              <span class="text-[15px] font-black text-[#FFD700] drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">{{ attack || 10 }}</span>
             </div>
           </div>
         </div>
 
         <div>
-          <div class="text-[11px] font-black text-amber-400 uppercase tracking-widest mb-3.5 border-b border-amber-500/20 pb-1.5 flex justify-between items-end">
-            <span>Tactical Backpack</span>
+          <div class="text-[12px] font-black text-[#8FBC8F] uppercase tracking-widest mb-3.5 border-b-2 border-[#4A5D23] pb-1.5 flex justify-between items-end drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">
+            <span>Adventurer's Pouch</span>
             <transition name="fade">
-              <span v-if="actionMessage" class="text-emerald-400 normal-case text-[10px]">{{ actionMessage }}</span>
+              <span v-if="actionMessage" class="text-[#FFD700] normal-case text-[11px] font-bold">{{ actionMessage }}</span>
             </transition>
           </div>
           
-          <div class="flex flex-col gap-3 bg-black/30 p-2.5 rounded-lg border border-white/5 shadow-inner min-h-[66px] max-h-[240px] overflow-y-auto custom-scrollbar">
-            <div v-if="consumableItems.length === 0" class="py-7 text-[11px] text-slate-600 text-center flex items-center justify-center font-bold tracking-widest">
-              背包內無可用道具
+          <div class="flex flex-col gap-3 bg-[#0F0805] p-2.5 rounded-sm border border-[#3A2318] shadow-[inset_0_2px_5px_rgba(0,0,0,1)] min-h-[66px] max-h-[240px] overflow-y-auto custom-scrollbar">
+            <div v-if="consumableItems.length === 0" class="py-7 text-[12px] text-[#593922] text-center flex items-center justify-center font-black tracking-widest">
+              行囊內無可用秘藥
             </div>
             
             <button
               v-for="item in consumableItems"
               :key="item.id"
               @click="useItem(item)"
-              class="relative group bg-[#11111B] border border-white/10 hover:border-amber-500/50 rounded-lg p-3.5 flex items-center gap-4.5 transition-all duration-300 ease-out shadow-[inset_0_0_10px_rgba(245,158,11,0.02)] active:scale-95 text-left transform-gpu hover:scale-105 hover:shadow-[0_10px_20px_-5px_rgba(245,158,11,0.25)] hover:z-20"
+              class="relative group bg-[#1C110C] border-2 border-[#3A2318] hover:border-[#8FBC8F] rounded-sm p-3.5 flex items-center gap-4.5 transition-all duration-300 ease-out active:scale-95 text-left transform-gpu hover:scale-105 hover:shadow-[0_5px_15px_rgba(0,0,0,0.8)] hover:z-20"
               :title="item.desc"
             >
-              <div class="text-4xl shrink-0 group-hover:drop-shadow-[0_0_5px_rgba(245,158,11,0.5)]">
-                {{ item.icon }}
-              </div>
-              
+              <div class="text-4xl shrink-0 group-hover:drop-shadow-[0_0_8px_rgba(143,188,143,0.6)]">{{ item.icon }}</div>
               <div class="flex flex-col flex-1 overflow-hidden">
                 <div class="flex justify-between items-center">
-                  <span class="text-[13px] font-bold text-slate-200 group-hover:text-amber-300 truncate">{{ item.name }}</span>
-                  <span class="text-[11px] font-mono text-amber-500 font-black bg-amber-900/30 px-2 py-1 rounded ml-2">x{{ item.quantity }}</span>
+                  <span class="text-[14px] font-black text-[#F5DEB3] group-hover:text-[#D1FAB7] truncate drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">{{ item.name }}</span>
+                  <span class="text-[11px] text-[#FFD700] font-black bg-[#8B0000] border border-[#593922] px-2 py-0.5 rounded-sm ml-2 shadow-[1px_1px_0_rgba(0,0,0,0.8)]">x{{ item.quantity }}</span>
                 </div>
-                <span class="text-[11px] text-slate-500 truncate mt-1 tracking-tight">{{ item.desc }}</span>
+                <span class="text-[11px] font-bold text-[#A08060] truncate mt-1 tracking-tight">{{ item.desc }}</span>
               </div>
             </button>
           </div>
         </div>
 
         <div>
-          <div class="text-[11px] font-black text-emerald-400 uppercase tracking-widest mb-3.5 border-b border-emerald-500/20 pb-1.5">System Status</div>
-          <div class="space-y-2.5 bg-emerald-500/5 p-3.5 rounded-lg border border-emerald-500/10">
-            <div class="flex justify-between text-[13px]"><span class="text-slate-400 font-bold">當前回合</span><span class="text-emerald-300 font-mono font-bold">TURN {{ currentTurn }}</span></div>
-            <div class="flex justify-between text-[13px]"><span class="text-slate-400 font-bold">掃描深度</span><span class="text-emerald-300 font-mono font-bold">{{ floor * 100 }}m</span></div>
+          <div class="text-[12px] font-black text-[#C0C0C0] uppercase tracking-widest mb-3.5 border-b-2 border-[#593922] pb-1.5 drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">Dungeon Info</div>
+          <div class="space-y-2.5 bg-[#0F0805] p-3.5 rounded-sm border border-[#3A2318] shadow-[inset_0_2px_5px_rgba(0,0,0,1)]">
+            <div class="flex justify-between text-[13px]"><span class="text-[#8C6239] font-black">當前回合</span><span class="text-[#D4AF37] font-black">TURN {{ currentTurn }}</span></div>
+            <div class="flex justify-between text-[13px]"><span class="text-[#8C6239] font-black">深淵深度</span><span class="text-[#D4AF37] font-black">B{{ floor * 100 }}m</span></div>
           </div>
         </div>
 
         <div class="mt-auto pt-2.5">
-          <div class="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-3.5 border-b border-slate-700 pb-1.5">Legend</div>
-          <div class="grid grid-cols-2 gap-3 text-[11px] font-bold text-slate-400">
-            <div class="flex items-center gap-2.5"><span class="w-3 h-3 rounded-sm bg-indigo-500 shadow-[0_0_5px_#6366f1]"></span> 玩家機甲</div>
-            <div class="flex items-center gap-2.5"><span class="w-3 h-3 rounded-sm bg-fuchsia-500 shadow-[0_0_5px_#d946ef]"></span> 數據終端</div>
-            <div class="flex items-center gap-2.5"><span class="w-3 h-3 rounded-sm bg-rose-500"></span> 威脅目標</div>
-            <div class="flex items-center gap-2.5"><span class="w-3 h-3 rounded-sm bg-emerald-500"></span> 起始座標</div>
+          <div class="text-[11px] font-black text-[#593922] uppercase tracking-widest mb-3.5 border-b-2 border-[#3A2318] pb-1.5 drop-shadow-[0_1px_0_rgba(255,255,255,0.1)]">Map Runes</div>
+          <div class="grid grid-cols-2 gap-3 text-[11px] font-black text-[#8C6239]">
+            <div class="flex items-center gap-2.5"><span class="w-3.5 h-3.5 rounded-sm bg-[#4299E1] border border-[#2B6CB0] shadow-[0_0_5px_#4299E1]"></span> 勇者</div>
+            <div class="flex items-center gap-2.5"><span class="w-3.5 h-3.5 rounded-sm bg-[#DAA520] border border-[#B8860B] shadow-[0_0_5px_#DAA520]"></span> 下層入口</div>
+            <div class="flex items-center gap-2.5"><span class="w-3.5 h-3.5 rounded-sm bg-[#E53E3E] border border-[#9B2C2C]"></span> 魔物</div>
+            <div class="flex items-center gap-2.5"><span class="w-3.5 h-3.5 rounded-sm bg-[#48BB78] border border-[#276749]"></span> 降落點</div>
           </div>
         </div>
       </aside>
 
-      <div class="flex-1 bg-black rounded-xl border border-white/5 overflow-hidden relative shadow-2xl">
+      <div class="flex-1 bg-black rounded-sm border-[8px] border-[#2A1810] overflow-hidden relative shadow-[0_0_50px_rgba(0,0,0,1)] z-0">
+        <div class="absolute inset-0 border-2 border-[#593922] pointer-events-none z-10"></div>
         <div id="endless-game-container" class="w-full h-full"></div>
       </div>
 
-      <aside class="w-[440px] flex flex-col gap-2.5">
-        <div class="h-[60%] bg-[#131320] border border-white/5 rounded-xl flex flex-col overflow-hidden shadow-2xl relative z-40">
-          <div class="px-5 py-2.5 bg-black/40 border-b border-white/5 flex justify-between items-center shrink-0">
-            <span class="text-[11px] font-black text-indigo-400 uppercase tracking-widest">Code Editor</span>
-            <button @click="clearCode" class="text-[11px] text-rose-400 hover:text-white transition-colors">CLEAN</button>
+      <aside class="w-[440px] flex flex-col gap-3 z-10">
+        
+        <div class="h-[60%] bg-[#1A0F0A] border-4 border-[#3A2318] rounded-sm flex flex-col overflow-hidden shadow-[0_15px_30px_rgba(0,0,0,0.8)] relative">
+          <div class="px-5 py-3 bg-[#150C08] border-b-2 border-[#3A2318] flex justify-between items-center shrink-0 shadow-md">
+            <span class="text-[12px] font-black text-[#DAA520] uppercase tracking-widest drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">Grimoire (Spell Weaver)</span>
+            <button @click="clearCode" class="text-[11px] font-black text-[#8B0000] hover:text-[#FF0000] transition-colors bg-[#2A1810] px-2 py-1 rounded-sm border border-[#593922]" :disabled="isExecuting">抹除墨水</button>
           </div>
           
           <transition name="fade">
-            <div v-if="commandPreview.length > 0" class="bg-[#0A0A10] border-b border-indigo-500/20 flex gap-2.5 overflow-x-auto custom-scrollbar items-center shrink-0 p-2.5 shadow-inner">
-              <span class="text-[10px] font-black text-indigo-500/70 shrink-0 ml-2.5">EXPECTED:</span>
+            <div v-if="commandPreview.length > 0" class="bg-[#0F0805] border-b-2 border-[#3A2318] flex gap-2.5 overflow-x-auto custom-scrollbar items-center shrink-0 p-3 shadow-inner">
+              <span class="text-[11px] font-black text-[#8C6239] shrink-0 ml-2.5 drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">預計施展:</span>
               <div class="flex gap-2 shrink-0 px-2.5">
-                <span v-for="(icon, index) in commandPreview" :key="index" class="w-7 h-7 flex items-center justify-center bg-indigo-900/30 border border-indigo-500/30 rounded text-[13px] text-indigo-200 shadow-[0_0_8px_rgba(99,102,241,0.15)] animate-pulse" :style="{ animationDelay: `${index * 0.1}s` }">
+                <span v-for="(icon, index) in commandPreview" :key="index" class="w-8 h-8 flex items-center justify-center bg-[#2A1810] border border-[#593922] rounded-sm text-[15px] drop-shadow-[0_2px_2px_rgba(0,0,0,1)] animate-pulse" :style="{ animationDelay: `${index * 0.1}s` }">
                   {{ icon }}
                 </span>
               </div>
             </div>
           </transition>
 
-          <div class="flex-1 relative flex overflow-hidden">
-            <div ref="lineNumbersRef" class="w-9 bg-black/20 flex flex-col items-center py-4.5 text-[11px] text-slate-600 font-mono border-r border-white/5 shrink-0 overflow-hidden select-none">
+          <div class="flex-1 relative flex overflow-hidden bg-[#150C08]">
+            <div ref="lineNumbersRef" class="w-10 bg-[#0F0805] flex flex-col items-center py-5 text-[16px] text-[#593922] font-black font-sans border-r-2 border-[#3A2318] shrink-0 overflow-hidden select-none shadow-inner leading-relaxed">
               <span v-for="n in lineCount" :key="n" class="leading-relaxed">{{ n }}</span>
             </div>
             
             <textarea 
               ref="codeEditor"
               v-model="codeContent" 
-              class="flex-1 p-4.5 bg-transparent text-indigo-300 font-mono text-[15px] resize-none focus:outline-none overflow-y-auto custom-scrollbar leading-relaxed"
-              placeholder="// Enter command..."
+              class="flex-1 py-5 px-4 bg-transparent text-[#DAA520] font-sans font-bold tracking-wider text-[16px] resize-none focus:outline-none overflow-y-auto custom-scrollbar leading-relaxed transition-opacity drop-shadow-[0_0_2px_rgba(218,165,32,0.3)]"
+              :class="{ 'opacity-50 pointer-events-none': isExecuting }"
+              :readonly="isExecuting"
+              placeholder="// 於此寫下法術真名..."
               spellcheck="false"
               @scroll="syncScroll"
               @keydown="handleEditorKeyDown" 
@@ -195,14 +219,14 @@
             ></textarea>
 
             <transition name="fade">
-              <div v-if="showSuggestions" class="absolute z-50 bg-[#1A1A24] border border-indigo-500/50 rounded-lg shadow-xl pb-1 min-w-[165px] bottom-1 left-14 max-h-[176px] overflow-y-auto custom-scrollbar shadow-[0_0_15px_rgba(79,70,229,0.3)]">
-                <div class="px-3.5 py-2 text-[10px] font-black text-indigo-500 uppercase tracking-widest border-b border-indigo-500/30 bg-black/40 sticky top-0">系統建議指令</div>
+              <div v-if="showSuggestions" class="absolute z-50 bg-[#2A1810] border-2 border-[#DAA520] rounded-sm shadow-[0_5px_15px_rgba(0,0,0,0.8)] pb-1 min-w-[180px] bottom-1 left-14 max-h-[176px] overflow-y-auto custom-scrollbar">
+                <div class="px-4 py-2 text-[11px] font-black text-[#DAA520] uppercase tracking-widest border-b border-[#593922] bg-[#150C08] sticky top-0 shadow-md">記憶中的咒語</div>
                 
                 <div 
                   v-for="s in suggestions" 
                   :key="s" 
                   @mousedown.prevent="applySuggestion(s)" 
-                  class="px-4.5 py-2.5 text-[13px] font-mono text-indigo-300 hover:bg-indigo-600 hover:text-white cursor-pointer transition-colors"
+                  class="px-5 py-3 text-[14px] font-black text-[#F5DEB3] hover:bg-[#3A2318] hover:text-[#FFD700] cursor-pointer transition-colors"
                 >
                   {{ s }}()
                 </div>
@@ -211,47 +235,70 @@
           </div>
 
           <transition name="fade">
-            <div v-if="errorMessage" class="shrink-0 p-4.5 bg-rose-950/95 border-t border-rose-500/50 text-rose-200 shadow-xl flex items-start justify-between backdrop-blur-sm z-50 shadow-[0_-4px_20px_rgba(225,29,72,0.3)]">
-              <span class="text-[15px] font-medium flex-1 mr-4.5">⚠️ {{ errorMessage }}</span>
-              <button @click="errorMessage = ''" class="text-rose-400 hover:text-white text-[22px] leading-none font-bold">×</button>
+            <div v-if="errorMessage" class="shrink-0 p-5 bg-[#3E1010] border-t-4 border-[#8B0000] text-[#FFD700] shadow-[0_-5px_20px_rgba(139,0,0,0.5)] flex items-start justify-between backdrop-blur-sm z-50">
+              <span class="text-[15px] font-black flex-1 mr-4.5 drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">⚠️ {{ errorMessage }}</span>
+              <button @click="errorMessage = ''" class="text-[#FF0000] hover:text-white text-[24px] leading-none font-black drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">×</button>
             </div>
           </transition>
         </div>
 
-        <div class="h-[40%] bg-[#0D0D17] border border-white/5 rounded-xl flex flex-col overflow-hidden">
-          <div class="px-4.5 py-2.5 bg-black/40 border-b border-white/5 text-[11px] font-black text-slate-500 uppercase tracking-widest">Command Library</div>
-          <div class="flex-1 p-3.5 overflow-y-auto custom-scrollbar">
-            <div v-for="cat in commandCategories" :key="cat.name" class="mb-4.5">
-              <div class="text-[11px] text-slate-500 mb-2.5 px-1">{{ cat.name }}</div>
-              <div class="grid grid-cols-2 gap-2">
-                <button v-for="cmd in cat.commands" :key="cmd.id" @click="insertCode(cmd.id)" class="text-xs py-2 px-2.5 rounded-md border border-white/5 bg-white/5 hover:bg-white/10 transition-all flex items-center gap-2.5">
-                  <span class="text-[13px]">{{ cmd.icon || '🔹' }}</span> {{ cmd.label }}
+        <div class="h-[40%] bg-[#1C110C] border-4 border-[#3A2318] rounded-sm flex flex-col overflow-hidden shadow-[inset_0_0_20px_rgba(0,0,0,1)]">
+          <div class="px-5 py-3 bg-[#0F0805] border-b-2 border-[#3A2318] text-[12px] font-black text-[#A08060] uppercase tracking-widest drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">Spell Archive</div>
+          <div class="flex-1 p-4 overflow-y-auto custom-scrollbar" :class="{ 'opacity-50 pointer-events-none': isExecuting }">
+            <div v-for="cat in commandCategories" :key="cat.name" class="mb-5">
+              <div class="text-[12px] font-black text-[#593922] mb-3 px-1 border-b border-[#3A2318] pb-1 drop-shadow-[0_1px_0_rgba(255,255,255,0.1)]">{{ cat.name }}</div>
+              <div class="grid grid-cols-2 gap-2.5">
+                <button v-for="cmd in cat.commands" :key="cmd.id" @click="insertCode(cmd.id)" class="text-[13px] font-black py-2.5 px-3 rounded-sm border-2 border-[#3A2318] bg-[#2A1810] hover:bg-[#3A2318] hover:border-[#8C6239] text-[#D7CCC8] hover:text-[#F5DEB3] transition-all flex items-center gap-2.5 shadow-[0_2px_4px_rgba(0,0,0,0.5)] active:translate-y-[1px]">
+                  <span class="text-[15px] drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">{{ cmd.icon || '📜' }}</span> {{ cmd.label }}
                 </button>
               </div>
             </div>
           </div>
-          <div class="m-3.5 flex gap-2.5">
-            <button 
-              v-if="isAiming" 
-              @click="cancelAiming" 
-              class="flex-1 py-3.5 bg-rose-950/40 border border-rose-900 hover:bg-rose-600 text-rose-300 hover:text-white font-black rounded-lg shadow-lg active:scale-95 transition-all text-[15px] tracking-widest"
-            >
-              🚫 取消瞄準
-            </button>
-            <button 
-              v-else 
-              @click="executeCode" 
-              class="flex-1 py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-lg shadow-lg shadow-indigo-500/20 active:scale-95 transition-all text-[15px] tracking-widest disabled:opacity-50 disabled:cursor-not-allowed" 
-              :disabled="!codeContent.trim() || errorMessage !== ''"
-            >
-              EXECUTE PROGRAM
-            </button>
+          
+          <div class="m-4 flex flex-col gap-3 relative z-20">
+            <transition name="fade">
+              <div v-if="expectedApCost > props.maxAp" class="text-[#FFD700] text-[12px] font-black text-center bg-[#8B0000] py-2 rounded-sm border-2 border-[#DAA520] flex items-center justify-center gap-2 shadow-[0_0_10px_rgba(139,0,0,0.8)]">
+                <span class="animate-pulse drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">⚠️</span> 警告：魔力消耗 ({{ expectedApCost }} AP) 已超出極限，可能導致詠唱失敗！
+              </div>
+            </transition>
+
+            <div class="flex gap-3">
+              <button 
+                v-if="isAiming" 
+                @click="cancelAiming" 
+                class="flex-1 py-4 bg-[#3E1010] border-2 border-[#8B0000] border-b-[4px] hover:bg-[#8B0000] text-[#FF7F50] hover:text-white font-black rounded-sm shadow-lg active:border-b-[2px] active:translate-y-[2px] transition-all text-[16px] tracking-widest"
+              >
+                🚫 停止詠唱 (取消瞄準)
+              </button>
+              <button 
+                v-else 
+                @click="executeCode" 
+                class="flex-1 py-4 font-black rounded-sm shadow-[0_10px_20px_rgba(0,0,0,0.8)] active:translate-y-[4px] transition-all text-[16px] tracking-widest border-2 disabled:opacity-50 disabled:cursor-not-allowed" 
+                :class="(codeContent.trim() && errorMessage === '' && !isExecuting) 
+                  ? 'bg-[#1A365D] text-[#FFF8DC] border-[#4299E1] border-b-[6px] hover:border-b-[2px] hover:translate-y-[4px] hover:bg-[#2A4365]' 
+                  : 'bg-[#150C08] text-[#593922] border-[#2A1810] border-b-[2px] translate-y-[4px]'"
+                :disabled="!codeContent.trim() || errorMessage !== '' || isExecuting"
+              >
+                {{ isExecuting ? '✨ 魔法詠唱中...' : 'CAST SPELL (詠唱法術)' }}
+              </button>
+            </div>
           </div>
         </div>
       </aside>
     </main>
   </div>
 </template>
+
+<style scoped>
+.fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+
+/* 滾動條改為木質深棕色系 */
+.custom-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: rgba(15, 8, 5, 0.8); border-radius: 4px; border-left: 1px solid #2A1810; border-top: 1px solid #2A1810; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #593922; border-radius: 4px; border: 1px solid #3A2318; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #8C6239; }
+</style>
 
 <script setup>
 import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'; 
@@ -267,12 +314,26 @@ const codeEditor = ref(null);
 const errorMessage = ref("");
 const lineNumbersRef = ref(null);
 const showClearModal = ref(false);
+const showGameOverModal = ref(false);
 const currentObjective = ref('');
 const isAiming = ref(false);
 const pendingCommand = ref(null);
 const currentRewards = ref([]);
 const currentTurn = ref(1); 
 const actionMessage = ref('');
+const floorBonusCoins = ref(0);
+
+const syncStatsToPhaser = () => {
+  window.dispatchEvent(new CustomEvent('tower-sync-player-stats', {
+    detail: {
+      attack: props.attack || 10,
+      maxAp: props.maxAp || 10
+    }
+  }));
+};
+
+// 🌟 新增：鎖定執行狀態
+const isExecuting = ref(false);
 
 const consumableItems = computed(() => {
   return (props.inventory || []).filter(item => item.type === 'consumable');
@@ -285,7 +346,6 @@ const availableCommands = computed(() => {
   });
 });
 
-// 🌟 修正：將 validKeywords 改為大寫 VALID_KEYWORDS 確保與下方變數呼叫一致
 const VALID_KEYWORDS = computed(() => {
   const jsKeywords = ['let', 'const', 'var', 'await', 'async', 'return', 'true', 'false', 'p'];
   return [...jsKeywords, ...availableCommands.value.map(c => c.id)];
@@ -343,6 +403,14 @@ const confirmExit = (type) => {
 const handleFloorCleared = () => {
   currentRewards.value = getRandomRewards(3);
   showClearModal.value = true;
+
+  floorBonusCoins.value = 30 + (props.floor * 10);
+  setTimeout(() => {
+    emit('update-stats', { 
+      coins: props.coins + floorBonusCoins.value 
+    });
+    console.log(`🎉 通關第 ${props.floor} 層，獲得獎金 ${floorBonusCoins.value} 💰`);
+  }, 500);
 };
 
 const selectReward = (reward) => {
@@ -356,12 +424,8 @@ const selectReward = (reward) => {
     };
     emit('update-stats', reward.apply(currentStats));
   }
-
   else if (reward.type === 'relic') {
-    // 透過事件傳遞給 Phaser 遊戲引擎
     window.dispatchEvent(new CustomEvent('tower-add-relic', { detail: reward.relicId }));
-    
-    // 顯示提示文字
     actionMessage.value = `安裝晶片: ${reward.name}`;
     setTimeout(() => { actionMessage.value = ''; }, 3000);
   }
@@ -371,6 +435,9 @@ const selectReward = (reward) => {
 const proceedToNextFloor = () => {
   showClearModal.value = false;
   codeContent.value = '';
+  errorMessage.value = '';
+  isExecuting.value = false;
+  currentTurn.value = 1;
   emit('floor-cleared'); 
 };
 
@@ -381,6 +448,8 @@ const lineCount = computed(() => {
 });
 
 const insertCode = (commandId) => {
+  if (isExecuting.value) return; // 鎖定中不允許插入代碼
+  
   const needTargetingSkills = ['attack', 'shoot', 'magic', 'bomb', 'laser', 'dash', 'hack_wall', 'pull', 'boomerang', 'spread_shot'];
   if (needTargetingSkills.includes(commandId)) {
     isAiming.value = true;
@@ -443,44 +512,50 @@ const handleObjectiveUpdate = (e) => {
 };
 
 const clearCode = () => {
+  if (isExecuting.value) return;
   codeContent.value = '';
   errorMessage.value = '';
 };
 
+// 🌟 新增：靜態預估 AP 消耗 (只抓取行首指令來估算，不代表最終真實執行量)
+const expectedApCost = computed(() => {
+  if (!codeContent.value) return 0;
+  let total = 0;
+  const lines = codeContent.value.split(/[\n;]+/).map(cmd => cmd.trim()).filter(cmd => cmd);
+  
+  lines.forEach(cmdStr => {
+    const match = cmdStr.match(/^([a-zA-Z_0-9]+)/); 
+    if (match) {
+      const id = match[1];
+      const dictCmd = COMMAND_DICT.find(c => c.id === id);
+      total += dictCmd?.ap || 0;
+    }
+  });
+  return total;
+});
+
+// 🌟 修改：退居觀測者，將指令發送給 Phaser 去做動態扣除與執行
 const executeCode = () => {
-  if (errorMessage.value) return;
+  if (errorMessage.value || isExecuting.value) return;
   const rawCode = codeContent.value.trim();
   if (!rawCode) return;
   
-  let totalApCost = 0;
-  const parsedCommands = rawCode
-    .split(/[\n;]+/)
-    .map(cmd => cmd.trim())
-    .filter(cmd => cmd.length > 0)
-    .map(cmdStr => {
-      const match = cmdStr.match(/^([a-zA-Z_0-9]+)\s*\((.*)\)$/);
-      if (match) {
-        const id = match[1];
-        let args = {};
-        if (match[2].trim()) {
-          try { args = new Function('return ' + match[2])() || {}; } catch(e) {}
-        }
-        const dictCmd = COMMAND_DICT.find(c => c.id === id);
-        totalApCost += dictCmd?.ap || 0; 
-        return { id, args }; 
-      }
-      const dictCmd = COMMAND_DICT.find(c => c.id === cmdStr);
-      totalApCost += dictCmd?.ap || 0;
-      return { id: cmdStr, args: {} };
-    });
+  // 進入鎖定狀態，將控制權交給 Phaser 引擎
+  isExecuting.value = true;
+  emit('execute', codeContent.value); 
+};
 
-  if (props.ap >= totalApCost) {
-    emit('update-stats', { ap: Math.max(0, props.ap - totalApCost) });
-    emit('execute', codeContent.value); 
-    currentTurn.value++;
-  } else {
-    alert(`⚡ 系統警告：行動值 (AP) 不足！\n執行此程式需要 ${totalApCost} AP，但目前僅剩 ${props.ap} AP。`);
-  }
+// 🌟 新增：處理 Phaser 傳來的 AP 更新
+const handleApUpdate = (e) => {
+  const { current, max } = e.detail;
+  emit('update-stats', { ap: current, maxAp: max });
+};
+
+// 🌟 新增：處理 Phaser 傳來的回合重置事件
+const handleTurnStarted = (e) => {
+  isExecuting.value = false; // 解除 Vue 介面鎖定
+  currentTurn.value = e.detail.turn;
+  syncStatsToPhaser();
 };
 
 const commandCategories = computed(() => {
@@ -512,7 +587,6 @@ const validateCode = () => {
     }
     if (word.length <= 1) continue;
     
-    // 🌟 修正：因為 VALID_KEYWORDS 是 computed 屬性，這裡必須加上 .value 取值
     if (!VALID_KEYWORDS.value.includes(word) && !declaredVariables.includes(word)) {
       errorMessage.value = `❌ 語法錯誤：系統不認識 '${word}' 這個指令。您是不是拼錯了？`;
       return; 
@@ -520,13 +594,53 @@ const validateCode = () => {
   }
 };
 
-watch(codeContent, () => validateCode());
+const handleRetry = () => {
+  showGameOverModal.value = false;
+  codeContent.value = '';
+  isExecuting.value = false;
+  currentTurn.value = 1;
+
+  // 重置機甲數值 (依你的初始設定為主)
+  emit('update-stats', {
+    floor: 1,
+    hp: 100, 
+    maxHp: 100,
+    mp: 50,
+    maxMp: 50,
+    ap: 10,
+    maxAp: 10,
+    attack: 10,
+    coins: props.coins 
+  });
+  
+  window.dispatchEvent(new CustomEvent('tower-retry-game')); // 叫引擎重刷地圖
+};
+
+// 🌟 點擊離開
+const handleExitToLobby = () => {
+  showGameOverModal.value = false;
+  emit('abandon'); // 直接呼叫原有的放棄事件退回大廳
+};
+
+watch(codeContent, validateCode);
+
+watch(() => [props.attack, props.maxAp], syncStatsToPhaser, { immediate: true });
+
+watch(() => props.hp, (newHp, oldHp) => {
+  if (newHp <= 0 && oldHp > 0 && !showGameOverModal.value) {
+    showGameOverModal.value = true;
+    isExecuting.value = false; // 解除畫面鎖定
+    window.dispatchEvent(new CustomEvent('tower-game-over-triggered')); // 叫引擎停下來
+  }
+});
 
 const showSuggestions = ref(false);
 const suggestions = ref([]);
 const currentWord = ref("");
 
 const handleEditorKeyDown = async (e) => {
+  if (isExecuting.value) return e.preventDefault(); // 鎖定期間不允許打字
+  
   const el = e.target;
   const key = e.key;
 
@@ -565,6 +679,7 @@ const handleEditorKeyDown = async (e) => {
 };
 
 const checkAutocomplete = (e) => {
+  if (isExecuting.value) return; // 鎖定期間停用
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Enter', 'Tab'].includes(e.key)) {
     showSuggestions.value = false;
     return;
@@ -579,7 +694,6 @@ const checkAutocomplete = (e) => {
   
   if (match) {
     currentWord.value = match[0];
-    // 🌟 修正：這裡也同樣需要加上 .value
     if (currentWord.value.length >= 1 && !VALID_KEYWORDS.value.includes(currentWord.value)) {
         suggestions.value = VALID_KEYWORDS.value.filter(k => k.startsWith(currentWord.value));
         showSuggestions.value = suggestions.value.length > 0;
@@ -624,21 +738,19 @@ onMounted(() => {
   window.addEventListener('tower-target-selected', handleTargetSelected);
   window.addEventListener('tower-objective-updated', handleObjectiveUpdate); 
   window.addEventListener('tower-floor-cleared', handleFloorCleared);
+  
+  // 🌟 新增：接上 Phaser 發出的 AP 與回合事件
+  window.addEventListener('tower-update-ap', handleApUpdate);
+  window.addEventListener('tower-turn-started', handleTurnStarted);
 });
 
 onUnmounted(() => {
   window.removeEventListener('tower-target-selected', handleTargetSelected);
   window.removeEventListener('tower-objective-updated', handleObjectiveUpdate); 
   window.removeEventListener('tower-floor-cleared', handleFloorCleared);
+  
+  // 🌟 新增：移除監聽
+  window.removeEventListener('tower-update-ap', handleApUpdate);
+  window.removeEventListener('tower-turn-started', handleTurnStarted);
 });
 </script>
-
-<style scoped>
-.fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
-.custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
-.custom-scrollbar::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #6366f1; }
-@keyframes sweep { 0% { transform: translateX(-150%) skewX(12deg); } 100% { transform: translateX(250%) skewX(12deg); } }
-</style>
