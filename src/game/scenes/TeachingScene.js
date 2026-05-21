@@ -8,9 +8,14 @@ export default class TeachingScene extends Phaser.Scene {
     this.levelConfig = null;
     this.lastFacing = 'moveRight'; // 記錄玩家最後朝向，供感應器使用
     this.isFailed = false;         // 紀錄是否已經撞牆失敗
-    this.stepCount = 0;            // [新增] 記錄目前已走步數
-    this.labelOffsetY = 28;        // [修正] 統一管理標籤偏移，不再寫死
-    this.playerData = { hasKey: false }; // [修正] 初始化玩家資料，避免 hasKey 感知器崩潰
+    this.stepCount = 0;            // 記錄目前已走步數
+    this.labelOffsetY = 28;        // 統一管理標籤偏移，不再寫死
+    this.playerData = { hasKey: false }; // 初始化玩家資料
+    
+    // 🌟 新增：生命值相關變數
+    this.maxHearts = 3;
+    this.currentHearts = 3;
+    this.heartsUI = []; 
   }
 
   init(data) {
@@ -40,7 +45,6 @@ export default class TeachingScene extends Phaser.Scene {
     const emojiFontSize = Math.floor(this.cellSize * 0.7) + 'px';
     const labelFontSize = Math.max(10, Math.floor(this.cellSize * 0.22)) + 'px';
 
-    // [修正] 將 labelOffsetY 存為實例變數，resetLevel 共用
     this.labelOffsetY = this.cellSize * 0.35;
 
     const emojiStyle = {
@@ -101,7 +105,6 @@ export default class TeachingScene extends Phaser.Scene {
     ).setOrigin(0.5);
 
     // --- 訊息框 ---
-    // [修正] y 座標改為動態：地圖底部再往下一點，避免覆蓋格子
     const msgY = mapHeight + 40;
     this.messageBox = this.add.text(mapWidth / 2, msgY, '', {
       fontSize: '18px',
@@ -113,6 +116,7 @@ export default class TeachingScene extends Phaser.Scene {
       wordWrap: { width: mapWidth - 40 }
     }).setOrigin(0.5).setVisible(false);
     this.messageBox.setDepth(20);
+
   }
 
   // ==========================================
@@ -121,21 +125,19 @@ export default class TeachingScene extends Phaser.Scene {
   resetLevel() {
     this.tweens.killAll();
     this.time.removeAllEvents();
-    this.playerData.hasKey = false;
-    this.usedCommands.clear(); 
-    if (this.keyIcon) {
-      this.keyIcon.setAlpha(1); 
-    }
 
     this.playerGridX = this.levelConfig.player.gridX;
     this.playerGridY = this.levelConfig.player.gridY;
     this.lastFacing = 'moveRight';
     this.isFailed = false;
-    this.stepCount = 0; // [新增] 重置步數計數器
+    this.stepCount = 0;
+
+    // 🌟 恢復生命值 UI
+    this.currentHearts = this.maxHearts;
+    this.heartsUI.forEach(heart => heart.setAlpha(1)); // 把變半透明的愛心恢復
 
     if (this.player) {
       this.player.setPosition(this.startX, this.startY);
-      // [修正] 使用 this.labelOffsetY 取代寫死的 40
       this.playerLabel.setPosition(this.startX, this.startY + this.labelOffsetY);
     }
 
@@ -155,13 +157,11 @@ export default class TeachingScene extends Phaser.Scene {
   // 遊戲核心邏輯
   // ==========================================
 
-  // 判斷某座標是否有障礙物
   isObstacle(x, y) {
     if (!this.levelConfig?.obstacles) return false;
     return this.levelConfig.obstacles.some(ob => ob.x === x && ob.y === y);
   }
 
-  // 感知指令：檢查前方是否有障礙物或超出邊界
   checkObstacleAhead() {
     const cols = this.levelConfig?.grid_size?.cols || 10;
     const rows = this.levelConfig?.grid_size?.rows || 10;
@@ -177,15 +177,13 @@ export default class TeachingScene extends Phaser.Scene {
     return this.isObstacle(nx, ny);
   }
 
-  // 感知指令：檢查敵人是否在周圍一格內
   checkEnemyNear() {
-    if (!this.enemy || this.enemy.alpha === 0) return false; // 敵人已死
+    if (!this.enemy || this.enemy.alpha === 0) return false; 
     const dist = Math.abs(this.playerGridX - this.enemyGridX)
                + Math.abs(this.playerGridY - this.enemyGridY);
     return dist <= 1;
   }
 
-  // [新增] 檢查是否超出步數限制，超出時觸發失敗
   _checkMaxSteps() {
     const maxSteps = this.levelConfig?.restrictions?.maxSteps;
     if (maxSteps && this.stepCount > maxSteps) {
@@ -198,12 +196,23 @@ export default class TeachingScene extends Phaser.Scene {
     return false;
   }
 
-  // 執行單一指令，回傳 Promise 讓 Blockly 等待動畫
+  // 🌟 新增：扣血邏輯
+  takeDamage() {
+    if (this.currentHearts > 0) {
+      this.currentHearts--;
+      // 將最後一顆心變為半透明 (或者你可以換成 🖤 emoji)
+      this.heartsUI[this.currentHearts].setAlpha(0.2); 
+    }
+    
+    // 檢查是否死亡
+    if (this.currentHearts <= 0) {
+      this.isFailed = true;
+    }
+  }
+
   async addCommand(action) {
-    this.usedCommands.add(action);
     if (this.isFailed || !this.player || this.enemy.alpha === 0) return;
 
-    // [新增] forbidden 指令防呆（對應 restrictions.forbidden 陣列）
     const forbidden = this.levelConfig?.restrictions?.forbidden || [];
     if (forbidden.includes(action)) {
       this.showResult(false, `🚫 這個指令在本關被禁用！`);
@@ -218,10 +227,8 @@ export default class TeachingScene extends Phaser.Scene {
 
       // --- 移動類 ---
       if (['moveRight', 'moveLeft', 'moveUp', 'moveDown', 'dash'].includes(action)) {
-        // 更新朝向（dash 維持上一個方向）
         if (action !== 'dash') this.lastFacing = action;
 
-        // 計算位移
         const step = action === 'dash' ? 2 : 1;
         if (this.lastFacing === 'moveRight') dx =  step;
         else if (this.lastFacing === 'moveLeft')  dx = -step;
@@ -231,32 +238,40 @@ export default class TeachingScene extends Phaser.Scene {
         const nextX = this.playerGridX + dx;
         const nextY = this.playerGridY + dy;
 
-        // dash 時中途格也要檢查（移動 2 格時先驗中間格）
         if (action === 'dash') {
           const midX = this.playerGridX + dx / 2;
           const midY = this.playerGridY + dy / 2;
           if (this.isObstacle(midX, midY)) {
-            this.showResult(false, '💥 衝刺途中撞到障礙物！');
-            this.isFailed = true;
+            // 🌟 衝刺撞牆：扣血並判斷是否死亡
+            this.takeDamage();
+            if (this.isFailed) {
+               this.showResult(false, '💥 衝刺途中撞到障礙物！生命值歸零。');
+            } else {
+               // 這裡可以選擇不直接失敗，而是回到原地或中斷這個指令
+               this.showResult(false, `💥 撞到了！剩餘生命: ${this.currentHearts}`);
+            }
             resolve();
             return;
           }
         }
 
-        // 撞牆判定
         if (nextX < 0 || nextX >= cols || nextY < 0 || nextY >= rows || this.isObstacle(nextX, nextY)) {
-          const msg = this.levelConfig.failMessages?.hitObstacle || '💥 碰！撞到障礙物或牆壁了！';
-          this.showResult(false, msg);
-          this.isFailed = true;
+          // 🌟 一般移動撞牆：扣血並判斷是否死亡
+          this.takeDamage();
+          if (this.isFailed) {
+            const msg = this.levelConfig.failMessages?.hitObstacle || '💥 碰！撞到障礙物，生命值歸零！';
+            this.showResult(false, msg);
+          } else {
+            this.showResult(false, `💥 碰！剩餘生命: ${this.currentHearts}`);
+          }
           resolve();
           return;
         }
 
         this.playerGridX = nextX;
         this.playerGridY = nextY;
-        this.stepCount++; // [新增] 移動才算步數
+        this.stepCount++; 
 
-        // 步數限制檢查
         if (this._checkMaxSteps()) { resolve(); return; }
 
         const targetX = nextX * this.cellSize + this.cellSize / 2;
@@ -267,7 +282,7 @@ export default class TeachingScene extends Phaser.Scene {
         this.tweens.add({
           targets: this.playerLabel,
           x: targetX,
-          y: targetY + this.labelOffsetY, // [修正] 使用 this.labelOffsetY
+          y: targetY + this.labelOffsetY,
           duration,
           ease: 'Power2',
           onComplete: () => this.time.delayedCall(50, () => resolve())
@@ -298,7 +313,8 @@ export default class TeachingScene extends Phaser.Scene {
         } else {
           const msg = this.levelConfig.failMessages?.tooFar || '❌ 攻擊失敗！距離太遠了。';
           this.showResult(false, msg);
-          this.isFailed = true;
+          // 這裡可以決定揮空要不要扣血，目前維持原本邏輯：直接失敗
+          this.isFailed = true; 
           resolve();
         }
       }
@@ -346,16 +362,13 @@ export default class TeachingScene extends Phaser.Scene {
   }
 
   async checkSensor(sensorId) {
-    // 短暫延遲，讓玩家感受到「偵測」的停頓感
     await new Promise(resolve => this.time.delayedCall(200, resolve));
 
     switch (sensorId) {
-      // [修正] isWall 是標準名稱，isObstacleAhead 保留為相容別名
       case 'isWall':
       case 'isObstacleAhead':
         return this.checkObstacleAhead();
 
-      // [修正] isEnemy 是標準名稱，isEnemyNear 保留為相容別名
       case 'isEnemy':
       case 'isEnemyNear':
         return this.checkEnemyNear();
@@ -364,10 +377,11 @@ export default class TeachingScene extends Phaser.Scene {
         return this.checkIsOnGoal();
 
       case 'hasKey':
-        return !!this.playerData?.hasKey; // [修正] playerData 現在已正確初始化
+        return !!this.playerData?.hasKey;
 
       case 'lowHp':
-        return (this.levelConfig?.player_hp ?? 100) <= 30;
+        // 🌟 更新 lowHp 的判斷邏輯，改為目前的生命值判斷
+        return this.currentHearts <= 1;
 
       default:
         console.warn('未知的感知指令:', sensorId);
@@ -375,31 +389,9 @@ export default class TeachingScene extends Phaser.Scene {
     }
   }
 
-  // 判斷是否抵達終點（需要關卡設定 goalPosition: { x, y }）
   checkIsOnGoal() {
-    // [修正] 使用 goalPosition（明確的座標欄位），不與 goals（字串陣列）混淆
     const goal = this.levelConfig?.goalPosition;
     if (!goal) return false;
     return this.playerGridX === goal.x && this.playerGridY === goal.y;
   }
 }
-
-// --- 繪製鑰匙 ---
-    if (cfg.key) {
-      this.keyGridX = cfg.key.gridX;
-      this.keyGridY = cfg.key.gridY;
-      const kx = this.keyGridX * this.cellSize + this.cellSize / 2;
-      const ky = this.keyGridY * this.cellSize + this.cellSize / 2;
-      this.keyIcon = this.add.text(kx, ky, cfg.key.emoji, emojiStyle).setOrigin(0.5);
-    }
-
-    // --- 繪製終點門 ---
-    if (cfg.goal) {
-      this.goalGridX = cfg.goal.gridX;
-      this.goalGridY = cfg.goal.gridY;
-      const gx = this.goalGridX * this.cellSize + this.cellSize / 2;
-      const gy = this.goalGridY * this.cellSize + this.cellSize / 2;
-      this.goalIcon = this.add.text(gx, gy, cfg.goal.emoji, emojiStyle).setOrigin(0.5);
-    }
-
-    this.usedCommands = new Set();
