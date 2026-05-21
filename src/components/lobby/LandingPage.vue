@@ -1,8 +1,8 @@
 <template>
-  <div class="lobby-wrapper h-full overflow-auto font-sans">
-    <div id="app-wrapper" class="min-h-full w-full" style="background: linear-gradient(135deg, #0f0e17 0%, #1a1a2e 40%, #16213e 100%);">
+  <div class="lobby-wrapper h-full overflow-x-hidden overflow-y-auto font-sans bg-[#0f0e17]">
+    <div id="app-wrapper" class="min-h-full w-full relative" style="background: linear-gradient(135deg, #0f0e17 0%, #1a1a2e 40%, #16213e 100%);">
       
-      <div class="fixed inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+      <div class="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
         <div class="particle float-1" style="top:10%;left:15%;background:#ffbb33;animation-delay:0s;"></div>
         <div class="particle float-2" style="top:20%;left:75%;background:#00d4aa;animation-delay:0.8s;"></div>
         <div class="particle float-3" style="top:60%;left:85%;background:#ff6b6b;animation-delay:1.5s;"></div>
@@ -12,40 +12,48 @@
 
       <LandingPageHeader @enter-dashboard="$emit('go-login')" />
 
-      <section class="relative z-10 px-6 pt-12 pb-16 max-w-7xl mx-auto">
-        <div class="flex flex-col lg:flex-row items-center gap-12">
-          <div class="flex-1 text-center lg:text-left">
-            <p class="slide-up text-sm font-semibold tracking-widest uppercase mb-4" style="color:#00d4aa;">🎮 邊玩邊學，輕鬆上手</p>
-            <h1 class="slide-up slide-up-d1 text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6" style="font-family:'Fredoka',sans-serif;color:#f0f0f0;">
-              用<span style="color:#ffbb33;">遊戲</span>解鎖<br>程式超能力
+      <section class="relative z-10 px-6 pt-10 pb-16 md:pt-16 md:pb-24 max-w-7xl mx-auto">
+        <div class="flex flex-col lg:flex-row items-center gap-12 lg:gap-8">
+          
+          <div class="flex-1 text-center lg:text-left w-full">
+            <p class="slide-up text-sm font-bold tracking-widest uppercase mb-4" style="color:#00d4aa;">🎮 邊玩邊學，輕鬆上手</p>
+            <h1 class="slide-up slide-up-d1 text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight mb-6 tracking-wide" style="font-family:'Fredoka',sans-serif;color:#f0f0f0;">
+              用<span style="color:#ffbb33; text-shadow: 0 0 20px rgba(255,187,51,0.4);">遊戲</span>解鎖<br>程式超能力
             </h1>
-            <p class="slide-up slide-up-d2 text-lg mb-8 max-w-lg mx-auto lg:mx-0" style="color:#a0a0b8;">透過闖關挑戰、角色養成與即時對戰，讓學寫程式變得跟打遊戲一樣有趣！</p>
+            <p class="slide-up slide-up-d2 text-base sm:text-lg mb-8 max-w-lg mx-auto lg:mx-0 leading-relaxed" style="color:#a0a0b8;">
+              透過闖關挑戰、角色養成與即時對戰，讓學寫程式變得跟打遊戲一樣有趣！
+            </p>
             
             <div class="slide-up slide-up-d3 flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-              <button @click="$emit('go-login')" class="cta-btn px-8 py-4 rounded-2xl text-lg font-bold" style="background:linear-gradient(135deg,#ffbb33,#ff8800);color:#0f0e17;"> 
+              <button @click="$emit('go-login')" class="cta-btn px-8 py-4 rounded-xl text-lg font-black shadow-[0_5px_15px_rgba(255,187,51,0.3)]" style="background:linear-gradient(135deg,#ffbb33,#ff8800);color:#0f0e17;"> 
                 🚀 開始冒險 
               </button> 
-              <button class="px-8 py-4 rounded-2xl text-lg font-semibold border-2 transition-colors hover:bg-white/10" style="border-color:#a0a0b8;color:#f0f0f0;"> 
+              <button class="px-8 py-4 rounded-xl text-lg font-bold border-2 transition-all hover:bg-white/10 hover:border-white" style="border-color:#a0a0b8;color:#f0f0f0;"> 
                 觀看介紹 
               </button>
             </div>
             
-            <div class="slide-up slide-up-d4 flex gap-8 mt-10 justify-center lg:justify-start">
-              <div><span class="text-2xl font-bold" style="color:#ffbb33;">1+</span><p class="text-xs mt-1" style="color:#a0a0b8;">活躍玩家</p></div>
-              <div><span class="text-2xl font-bold" style="color:#00d4aa;">5+</span><p class="text-xs mt-1" style="color:#a0a0b8;">遊戲關卡</p></div>
-              <div><span class="text-2xl font-bold" style="color:#ff6b6b;">0%</span><p class="text-xs mt-1" style="color:#a0a0b8;">好評率</p></div>
+            <p class="slide-up slide-up-d4 text-[13px] font-medium text-[#ffbb33] mt-4 lg:hidden text-center px-4">
+              * 📱 提醒：手機版僅開放社交與查詢功能，編寫程式闖關請使用電腦。
+            </p>
+            
+            <div class="slide-up slide-up-d4 flex flex-wrap gap-6 sm:gap-10 mt-10 justify-center lg:justify-start">
+              <div><span class="text-3xl font-black" style="color:#ffbb33;">100+</span><p class="text-[13px] font-bold mt-1 uppercase tracking-wider" style="color:#a0a0b8;">活躍玩家</p></div>
+              <div><span class="text-3xl font-black" style="color:#00d4aa;">50+</span><p class="text-[13px] font-bold mt-1 uppercase tracking-wider" style="color:#a0a0b8;">遊戲關卡</p></div>
+              <div><span class="text-3xl font-black" style="color:#ff6b6b;">99%</span><p class="text-[13px] font-bold mt-1 uppercase tracking-wider" style="color:#a0a0b8;">好評率</p></div>
             </div>
           </div>
           
-          <div class="flex-1 relative flex justify-center">
-            <div class="relative">
-              <div class="slide-up slide-up-d2 rounded-2xl p-1 w-80 md:w-96 float-1" style="background:linear-gradient(135deg,#1e1e2e,#2a2a3e);border:1px solid #333355;">
+          <div class="flex-1 relative flex justify-center w-full mt-6 lg:mt-0">
+            <div class="relative w-full max-w-[300px] sm:max-w-[340px] md:max-w-[380px]">
+              
+              <div class="slide-up slide-up-d2 rounded-2xl p-1 w-full float-1 shadow-[0_20px_50px_rgba(0,0,0,0.5)]" style="background:linear-gradient(135deg,#1e1e2e,#2a2a3e);border:1px solid #333355;">
                 <div class="flex gap-2 px-4 py-3" style="border-bottom:1px solid #333355;">
                   <div class="w-3 h-3 rounded-full" style="background:#ff6b6b;"></div>
                   <div class="w-3 h-3 rounded-full" style="background:#ffbb33;"></div>
                   <div class="w-3 h-3 rounded-full" style="background:#00d4aa;"></div>
                 </div>
-                <div class="p-4 font-mono text-sm leading-relaxed" style="color:#c0c0d8;">
+                <div class="p-4 sm:p-5 font-mono text-[13px] sm:text-sm leading-relaxed overflow-hidden" style="color:#c0c0d8;">
                   <div><span style="color:#a78bfa;">def</span> <span style="color:#ffbb33;">attack</span>(enemy):</div>
                   <div class="pl-4"><span style="color:#a78bfa;">if</span> self.power > <span style="color:#00d4aa;">10</span>:</div>
                   <div class="pl-8">enemy.hp -= self.power</div>
@@ -53,18 +61,25 @@
                   <div class="mt-2 flex items-center gap-2"><span class="inline-block w-2 h-4 animate-pulse" style="background:#ffbb33;"></span></div>
                 </div>
               </div>
-              <div class="slide-up slide-up-d4 absolute -top-4 -right-4 px-4 py-2 rounded-xl float-2" style="background:linear-gradient(135deg,#00d4aa,#00b894);color:#0f0e17;font-family:'Fredoka',sans-serif;font-weight:700;">+999 XP ⭐</div>
-              <div class="slide-up slide-up-d5 absolute -bottom-4 -left-4 px-4 py-2 rounded-xl float-3" style="background:linear-gradient(135deg,#a78bfa,#8b5cf6);color:#fff;font-family:'Fredoka',sans-serif;font-weight:600;font-size:0.85rem;">🏆 Lv. 7 程式騎士</div>
+              
+              <div class="slide-up slide-up-d4 absolute -top-4 -right-2 sm:-right-6 px-3 sm:px-4 py-2 rounded-xl float-2 shadow-lg" style="background:linear-gradient(135deg,#00d4aa,#00b894);color:#0f0e17;font-family:'Fredoka',sans-serif;font-weight:900;">
+                +999 XP ⭐
+              </div>
+              
+              <div class="slide-up slide-up-d5 absolute -bottom-4 -left-2 sm:-left-6 px-3 sm:px-4 py-2 rounded-xl float-3 shadow-lg" style="background:linear-gradient(135deg,#a78bfa,#8b5cf6);color:#fff;font-family:'Fredoka',sans-serif;font-weight:700;font-size:0.85rem;">
+                🏆 Lv. 7 程式騎士
+              </div>
             </div>
           </div>
+          
         </div>
       </section>
 
-      <section id="courses" ref="coursesSection" class="relative z-10 px-6 py-16 max-w-7xl mx-auto">
-        <h2 class="slide-up text-3xl font-bold text-center mb-2" style="font-family:'Fredoka',sans-serif;color:#f0f0f0;">選擇你的冒險路線</h2>
-        <p class="slide-up slide-up-d1 text-center mb-12" style="color:#a0a0b8;">每條路線都有獨特的遊戲機制與挑戰</p>
+      <section id="courses" ref="coursesSection" class="relative z-10 px-6 py-16 md:py-24 max-w-7xl mx-auto">
+        <h2 class="slide-up text-3xl md:text-4xl font-bold text-center mb-3" style="font-family:'Fredoka',sans-serif;color:#f0f0f0;">選擇你的冒險路線</h2>
+        <p class="slide-up slide-up-d1 text-center mb-12 text-sm md:text-base font-medium" style="color:#a0a0b8;">每條路線都有獨特的遊戲機制與挑戰</p>
         
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
           <CourseCard 
             v-for="(course, index) in courses" 
             :key="course.id"
@@ -76,8 +91,10 @@
         </div>
       </section>
 
-      <footer class="relative z-10 px-6 py-10 text-center" style="border-top:1px solid #1e1e2e;">
-        <p class="text-sm" style="color:#a0a0b8;">© 2026 Code Quest — 讓每個人都能用遊戲學會寫程式 🎮</p>
+      <footer class="relative z-10 px-6 py-10 text-center" style="border-top:1px solid rgba(255,255,255,0.05);">
+        <p class="text-[13px] font-medium tracking-wide" style="color:#a0a0b8;">
+          © 2026 Code Quest — 讓每個人都能用遊戲學會寫程式 🎮
+        </p>
       </footer>
     </div>
   </div>
@@ -91,7 +108,6 @@ import CourseCard from './CourseCard.vue';
 const emit = defineEmits(['enter-game', 'go-login']);
 const coursesSection = ref(null);
 
-// 定義所有的課程資料
 const courses = ref([
   {
     id: 'python',
@@ -147,15 +163,16 @@ onMounted(() => {
         const bars = e.target.querySelectorAll('.xp-bar');
         bars.forEach(bar => {
           const target = bar.getAttribute('data-target');
-          setTimeout(() => { bar.style.width = target + '%'; }, 300);
+          if(target) {
+            setTimeout(() => { bar.style.width = target + '%'; }, 300);
+          }
         });
         observer.unobserve(e.target);
       }
     });
-  }, { threshold: 0.3 });
+  }, { threshold: 0.2 }); // 稍微降低觸發門檻，讓手機版提早載入動畫
   
   if (coursesSection.value) {
-    // 這裡我們直接監聽整個課程區塊
     observer.observe(coursesSection.value);
   }
 });
@@ -167,8 +184,8 @@ onMounted(() => {
   50% { transform: translateY(-12px); }
 }
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 20px rgba(255, 187, 51, 0.3); }
-  50% { box-shadow: 0 0 40px rgba(255, 187, 51, 0.6); }
+  0%, 100% { box-shadow: 0 0 15px rgba(255, 187, 51, 0.4); }
+  50% { box-shadow: 0 0 35px rgba(255, 187, 51, 0.7); }
 }
 @keyframes slide-up {
   from { opacity: 0; transform: translateY(30px); }
@@ -179,29 +196,29 @@ onMounted(() => {
   100% { transform: translateY(-60px) scale(0); opacity: 0; }
 }
 
-.float-1 { animation: float 3s ease-in-out infinite; }
-.float-2 { animation: float 3.5s ease-in-out infinite 0.5s; }
-.float-3 { animation: float 4s ease-in-out infinite 1s; }
-.slide-up { animation: slide-up 0.6s ease-out both; }
+.float-1 { animation: float 3.5s ease-in-out infinite; }
+.float-2 { animation: float 4s ease-in-out infinite 0.5s; }
+.float-3 { animation: float 4.5s ease-in-out infinite 1s; }
+
+.slide-up { animation: slide-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) both; }
 .slide-up-d1 { animation-delay: 0.1s; }
 .slide-up-d2 { animation-delay: 0.2s; }
 .slide-up-d3 { animation-delay: 0.3s; }
 .slide-up-d4 { animation-delay: 0.4s; }
 .slide-up-d5 { animation-delay: 0.5s; }
-.slide-up-d6 { animation-delay: 0.6s; }
 
 .cta-btn {
-  animation: pulse-glow 2s ease-in-out infinite;
-  transition: transform 0.2s;
+  animation: pulse-glow 2.5s ease-in-out infinite;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-.cta-btn:hover { transform: scale(1.05); }
-.cta-btn:active { transform: scale(0.97); }
+.cta-btn:hover { transform: scale(1.04); }
+.cta-btn:active { transform: scale(0.96); }
 
 .particle {
   position: absolute;
   width: 6px; height: 6px;
   border-radius: 50%;
-  animation: particle 2s ease-out infinite;
+  animation: particle 2.5s ease-out infinite;
   pointer-events: none;
 }
 </style>

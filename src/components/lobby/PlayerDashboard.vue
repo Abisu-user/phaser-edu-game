@@ -1,9 +1,9 @@
 <template>
   <div class="h-full w-full relative overflow-hidden bg-[#0a0e27]">
     
-    <div v-if="currentView === 'lobby'" id="player-lobby" class="h-full w-full sidebar-wrapper" style="background: linear-gradient(135deg, #0a0e27 0%, #1a1a3e 50%, #0f1428 100%);">
+    <div v-if="currentView === 'lobby'" id="player-lobby" class="h-full w-full flex flex-col lg:flex-row relative" style="background: linear-gradient(135deg, #0a0e27 0%, #1a1a3e 50%, #0f1428 100%);">
       
-      <div class="fixed inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+      <div class="fixed inset-0 pointer-events-none overflow-hidden z-0" aria-hidden="true">
         <div class="particle float-1" style="top:10%;left:15%;background:#ffbb33;animation-delay:0s;"></div>
         <div class="particle float-2" style="top:20%;left:75%;background:#00d4aa;animation-delay:0.8s;"></div>
         <div class="particle float-3" style="top:60%;left:85%;background:#ff6b6b;animation-delay:1.5s;"></div>
@@ -11,23 +11,25 @@
         <div class="particle float-2" style="top:45%;left:50%;background:#ffbb33;animation-delay:1.2s;"></div>
       </div>
 
-      <DashboardSidebar 
-        :isCollapsed="isSidebarCollapsed"
-        :currentLevel="currentLevel"
-        :playerName="playerName"
-        :playerAvatarUrl="playerAvatarUrl"  
-        :playerRole="playerRole"
-        :hasUnread="hasUnreadMessages"
-        :currentTitle="currentTitle" 
-        v-model:currentSection="currentSection"
-        v-model:activeAdminTab="activeAdminTab"
-        v-model:activeTeacherTab="activeTeacherTab"
-        @toggle="isSidebarCollapsed = !isSidebarCollapsed"
-        @clear-unread="hasUnreadMessages = false"
-      />
+      <div class="hidden lg:block shrink-0 relative z-20">
+        <DashboardSidebar 
+          :isCollapsed="isSidebarCollapsed"
+          :currentLevel="currentLevel"
+          :playerName="playerName"
+          :playerAvatarUrl="playerAvatarUrl"  
+          :playerRole="playerRole"
+          :hasUnread="hasUnreadMessages"
+          :currentTitle="currentTitle" 
+          v-model:currentSection="currentSection"
+          v-model:activeAdminTab="activeAdminTab"
+          v-model:activeTeacherTab="activeTeacherTab"
+          @toggle="isSidebarCollapsed = !isSidebarCollapsed"
+          @clear-unread="hasUnreadMessages = false"
+        />
+      </div>
 
       <transition enter-active-class="transition ease-out duration-300" enter-from-class="transform translate-y-10 opacity-0" enter-to-class="transform translate-y-0 opacity-100" leave-active-class="transition ease-in duration-200" leave-from-class="transform translate-y-0 opacity-100" leave-to-class="transform translate-y-10 opacity-0">
-        <div v-if="globalNotification" class="fixed bottom-10 right-10 bg-[#1a1a3e] border border-[#00d4aa] rounded-xl p-4 shadow-[0_0_20px_rgba(0,212,170,0.4)] z-50 flex flex-col min-w-[250px] animate-bounce">
+        <div v-if="globalNotification" class="fixed bottom-24 lg:bottom-10 right-6 lg:right-10 bg-[#1a1a3e] border border-[#00d4aa] rounded-xl p-4 shadow-[0_0_20px_rgba(0,212,170,0.4)] z-[100] flex flex-col min-w-[250px] animate-bounce">
           <div class="flex items-center space-x-2 mb-1">
             <span class="text-xl">💬</span>
             <span class="text-[#00d4aa] font-bold text-lg">{{ globalNotification.title }}</span>
@@ -36,17 +38,54 @@
         </div>
       </transition>
 
-      <div class="main-content">
-        <DashboardHeader 
-          :playerName="playerName"
-          :currentLevel="currentLevel"
-          :currentXP="currentXP"
-          :xpPerLevel="xpPerLevel"
-        />
+      <div class="main-content flex-1 flex flex-col h-full overflow-y-auto overflow-x-hidden relative z-10 pb-20 lg:pb-0">
+        
+        <div class="hidden lg:block">
+          <DashboardHeader 
+            :playerName="playerName"
+            :currentLevel="currentLevel"
+            :currentXP="currentXP"
+            :xpPerLevel="xpPerLevel"
+          />
+        </div>
+
+        <header class="lg:hidden shrink-0 bg-[#1a1a3e]/90 backdrop-blur-md border-b border-white/10 px-4 py-3 flex items-center justify-between shadow-md sticky top-0 z-50">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shadow-[0_0_10px_rgba(255,187,51,0.3)]" style="background: linear-gradient(135deg, #ffbb33, #ff8800);">⚡</div>
+            <h2 class="text-base sm:text-lg font-black tracking-wide text-white" style="font-family: 'Fredoka', sans-serif;">Code Quest</h2>
+          </div>
+          
+          <div class="flex items-center gap-3">
+            <div class="flex items-center gap-1.5 bg-[#0a0e27] px-2.5 py-1.5 rounded-full border border-white/10 shadow-inner" @click="currentSection = 'profile'">
+              <span class="text-xs font-black text-[#ffbb33] tracking-wide">Lv.{{ currentLevel }}</span>
+              <div class="w-5 h-5 rounded-full overflow-hidden ml-1 border border-[#ffbb33]/50">
+                <img :src="playerAvatarUrl || '/default-avatar.png'" class="w-full h-full object-cover" />
+              </div>
+            </div>
+            
+            <button @click="handleLogout" class="p-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 active:scale-95 transition-all border border-red-500/30 shadow-inner" title="登出">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                <polyline points="16 17 21 12 16 7"></polyline>
+                <line x1="21" y1="12" x2="9" y2="12"></line>
+              </svg>
+            </button>
+          </div>
+        </header>
 
         <SystemAnnouncement />
 
-        <div class="relative z-10 max-w-7xl mx-auto px-6 py-12 w-full">
+        <div class="block lg:hidden px-4 pt-4 -mb-2">
+          <div class="flex items-start gap-3 p-3.5 rounded-xl bg-red-950/40 border border-red-500/30 shadow-inner">
+            <span class="text-xl mt-0.5">🖥️</span>
+            <p class="text-[12px] text-red-100/90 leading-relaxed font-medium">
+              <strong class="text-[#ffbb33]">手機輕量模式</strong><br>
+              目前僅開放社交與狀態查詢，<span class="text-white font-bold underline decoration-red-500 underline-offset-2">出發前往地下城請使用電腦</span>以進行程式碼編寫。
+            </p>
+          </div>
+        </div>
+
+        <div class="relative z-10 max-w-7xl mx-auto px-4 lg:px-6 py-6 lg:py-12 w-full flex-1">
           
           <LobbySection 
             v-show="currentSection === 'lobby'" 
@@ -109,7 +148,7 @@
             @update-name="handleNameUpdate"
           />
           
-          <div v-show="currentSection === 'settings'">設定即將推出...</div>
+          <div v-show="currentSection === 'settings'" class="text-center py-20 text-[#a0a0b8] font-bold">設定即將推出...</div>
 
           <HelpSection v-show="currentSection === 'help'" />
 
@@ -127,25 +166,49 @@
 
         </div>
 
-        <footer class="relative z-10 px-6 py-8 text-center border-t mt-auto" style="border-color:#1e1e2e;">
+        <footer class="hidden lg:block relative z-10 px-6 py-8 text-center border-t mt-auto" style="border-color:#1e1e2e;">
           <p class="text-sm" style="color:#a0a0b8;">祝你學習愉快！需要幫助？<a href="#" style="color:#00d4aa;text-decoration:none;">查看教程</a></p>
         </footer>
       </div>
 
-      <div class="fixed bottom-6 right-6 z-[100] flex flex-col gap-3 pointer-events-none">
+      <nav class="lg:hidden fixed bottom-0 left-0 w-full bg-[#1a1a3e]/95 backdrop-blur-md border-t border-white/10 flex justify-between items-center z-[90] shadow-[0_-5px_20px_rgba(0,0,0,0.5)] pb-[env(safe-area-inset-bottom,0px)] px-1">
+        <button @click="currentSection = 'lobby'" :class="['flex-1 py-3 flex flex-col items-center gap-1 transition-colors', currentSection === 'lobby' || currentSection === 'courses' ? 'text-[#ffbb33]' : 'text-[#a0a0b8]']">
+          <span class="text-[20px] drop-shadow-md leading-none">🏰</span>
+          <span class="text-[10px] font-black tracking-wider">大廳</span>
+        </button>
+        <button @click="currentSection = 'leaderboard'" :class="['flex-1 py-3 flex flex-col items-center gap-1 transition-colors', currentSection === 'leaderboard' ? 'text-[#ffbb33]' : 'text-[#a0a0b8]']">
+          <span class="text-[20px] drop-shadow-md leading-none">🏆</span>
+          <span class="text-[10px] font-black tracking-wider">天梯</span>
+        </button>
+        <button @click="currentSection = 'friends'" :class="['relative flex-1 py-3 flex flex-col items-center gap-1 transition-colors', currentSection === 'friends' ? 'text-[#ffbb33]' : 'text-[#a0a0b8]']">
+          <span class="text-[20px] drop-shadow-md leading-none">💬</span>
+          <span class="text-[10px] font-black tracking-wider">社交</span>
+          <span v-if="hasUnreadMessages" class="absolute top-2 right-[25%] w-2 h-2 bg-red-500 rounded-full border border-[#1a1a3e] animate-pulse"></span>
+        </button>
+        <button @click="currentSection = 'achievements'" :class="['flex-1 py-3 flex flex-col items-center gap-1 transition-colors', currentSection === 'achievements' ? 'text-[#ffbb33]' : 'text-[#a0a0b8]']">
+          <span class="text-[20px] drop-shadow-md leading-none">🏅</span>
+          <span class="text-[10px] font-black tracking-wider">成就</span>
+        </button>
+        <button @click="currentSection = 'profile'" :class="['flex-1 py-3 flex flex-col items-center gap-1 transition-colors', currentSection === 'profile' ? 'text-[#ffbb33]' : 'text-[#a0a0b8]']">
+          <span class="text-[20px] drop-shadow-md leading-none">🧙‍♂️</span>
+          <span class="text-[10px] font-black tracking-wider">狀態</span>
+        </button>
+      </nav>
+
+      <div class="fixed bottom-24 lg:bottom-6 right-4 lg:right-6 z-[100] flex flex-col gap-3 pointer-events-none">
         <transition-group name="toast">
           <div v-for="toast in toastNotifications" :key="toast.id" 
               @click="currentSection = 'friends'"
-              class="bg-[#151932]/95 backdrop-blur-md border border-[#00d4aa]/40 p-4 rounded-2xl shadow-[0_10px_40px_rgba(0,212,170,0.3)] flex items-center gap-4 w-80 transform transition-all pointer-events-auto cursor-pointer hover:scale-105 hover:border-[#00d4aa]">
+              class="bg-[#151932]/95 backdrop-blur-md border border-[#00d4aa]/40 p-4 rounded-2xl shadow-[0_10px_40px_rgba(0,212,170,0.3)] flex items-center gap-4 w-72 lg:w-80 transform transition-all pointer-events-auto cursor-pointer hover:scale-105 hover:border-[#00d4aa]">
             
-            <img :src="toast.avatar || '/default-avatar.png'" class="w-12 h-12 rounded-full border-2 border-[#00d4aa]/50 object-cover flex-shrink-0" />
+            <img :src="toast.avatar || '/default-avatar.png'" class="w-10 h-10 lg:w-12 lg:h-12 rounded-full border-2 border-[#00d4aa]/50 object-cover flex-shrink-0" />
             
             <div class="flex-1 overflow-hidden">
               <div class="text-[#00d4aa] font-bold text-sm truncate flex justify-between items-center">
                 {{ toast.senderName }}
                 <span class="text-white/40 text-[10px] font-normal">剛剛</span>
               </div>
-              <div class="text-white text-sm truncate mt-0.5">{{ toast.content }}</div>
+              <div class="text-white text-xs lg:text-sm truncate mt-0.5">{{ toast.content }}</div>
             </div>
 
             <div class="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse"></div>
@@ -266,6 +329,10 @@ const bestFloor = ref(0);
 const coins = ref(0);
 const currentTitle = ref('見習冒險者');
 const pinnedBadges = ref([]);
+const totalKills = ref(0);
+const bossKills = ref(0);
+const totalDeaths = ref(0);
+const passiveCount = ref(0);
 
 const emit = defineEmits(['enter-game', 'logout']);
 

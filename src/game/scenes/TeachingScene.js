@@ -121,6 +121,11 @@ export default class TeachingScene extends Phaser.Scene {
   resetLevel() {
     this.tweens.killAll();
     this.time.removeAllEvents();
+    this.playerData.hasKey = false;
+    this.usedCommands.clear(); 
+    if (this.keyIcon) {
+      this.keyIcon.setAlpha(1); 
+    }
 
     this.playerGridX = this.levelConfig.player.gridX;
     this.playerGridY = this.levelConfig.player.gridY;
@@ -195,6 +200,7 @@ export default class TeachingScene extends Phaser.Scene {
 
   // 執行單一指令，回傳 Promise 讓 Blockly 等待動畫
   async addCommand(action) {
+    this.usedCommands.add(action);
     if (this.isFailed || !this.player || this.enemy.alpha === 0) return;
 
     // [新增] forbidden 指令防呆（對應 restrictions.forbidden 陣列）
@@ -377,3 +383,23 @@ export default class TeachingScene extends Phaser.Scene {
     return this.playerGridX === goal.x && this.playerGridY === goal.y;
   }
 }
+
+// --- 繪製鑰匙 ---
+    if (cfg.key) {
+      this.keyGridX = cfg.key.gridX;
+      this.keyGridY = cfg.key.gridY;
+      const kx = this.keyGridX * this.cellSize + this.cellSize / 2;
+      const ky = this.keyGridY * this.cellSize + this.cellSize / 2;
+      this.keyIcon = this.add.text(kx, ky, cfg.key.emoji, emojiStyle).setOrigin(0.5);
+    }
+
+    // --- 繪製終點門 ---
+    if (cfg.goal) {
+      this.goalGridX = cfg.goal.gridX;
+      this.goalGridY = cfg.goal.gridY;
+      const gx = this.goalGridX * this.cellSize + this.cellSize / 2;
+      const gy = this.goalGridY * this.cellSize + this.cellSize / 2;
+      this.goalIcon = this.add.text(gx, gy, cfg.goal.emoji, emojiStyle).setOrigin(0.5);
+    }
+
+    this.usedCommands = new Set();

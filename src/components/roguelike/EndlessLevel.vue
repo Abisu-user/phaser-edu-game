@@ -63,12 +63,12 @@ const level = ref(1);
 const xp = ref(0);
 const totalExp = ref(0);
 const inventory = ref([]);
-
-// 🌟 修正 1：補上遺漏的 stat_points 宣告，避免升級時報錯崩潰！
 const stat_points = ref(0); 
-
-// 存放當前地圖資料
 const mapData = ref(null);
+const radarBoss = ref(null);
+const radarNearby = ref([]);
+
+let saveTimeout = null;
 
 const handleStart = async (data) => {
   isShuttingDown.value = false;
@@ -104,19 +104,6 @@ const handleStart = async (data) => {
 
 const handleUpdateInventory = async (newInventory) => {
   inventory.value = newInventory;
-  
-  await saveToTowerSaves();
-
-  if (currentUserId.value) {
-    try {
-      await supabase
-        .from('tower_lobby')
-        .update({ inventory: inventory.value })
-        .eq('user_id', currentUserId.value);
-    } catch (err) {
-      console.error("同步大廳背包失敗", err);
-    }
-  }
 };
 
 const saveToTowerSaves = async () => {
@@ -289,21 +276,13 @@ const handleAbandonGame = async () => {
         .eq('user_id', currentUserId.value);
 
       // 5. 更新全域成就數據
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('total_kills, boss_kills, total_deaths, passive_count')
-        .eq('id', currentUserId.value)
-        .single();
-
-      if (profile) {
-        await supabase.from('profiles').update({
-            total_kills: (profile.total_kills || 0) + currentRunKills,      
-            boss_kills: (profile.boss_kills || 0) + currentRunBossKills,    
-            passive_count: (profile.passive_count || 0) + currentRunPassives,  
-            total_deaths: (profile.total_deaths || 0) + 1,                  
-        }).eq('id', currentUserId.value);
-      }
-
+      await supabase.rpc('increment_profile_stats', {
+            user_id_param: currentUserId.value,
+            kills_to_add: currentRunKills,
+            boss_kills_to_add: currentRunBossKills,
+            passives_to_add: currentRunPassives,
+            deaths_to_add: 1 // 每次死亡固定加 1
+          });
       console.log("✅ 永久資源與成就已成功結算回收！");
     }
   } catch (err) {
@@ -316,12 +295,12 @@ const handleAbandonGame = async () => {
   inventory.value = [];
   coins.value = 0;
   isGameStarted.value = false;
-  radarNearby.value = null;
   radarBoss.value = null;
+  radarNearby.value = [];
 };
 
-const handleUpdateStats = async (newStats) => {
-  // 1. 更新本地變數 (加上對 totalExp 的接收)
+const handleUpdateStats = (newStats) => {
+  // 1. 【純本地更新】即時更新本地變數，畫面會立刻反應，不會卡頓
   if (newStats.maxHp !== undefined) maxHp.value = newStats.maxHp;
   if (newStats.maxMp !== undefined) maxMp.value = newStats.maxMp;
   if (newStats.maxAp !== undefined) maxAp.value = newStats.maxAp;
@@ -332,32 +311,33 @@ const handleUpdateStats = async (newStats) => {
   if (newStats.coins !== undefined) coins.value = newStats.coins;
   if (newStats.floor !== undefined) floor.value = newStats.floor;
   if (newStats.totalExp !== undefined) totalExp.value = newStats.totalExp;
-
-  // 2. 接收從 TowerBattle 傳來的經驗值與升級結果
   if (newStats.xp !== undefined) xp.value = newStats.xp;
   
   let isLevelUp = false;
   if (newStats.level !== undefined && newStats.level > level.value) {
     const levelsGained = newStats.level - level.value;
     level.value = newStats.level;
-    // 🌟 每升一級獲得 5 點屬性點
     stat_points.value = (stat_points.value || 0) + (levelsGained * 5); 
     isLevelUp = true;
   }
 
-  // 3. 同步至當前戰鬥存檔 (tower_saves)
-  await saveToTowerSaves();
+  // 2. 【防抖存檔機制】清除上一次的倒數計時
+  if (saveTimeout) {
+    clearTimeout(saveTimeout);
+  }
 
-  // 4. 即時同步外部大廳與高塔大廳
-  if (currentUserId.value) {
+  // 3. 設定新的倒數計時：如果玩家在 4 秒內沒有新的數值變動，才真正呼叫 Supabase
+  saveTimeout = setTimeout(async () => {
+    if (!currentUserId.value || isShuttingDown.value) return;
+
     try {
-      // A. 同步全服 Profile
+      // 一次性把最終結果存入三個表格
+      await saveToTowerSaves();
+
       let profileUpdate = { level: level.value, xp: xp.value, total_exp: totalExp.value };
       if (isLevelUp) profileUpdate.stat_points = stat_points.value;
-      
       await supabase.from('profiles').update(profileUpdate).eq('id', currentUserId.value);
 
-      // B. 同步大廳 Lobby (🌟 這裡補上 coins，解決金幣不同步問題！)
       let lobbyUpdate = { 
         coins: coins.value, 
         level: level.value, 
@@ -365,14 +345,13 @@ const handleUpdateStats = async (newStats) => {
         total_exp: totalExp.value 
       };
       if (isLevelUp) lobbyUpdate.stat_points = stat_points.value;
-      
       await supabase.from('tower_lobby').update(lobbyUpdate).eq('user_id', currentUserId.value);
 
-      console.log(`[🔄 同步成功] 金幣: ${coins.value}, 等級: ${level.value}, 經驗: ${xp.value}, 總經驗: ${totalExp.value}`);
+      console.log(`[🔄 延遲同步成功] 金幣: ${coins.value}, 等級: ${level.value}`);
     } catch (err) {
-      console.error('同步資料庫失敗:', err);
+      console.error('延遲同步資料庫失敗:', err);
     }
-  }
+  }, 4000); // 4000 毫秒 (4秒) 的冷卻時間
 };
 
 const handleExit = () => {
@@ -401,6 +380,12 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('tower-request-init-data', provideInitData);
+  
+  if (game.value) {
+    game.value.destroy(true); // 參數 true 代表把 canvas 實體也一起拔掉
+    game.value = null;
+    console.log("🗑️ [組件卸載] Phaser 遊戲引擎已徹底釋放。");
+  }
 });
 
 const initPhaser = async () => {

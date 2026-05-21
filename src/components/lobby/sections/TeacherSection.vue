@@ -18,6 +18,9 @@
       <TeacherDashboardPanel v-if="currentTab === 'overview'" />
       
       <StudentManagementPanel v-else-if="currentTab === 'students'" />
+
+      <LevelDesigner v-else-if="currentTab === 'content'" />
+      
       
       <div v-else class="h-full flex flex-col items-center justify-center text-center py-20 opacity-80 bg-[#16162a] rounded-2xl border border-[#333366]">
         <div class="text-7xl mb-6 grayscale">📊</div>
@@ -33,6 +36,7 @@
 import { computed } from 'vue';
 import TeacherDashboardPanel from './teacher/TeacherDashboardPanel.vue';
 import StudentManagementPanel from './teacher/StudentManagementPanel.vue';
+import LevelDesigner from './admin/LevelDesigner.vue';
 
 const props = defineProps({
   // 由 PlayerDashboard 傳入，決定目前顯示哪個子頁籤
@@ -40,12 +44,12 @@ const props = defineProps({
 });
 
 const currentTabTitle = computed(() => {
-  const titles = { overview: '班級概況總覽', students: '學生進度管理', analytics: '學習數據分析' };
+  const titles = { overview: '班級概況總覽', students: '學生進度管理', analytics: '學習數據分析', content: '內容管理' };
   return titles[props.currentTab] || '教師中心';
 });
 
 const currentTabIcon = computed(() => {
-  const icons = { overview: '📊', students: '🎓', analytics: '📈' };
+  const icons = { overview: '📊', students: '🎓', analytics: '📈', content: '🗺️' };
   return icons[props.currentTab] || '👨‍🏫';
 });
 
@@ -53,7 +57,8 @@ const currentTabDesc = computed(() => {
   const descs = {
     overview: '快速查看班級活躍度與平均學習進度',
     students: '追蹤個別學生進度，查看詳細通關紀錄',
-    analytics: '深度分析班級整體的邏輯弱點與卡關熱點'
+    analytics: '深度分析班級整體的邏輯弱點與卡關熱點',
+    content: '設計和管理課程內容'
   };
   return descs[props.currentTab] || '教師專屬管理模組';
 });

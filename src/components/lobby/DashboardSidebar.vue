@@ -1,10 +1,10 @@
 <template>
   <div 
-    class="relative z-30 flex flex-col border-r border-white/5 backdrop-blur-2xl transition-all duration-400 ease-[cubic-bezier(0.4,0,0.2,1)] shadow-[4px_0_24px_rgba(0,0,0,0.2)]"
+    class="h-full relative z-30 flex flex-col border-r border-white/5 backdrop-blur-2xl transition-all duration-400 ease-[cubic-bezier(0.4,0,0.2,1)] shadow-[4px_0_24px_rgba(0,0,0,0.2)]"
     :class="isCollapsed ? 'w-[80px] bg-[#0a0e27]/95' : 'w-[280px] bg-[#0a0e27]/80'"
   >
     
-    <div class="p-4 flex justify-end">
+    <div class="p-4 flex justify-end shrink-0">
       <button 
         @click="$emit('toggle')" 
         class="w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 text-[#00d4aa] border border-transparent hover:bg-[#00d4aa]/10 hover:border-[#00d4aa]/30 focus:outline-none"
@@ -16,7 +16,7 @@
       </button>
     </div>
 
-    <div class="px-4 pb-4 border-b border-white/5">
+    <div class="px-4 pb-4 border-b border-white/5 shrink-0">
       <div 
         class="flex items-center gap-3 transition-all duration-300"
         :class="isCollapsed ? 'justify-center' : 'p-2 bg-black/20 border border-white/5 rounded-xl'"
@@ -114,7 +114,7 @@
 
     </div>
 
-    <div class="p-4 border-t border-white/5 bg-gradient-to-b from-transparent to-black/40">
+    <div class="p-4 border-t border-white/5 bg-gradient-to-b from-transparent to-black/40 shrink-0">
       <button 
         @click="triggerLogout"
         class="w-full flex items-center justify-center gap-2 rounded-xl text-[#ff6b6b] transition-all duration-300 border border-transparent hover:bg-[#ff6b6b]/10 hover:border-[#ff6b6b]/30 group"
@@ -223,7 +223,8 @@ const sectionedMenus = computed(() => {
       items: [
         { id: 'teacher-overview', icon: '📊', label: '班級概況' },
         { id: 'teacher-students', icon: '🎓', label: '學生管理' },
-        { id: 'teacher-analytics', icon: '📈', label: '進度分析' }
+        { id: 'teacher-analytics', icon: '📈', label: '進度分析' },
+        { id: 'teacher-content', icon: '🗺️', label: '內容管理' } // 🌟 新增：讓教師也可以使用內容管理
       ]
     });
   }

@@ -15,7 +15,7 @@
       </div>
       <div class="flex items-center gap-4">
         <button @click="openLoadModal" class="flex items-center gap-1.5 text-sm font-medium text-indigo-300 bg-indigo-900/40 border border-indigo-700/50 rounded-lg px-4 py-2 hover:bg-indigo-800/60 transition-all">
-          📂 讀取關卡
+          📂 讀取 / 管理關卡
         </button>
 
         <button @click="clearGrid" class="flex items-center gap-1.5 text-xs font-medium text-rose-400 bg-rose-950/40 border border-rose-800/30 rounded-lg px-4 py-2 hover:bg-rose-900/50 transition">
@@ -55,10 +55,38 @@
                 <textarea v-model="form.description" rows="2" placeholder="敘述通關目標..." class="w-full bg-[#0a0914] border border-indigo-900/50 rounded-lg p-2.5 text-sm focus:border-indigo-500 outline-none transition resize-none"></textarea>
               </div>
               <div>
-                <label class="block text-xs text-gray-400 mb-1.5">怪物名稱 (Enemy Name)</label>
-                <input v-model="form.enemy_name" type="text" placeholder="例如: 史萊姆" class="w-full bg-[#0a0914] border border-indigo-900/50 rounded-lg p-2.5 text-sm focus:border-indigo-500 outline-none transition" />
+                <label class="block text-xs text-gray-400 mb-1.5">🏆 過關條件</label>
+                <select v-model="form.victory_condition" class="w-full bg-[#0a0914] border border-indigo-900/50 rounded-lg p-2.5 text-sm focus:border-indigo-500 outline-none">
+                  <option value="kill_enemy">⚔️ 必須擊殺怪物</option>
+                  <option value="reach_goal">🚪 抵達終點之門</option>
+                  <option value="key_and_goal">🗝️ 取得鑰匙並抵達終點</option>
+                </select>
+              </div>
+              <div class="flex gap-3">
+                <div class="flex-1">
+                  <label class="block text-xs text-gray-400 mb-1.5">怪物名稱 (Enemy)</label>
+                  <input v-model="form.enemy_name" type="text" placeholder="史萊姆" class="w-full bg-[#0a0914] border border-indigo-900/50 rounded-lg p-2.5 text-sm focus:border-indigo-500 outline-none transition" />
+                </div>
+                <div class="w-24 shrink-0">
+                  <label class="block text-xs text-gray-400 mb-1.5">生命值 ❤️</label>
+                  <input v-model.number="form.hearts" type="number" min="1" max="10" placeholder="3" class="w-full bg-[#0a0914] border border-indigo-900/50 rounded-lg p-2.5 text-sm text-center text-rose-400 font-bold focus:border-indigo-500 outline-none transition" />
+                </div>
+                <div class="flex-1">
+                  <label class="block text-xs text-gray-400 mb-1.5">🎓 必須包含指令 (選填)</label>
+                  <select v-model="form.required_command" class="w-full bg-[#0a0914] border border-indigo-900/50 rounded-lg p-2.5 text-sm focus:border-indigo-500 outline-none">
+                    <option value="">無限制</option>
+                    <option value="for">🔄 迴圈 (for)</option>
+                    <option value="if">🤔 判斷式 (if)</option>
+                    <option value="while">🔁 條件迴圈 (while)</option>
+                  </select>
+                </div>
+                <div class="w-24 shrink-0">
+                  <label class="block text-xs text-gray-400 mb-1.5">⚡ 經驗值</label>
+                  <input v-model.number="form.xp_reward" type="number" min="10" step="10" placeholder="200" class="w-full bg-[#0a0914] border border-indigo-900/50 rounded-lg p-2.5 text-sm text-center text-[#ffbb33] font-bold focus:border-indigo-500 outline-none" />
+                </div>
               </div>
             </div>
+            
           </section>
 
           <hr class="border-indigo-900/30">
@@ -160,10 +188,10 @@
     </div>
 
     <div v-if="showLoadModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
-      <div class="bg-[#171527] border border-indigo-500/30 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+      <div class="bg-[#171527] border border-indigo-500/30 w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
         <div class="px-6 py-4 border-b border-indigo-900/50 flex justify-between items-center bg-[#13111f]">
           <h2 class="text-lg font-bold text-indigo-300 flex items-center gap-2">
-            📂 載入我的關卡
+            📂 載入與管理關卡
           </h2>
           <button @click="showLoadModal = false" class="text-gray-400 hover:text-white">✖</button>
         </div>
@@ -178,13 +206,39 @@
             目前還沒有儲存任何關卡喔！
           </div>
 
-          <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <button v-for="lvl in savedLevels" :key="lvl.id" @click="loadLevel(lvl)" 
-                    class="text-left bg-[#0a0914] border border-indigo-900/50 p-4 rounded-xl hover:border-indigo-400 hover:bg-indigo-900/20 transition group">
-              <div class="text-xs text-indigo-400 font-bold mb-1">Level {{ lvl.level_number }}</div>
-              <div class="text-white font-bold truncate">{{ lvl.title }}</div>
-              <div class="text-xs text-gray-500 mt-2 truncate">{{ lvl.description || '無描述' }}</div>
-            </button>
+          <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4 relative">
+            
+            <div v-if="isModifying" class="absolute inset-0 bg-[#171527]/50 backdrop-blur-[2px] z-10 rounded-xl flex items-center justify-center">
+               <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+            </div>
+
+            <div v-for="(lvl, index) in savedLevels" :key="lvl.id" 
+                 class="flex flex-col bg-[#0a0914] border border-indigo-900/50 rounded-xl overflow-hidden shadow-lg">
+              
+              <button @click="loadLevel(lvl)" class="text-left p-4 hover:bg-indigo-900/20 transition flex-1 group">
+                <div class="flex justify-between items-start mb-1">
+                  <div class="text-xs text-indigo-400 font-bold bg-indigo-900/30 px-2 py-1 rounded">Level {{ lvl.level_number }}</div>
+                </div>
+                <div class="text-white font-bold truncate mt-2 group-hover:text-indigo-300 transition-colors">{{ lvl.title }}</div>
+                <div class="text-xs text-gray-500 mt-1 truncate">{{ lvl.description || '無描述' }}</div>
+              </button>
+
+              <div class="flex items-center justify-between px-3 py-2 bg-[#13111f] border-t border-indigo-900/30">
+                <div class="flex items-center gap-1">
+                  <button @click="swapLevels(index, index - 1)" :disabled="index === 0" class="w-8 h-8 flex items-center justify-center rounded hover:bg-white/10 disabled:opacity-20 transition" title="往前移">
+                    ⬆️
+                  </button>
+                  <button @click="swapLevels(index, index + 1)" :disabled="index === savedLevels.length - 1" class="w-8 h-8 flex items-center justify-center rounded hover:bg-white/10 disabled:opacity-20 transition" title="往後移">
+                    ⬇️
+                  </button>
+                </div>
+                
+                <button @click="deleteLevel(lvl)" class="text-xs font-bold text-rose-500 hover:text-rose-400 hover:bg-rose-500/10 px-3 py-1.5 rounded transition flex items-center gap-1">
+                  🗑️ 刪除
+                </button>
+              </div>
+
+            </div>
           </div>
         </div>
       </div>
@@ -203,13 +257,21 @@ const emit = defineEmits(['preview']);
 // --- 狀態管理 ---
 const loading = ref(false);
 const isDrawing = ref(false);
+const showLoadModal = ref(false);
+const savedLevels = ref([]);
+const isFetchingLevels = ref(false);
+const isModifying = ref(false); // 🌟 新增：控制刪除/排序時的讀取狀態
 
 const form = ref({
   level_number: 1,
   title: '',
   description: '',
   enemy_name: '史萊姆',
+  hearts: 3,
   max_blocks: 20,
+  xp_reward: 200,              
+  victory_condition: 'kill_enemy', 
+  required_command: '',           
   grid_size: { cols: 10, rows: 10 },
   available_commands: ['moveUp', 'moveDown', 'moveLeft', 'moveRight', 'attack']
 });
@@ -218,7 +280,6 @@ const gridMap = ref({});
 const activeBrush = ref('player');
 
 const groupedCommands = computed(() => {
-  // 定義你的分類與對應的指令 ID
   const groups = {
     '🚶‍♂️ 移動類': ['moveUp', 'moveDown', 'moveLeft', 'moveRight', 'dash'],
     '⚔️ 動作與戰鬥': ['wait', 'take', 'open', 'attack', 'shoot', 'magic', 'bomb', 'heal'],
@@ -229,7 +290,6 @@ const groupedCommands = computed(() => {
   const result = [];
   const usedIds = new Set();
 
-  // 將指令分配到各自的分類中
   for (const [name, ids] of Object.entries(groups)) {
     const commands = COMMAND_DICT.filter(cmd => ids.includes(cmd.id));
     if (commands.length > 0) {
@@ -238,7 +298,6 @@ const groupedCommands = computed(() => {
     }
   }
 
-  // 自動捕捉未被分類的指令，放入「📦 其他」
   const others = COMMAND_DICT.filter(cmd => !usedIds.has(cmd.id));
   if (others.length > 0) {
     result.push({ name: '📦 其他', commands: others });
@@ -250,6 +309,8 @@ const groupedCommands = computed(() => {
 const brushes = [
   { id: 'player', name: '玩家', icon: '🧙', activeClass: 'bg-indigo-600 text-white shadow-[0_0_15px_rgba(79,70,229,0.5)]', unique: true },
   { id: 'enemy', name: '怪物', icon: '👾', activeClass: 'bg-rose-600 text-white shadow-[0_0_15px_rgba(225,29,72,0.5)]', unique: true },
+  { id: 'goal', name: '終點', icon: '🚪', activeClass: 'bg-emerald-600 text-white shadow-[0_0_15px_rgba(5,150,105,0.5)]', unique: true }, // 新增
+  { id: 'key', name: '鑰匙', icon: '🗝️', activeClass: 'bg-amber-500 text-white shadow-[0_0_15px_rgba(245,158,11,0.5)]', unique: true }, // 新增
   { id: 'rock', name: '石頭', icon: '🪨', activeClass: 'bg-slate-600 text-white shadow-[0_0_15px_rgba(71,85,105,0.5)]', unique: false },
   { id: 'lava', name: '岩漿', icon: '🔥', activeClass: 'bg-orange-600 text-white shadow-[0_0_15px_rgba(234,88,12,0.5)]', unique: false },
   { id: 'empty', name: '橡皮擦', icon: '🧹', activeClass: 'bg-gray-800 text-white border border-gray-600', unique: false }
@@ -287,18 +348,16 @@ const clearGrid = () => {
   if (confirm('確定要清空所有地圖配置嗎？')) gridMap.value = {};
 };
 
-// --- 讀取功能 ---
-const showLoadModal = ref(false);
-const savedLevels = ref([]);
-const isFetchingLevels = ref(false);
-
+// --- 讀取、排序與刪除功能 ---
 const openLoadModal = async () => {
   showLoadModal.value = true;
   isFetchingLevels.value = true;
   try {
+    const { data: { user } } = await supabase.auth.getUser();
     const { data, error } = await supabase
       .from('levels')
       .select('id, level_number, title, description')
+      .eq('teacher_id', user.id) 
       .order('level_number', { ascending: true });
     
     if (error) throw error;
@@ -312,7 +371,6 @@ const openLoadModal = async () => {
 
 const loadLevel = async (lvlInfo) => {
   try {
-    // 🌟 修正：加上 .select('*') 以解決 eq is not a function 錯誤
     const { data, error } = await supabase
       .from('levels')
       .select('*')
@@ -326,9 +384,13 @@ const loadLevel = async (lvlInfo) => {
       title: data.title,
       description: data.description || '',
       enemy_name: data.enemy_name || '怪物',
+      hearts: data.hearts || 3, // 🌟 載入生命值
       max_blocks: data.max_blocks || 20,
       grid_size: data.grid_size || { cols: 10, rows: 10 },
-      available_commands: data.available_commands || []
+      available_commands: data.available_commands || [],
+      xp_reward: data.xp_reward || 200,
+      victory_condition: data.victory_condition || 'kill_enemy',
+      required_command: data.required_command || '',
     };
 
     gridMap.value = {};
@@ -349,6 +411,50 @@ const loadLevel = async (lvlInfo) => {
   }
 };
 
+// 🌟 新增：刪除關卡
+const deleteLevel = async (lvl) => {
+  if (!confirm(`確定要刪除「Level ${lvl.level_number}: ${lvl.title}」嗎？\n此操作無法復原！`)) return;
+  
+  isModifying.value = true;
+  try {
+    const { error } = await supabase.from('levels').delete().eq('id', lvl.id);
+    if (error) throw error;
+    await openLoadModal(); // 刪除成功後重新載入列表
+  } catch (error) {
+    alert("刪除失敗：" + error.message);
+  } finally {
+    isModifying.value = false;
+  }
+};
+
+// 🌟 新增：交換順序 (上移/下移)
+const swapLevels = async (indexA, indexB) => {
+  if (indexB < 0 || indexB >= savedLevels.value.length) return;
+  
+  isModifying.value = true;
+  try {
+    const lvlA = savedLevels.value[indexA];
+    const lvlB = savedLevels.value[indexB];
+    const numA = lvlA.level_number;
+    const numB = lvlB.level_number;
+
+    // 💡 技巧：為了避免在切換的過程中違反資料庫的 (teacher_id, level_number) 組合唯一限制
+    // 我們需要先把 A 暫時設為一個絕對不會重複的負數 (-999)
+    await supabase.from('levels').update({ level_number: -999 }).eq('id', lvlA.id);
+    // 再把 B 設為 A 原本的數字
+    await supabase.from('levels').update({ level_number: numA }).eq('id', lvlB.id);
+    // 最後把 A 設為 B 原本的數字
+    await supabase.from('levels').update({ level_number: numB }).eq('id', lvlA.id);
+
+    await openLoadModal(); // 更新成功後重新載入列表
+  } catch (error) {
+    alert("排序失敗：" + error.message);
+  } finally {
+    isModifying.value = false;
+  }
+};
+
+
 // --- 儲存與預覽 ---
 const saveLevel = async () => {
   if (!form.value.title) {
@@ -363,11 +469,16 @@ const saveLevel = async () => {
     obstacles.push({ x, y, type });
   }
 
-  const payload = { ...form.value, obstacles };
-
   try {
-    const { error } = await supabase.from('levels').upsert([payload], { onConflict: 'level_number' });
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // 將 teacher_id, hearts 等資訊包裝進去
+    const payload = { ...form.value, obstacles, teacher_id: user.id };
+    const { error } = await supabase.from('levels').upsert([payload]);
+    
     if (error) throw error;
+    
+    alert('✅ 儲存成功！');
     return true;
   } catch (err) {
     console.error('儲存失敗', err);

@@ -37,7 +37,7 @@
           <p class="text-lg font-bold" :class="isEndlessUnlocked ? 'text-[#D7CCC8]' : 'text-[#593922]'">
             迷宮法則：變幻莫測的通道、未知的魔物、無盡的深淵。<br v-if="!isEndlessUnlocked" />
             <span v-if="!isEndlessUnlocked" class="text-[#8B0000] text-sm mt-2 block font-black drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">
-              ※ 需完成所有「初級魔法與劍術試煉」才能解除封印
+              ※ 需通關【基礎邏輯教學】的所有關卡才能解除封印
             </span>
             <span v-else class="text-[#A08060] drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">
               你能憑藉法術與劍刃深入到第幾層？
@@ -64,6 +64,7 @@
         </div>
       </div>
     </div>
+    
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       
       <div 
@@ -92,24 +93,30 @@
       </div>
       
       <div 
-        @click="$emit('open-level-selector', { id: 'javascript', title: '管理員自訂關卡', icon: '🗺️' })" 
-        class="rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1.5 cursor-pointer bg-[#1e1e2e] border border-[#333355] hover:border-[#ffbb33] hover:shadow-[0_10px_20px_rgba(255,187,51,0.15)] group"
+        v-if="showCustomCourse"
+        @click="$emit('open-level-selector', { id: 'javascript', title: '教師專屬挑戰', icon: '🗺️' })" 
+        class="rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1.5 cursor-pointer bg-[#1e1e2e] border border-[#333355] hover:border-[#ffbb33] hover:shadow-[0_10px_20px_rgba(255,187,51,0.15)] group relative overflow-hidden"
       >
-        <div class="text-5xl mb-5 transform group-hover:scale-110 transition-transform origin-left">🗺️</div>
-        <h3 class="text-2xl font-bold mb-2 text-[#f0f0f0] font-['Fredoka']">管理員自訂關卡</h3>
+        <div class="absolute top-0 right-0 w-32 h-32 bg-[#ffbb33]/10 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
+
+        <div class="text-5xl mb-5 transform group-hover:scale-110 transition-transform origin-left relative z-10">👨‍🏫</div>
+        <h3 class="text-2xl font-bold mb-2 text-[#f0f0f0] font-['Fredoka'] relative z-10 flex items-center gap-2">
+          教師專屬挑戰
+          <span class="px-2 py-0.5 text-[10px] bg-[#ffbb33]/20 text-[#ffbb33] rounded border border-[#ffbb33]/30 tracking-widest whitespace-nowrap">班級限定</span>
+        </h3>
         
-        <p class="text-[#a0a0b8] text-sm mb-6">
-          由管理員透過設計器製作的全新地圖！準備好挑戰各種奇葩關卡了嗎？
+        <p class="text-[#a0a0b8] text-sm mb-6 relative z-10">
+          由你的指導老師為班級量身打造的特訓地圖！準備好接受考驗了嗎？
         </p>
         
-        <div class="flex justify-between items-end mb-2">
+        <div class="flex justify-between items-end mb-2 relative z-10">
           <span class="text-sm font-bold text-[#ffbb33]">通關進度</span>
           <span class="text-sm font-bold text-[#f0f0f0]">
             {{ courseProgress.javascript || 0 }} <span class="text-[#a0a0b8] font-normal">/ {{ totalCustomLevels }} 關卡</span>
           </span>
         </div>
         
-        <div class="w-full h-2.5 rounded-full overflow-hidden bg-[#11111b] shadow-inner">
+        <div class="w-full h-2.5 rounded-full overflow-hidden bg-[#11111b] shadow-inner relative z-10">
           <div class="h-full bg-[#ffbb33] transition-all duration-1000 ease-out"
                :style="{ width: customProgressPercent + '%' }">
           </div>
@@ -134,15 +141,16 @@ const props = defineProps({
 
 const emit = defineEmits(['open-level-selector', 'open-endless-mode']);
 
-// === 關卡總數狀態 ===
+// === 狀態管理 ===
 const totalPythonLevels = ref(staticLevels ? staticLevels.length : 20);
 const totalCustomLevels = ref(0); 
+const showCustomCourse = ref(false); // 🌟 新增：控制是否顯示自訂關卡卡片
 
-// 🔥 新增：判斷無盡模式是否解鎖 (當 python 進度 >= 總關卡數) 🔥
+// 🔥 判斷無盡模式是否解鎖 (當 python 進度 >= 總關卡數)
 const isEndlessUnlocked = computed(() => {
   const currentProgress = props.courseProgress.python || 0;
   const maxLevels = totalPythonLevels.value || 1;
-  return currentProgress >= maxLevels; // 只要過關數達到或超過總關卡數就解鎖
+  return currentProgress >= maxLevels; 
 });
 
 // === 計算進度條的百分比 ===
@@ -158,16 +166,62 @@ const customProgressPercent = computed(() => {
   return Math.min(100, (progress / total) * 100);
 });
 
-// === 去資料庫抓取「實際有幾關」 ===
+// === 🌟 動態抓取「班級專屬關卡」邏輯 ===
 const fetchCustomLevelsCount = async () => {
   try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // 1. 取得當前使用者的 profile，確認身分與班級
+    const { data: userProfile } = await supabase
+      .from('profiles')
+      .select('class_code, role')
+      .eq('id', user.id)
+      .single();
+
+    if (!userProfile) return;
+
+    let targetTeacherId = null;
+
+    // 2. 判斷身分尋找對應的 Teacher ID
+    if (userProfile.role === 'student' && userProfile.class_code) {
+      // 若是已加入班級的學生，尋找同一個 class_code 的老師 ID
+      const { data: teacherProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('class_code', userProfile.class_code)
+        .eq('role', 'teacher')
+        .single();
+      
+      if (teacherProfile) {
+        targetTeacherId = teacherProfile.id;
+      }
+    } else if (userProfile.role === 'teacher' || userProfile.role === 'admin') {
+      // 老師或管理員：直接看自己設計的關卡
+      targetTeacherId = user.id;
+    }
+
+    // 3. 判斷：如果沒有對應的老師 (未加任何班級的學生)，就不顯示卡片並結束
+    if (!targetTeacherId) {
+      showCustomCourse.value = false;
+      return;
+    }
+
+    // 🌟 4. 走到這裡代表「確定有老師」了！直接把卡片顯示出來！
+    showCustomCourse.value = true;
+
+    // 5. 去資料庫撈這位老師到底做了幾關，單純用來更新顯示的數字 (分母)
     const { count, error } = await supabase
       .from('levels')
-      .select('*', { count: 'exact', head: true });
+      .select('*', { count: 'exact', head: true })
+      .eq('teacher_id', targetTeacherId);
 
     if (!error && count !== null) {
       totalCustomLevels.value = count; 
+    } else {
+      totalCustomLevels.value = 0;
     }
+    
   } catch (err) {
     console.error('抓取自訂關卡數量失敗:', err);
   }

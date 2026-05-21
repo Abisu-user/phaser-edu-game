@@ -222,11 +222,11 @@
           </div>
         </div>
 
-        <div class="text-center mt-6">
+        <!-- <div class="text-center mt-6">
           <button @click="showQuickRegister = true" class="text-[11px] text-[#a0a0b8] hover:text-[#00d4aa] underline transition-colors tracking-wider">
             🔧 切換至開發者快速註冊
           </button>
-        </div>
+        </div> -->
 
       </div>
 

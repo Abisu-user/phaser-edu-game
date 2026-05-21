@@ -56,6 +56,7 @@
     :xpPerLevel="xpPerLevel"
     :xpReward="levelConfig?.xpReward || 100"
     :stars="hp"  
+    :maxStars="levelConfig?.hearts || 3" 
     @next="handleNextLevel"
     @home="$emit('back')"
   />
@@ -102,6 +103,30 @@ const enterTime = ref(0);
 const levelConfig = ref({}); // 這是我們唯一使用的關卡資料狀態
 
 let game = null;
+let goalPos = null;
+let keyPos = null;
+let actualObstacles = [];
+
+if (Array.isArray(obsArray)) {
+        obsArray.forEach(item => {
+          const itemX = Number(item.x);
+          const itemY = Number(item.y);
+
+          if (item.type === 'player') {
+            if (!isNaN(itemX)) playerPos.gridX = itemX;
+            if (!isNaN(itemY)) playerPos.gridY = itemY;
+          } else if (item.type === 'enemy') {
+            if (!isNaN(itemX)) enemyPos.gridX = itemX;
+            if (!isNaN(itemY)) enemyPos.gridY = itemY;
+          } else if (item.type === 'goal') {   // 🌟 獨立抓出終點
+            if (!isNaN(itemX)) goalPos = { gridX: itemX, gridY: itemY, emoji: '🚪' };
+          } else if (item.type === 'key') {    // 🌟 獨立抓出鑰匙
+            if (!isNaN(itemX)) keyPos = { gridX: itemX, gridY: itemY, emoji: '🗝️' };
+          } else {
+            actualObstacles.push({ ...item, x: itemX, y: itemY });
+          }
+        });
+      }
 
 const executeCode = async (code, blockCount = 0) => {
   // 🌟 修正：統一 maxBlocks 的存取路徑
@@ -165,7 +190,9 @@ watch(hp, (newHp) => {
 
 const handleRestart = () => {
   showFailModal.value = false;
-  hp.value = 3;
+  
+  hp.value = levelConfig.value.hearts || 3; 
+  
   enterTime.value = Date.now(); 
 
   if (game) {
@@ -279,7 +306,6 @@ const loadLevelData = async () => {
     const { data, error } = await supabase.from('levels').select('*').eq('level_number', Number(props.levelId)).single();
     if (!error && data) {
       
-      // 🌟 1. 安全解析 grid_size (防禦字串型態)
       let gridCols = 10;
       let gridRows = 10;
       try {
@@ -348,11 +374,18 @@ const loadLevelData = async () => {
         player: playerPos,
         enemy: enemyPos,
         obstacles: actualObstacles,
+        goal: goalPos,
+        key: keyPos,  
         availableCommands: cmds,
         grid_size: { cols: gridCols, rows: gridRows },
         restrictions: { maxBlocks: Number(data.max_blocks) || 20 }, 
-        xpReward: 200 
+        hearts: Number(data.hearts) || 3,
+        xpReward: Number(data.xp_reward) || 200, 
+        victoryCondition: data.victory_condition || 'kill_enemy',
+        requiredCommand: data.required_command || '',
       };
+
+      hp.value = levelConfig.value.hearts;
     } else {
       console.error('抓取關卡資料失敗:', error);
       alert('無法載入此關卡資料！');
