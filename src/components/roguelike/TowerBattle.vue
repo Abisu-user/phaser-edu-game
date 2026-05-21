@@ -1,7 +1,7 @@
 <template>
-  <div class="tower-battle h-full w-full flex flex-col bg-[#110A07] relative text-[#D7CCC8] font-serif">
+  <div class="tower-battle h-full w-full flex flex-col bg-[#110A07] relative text-[#D7CCC8] font-serif overflow-hidden">
     
-    <div class="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#3A1C0A]/20 via-[#110A07] to-black pointer-events-none"></div>
+    <div class="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#3A1C0A]/20 via-[#110A07] to-black pointer-events-none z-0"></div>
 
     <transition name="fade">
       <div v-if="showClearModal" class="absolute inset-0 z-[110] flex items-center justify-center bg-black/85 backdrop-blur-sm">
@@ -64,37 +64,71 @@
       </div>
     </transition>
 
-    <header class="h-16 flex items-center justify-between px-7 border-b-[4px] border-[#3A2318] bg-[#150C08] shrink-0 z-50 shadow-[0_5px_15px_rgba(0,0,0,0.8)]">
-      <div class="flex items-center gap-7">
-        <button @click="showMenu = true" class="px-4 py-2 rounded-sm border-2 border-[#593922] bg-[#2A1810] hover:bg-[#3A2318] text-[#F5DEB3] text-[13px] font-black transition-all shadow-sm border-b-[4px] hover:border-b-[2px] hover:translate-y-[2px]">⚙️ 紮營</button>
-        <div class="flex flex-col">
-          <span class="text-[11px] text-[#8C6239] font-black tracking-widest uppercase drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">Current Location</span>
-          <h2 class="text-xl font-black text-[#FFD700] leading-none tracking-widest mt-0.5 drop-shadow-[0_2px_2px_rgba(0,0,0,1)]">無盡地下城 - B{{ floor }}F</h2>
+    <transition name="fade-slide-down">
+      <div v-if="radarBoss" 
+           class="absolute top-[64px] left-1/2 transform -translate-x-1/2 z-[100] w-[600px] pointer-events-none flex flex-col items-center">
+        
+        <div class="text-center mb-1 bg-[#110A07]/90 px-10 py-1 rounded-full border border-red-900/60 shadow-[0_0_20px_rgba(185,28,28,0.9)] backdrop-blur-md relative overflow-visible">
+          <span class="text-[#FF0000] font-black text-3xl tracking-[0.18em] drop-shadow-[0_3px_5px_rgba(0,0,0,1)]" 
+                style="text-shadow: 0 0 20px rgba(255, 0, 0, 0.9);">
+            {{ radarBoss.symbol }} {{ radarBoss.name }} {{ radarBoss.symbol }}
+          </span>
+          <div class="absolute top-1/2 left-0 w-1/4 h-[1px] bg-red-900 -translate-x-1/2"></div>
+          <div class="absolute top-1/2 right-0 w-1/4 h-[1px] bg-red-900 translate-x-1/2"></div>
+        </div>
+        
+        <div class="w-full bg-[#110A07]/95 border-[4px] border-[#8B0000] rounded-sm p-1.5 shadow-[0_8px_30px_rgba(139,0,0,0.7)] backdrop-blur-sm">
+          <div class="w-full h-5 bg-[#1C110C] rounded-sm overflow-hidden relative border border-black shadow-inner">
+            <div class="h-full bg-gradient-to-r from-[#8B0000] via-[#FF0000] to-[#8B0000] transition-all duration-300 ease-out relative"
+                 :style="{ width: `${Math.max(0, (radarBoss.hp / radarBoss.maxHp) * 100)}%` }">
+                 <div class="absolute top-0 left-0 w-full h-[30%] bg-white/20"></div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="w-full flex justify-between text-[14px] text-[#F5DEB3] font-mono mt-1 px-4 drop-shadow-[0_1px_1px_rgba(0,0,0,1)] font-bold">
+          <span class="bg-[#110A07]/80 px-3 py-0.5 rounded-full backdrop-blur-sm">HP: {{ radarBoss.hp }} / {{ radarBoss.maxHp }}</span>
+          <span class="text-[#FF7F50] bg-[#110A07]/80 px-3 py-0.5 rounded-full backdrop-blur-sm">⚔️ 攻擊力: {{ radarBoss.damage }}</span>
+        </div>
+      </div>
+    </transition>
+
+    <header class="h-[76px] flex items-center justify-between px-8 border-b-[4px] border-[#3A2318] bg-[#150C08] shrink-0 relative z-10 shadow-[0_5px_15px_rgba(0,0,0,0.8)]">
+      <div class="flex items-center gap-6 relative z-10">
+        <button @click="showMenu = true" class="px-5 py-2.5 rounded-sm border-2 border-[#593922] bg-[#2A1810] hover:bg-[#3A2318] text-[#F5DEB3] text-[14px] font-black transition-all shadow-[0_4px_6px_rgba(0,0,0,0.4)] border-b-[4px] hover:border-b-[2px] hover:translate-y-[2px] flex items-center gap-2">
+          <span>⚙️</span> 紮營休息
+        </button>
+        
+        <div class="flex items-center justify-center px-5 py-2 rounded-full border-2 border-[#D4AF37] bg-gradient-to-b from-[#2A1810] to-[#150C08] shadow-[0_0_10px_rgba(212,175,55,0.2)]">
+          <span class="text-xl font-black text-[#C8B693] tracking-widest mr-2">深淵地下</span>
+          <span class="text-xl font-black text-[#FFD700] drop-shadow-[0_2px_2px_rgba(0,0,0,1)]">{{ floor }} <span class="text-sm">F</span></span>
         </div>
       </div>
 
-      <div class="flex items-center gap-5">
-        <div class="flex items-center gap-4.5 bg-[#0F0805] px-5 py-2.5 rounded-sm border-2 border-[#593922] shadow-[inset_0_2px_5px_rgba(0,0,0,1)]">
-          <div class="flex items-center gap-3.5 border-r-2 border-[#3A2318] pr-5">
-            <span class="text-[14px] font-black text-[#F5DEB3] drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">Lv.{{ level }}</span>
-            <div class="w-32 h-2.5 bg-[#1C110C] border border-[#000] rounded-full overflow-hidden shadow-inner">
-              <div class="h-full bg-gradient-to-r from-[#4A0E17] to-[#8B0000] shadow-[0_0_8px_#8B0000] transition-all relative" :style="{ width: (xp / (level * 100) * 100) + '%' }">
-                <div class="absolute top-0 left-0 w-full h-[30%] bg-white/20"></div>
-              </div>
+      <div class="flex items-center bg-[#0F0805] px-6 py-2.5 rounded-full border-2 border-[#593922] shadow-[inset_0_2px_5px_rgba(0,0,0,1)] relative z-10">
+        <div class="flex flex-col justify-center min-w-[220px] border-r-2 border-[#3A2318] pr-6 mr-6">
+          <div class="flex justify-between items-end mb-1.5 gap-5">
+            <span class="text-[#FFD700] font-black text-xl drop-shadow-[0_2px_2px_rgba(0,0,0,1)] tracking-wider leading-none">Lv.{{ level }}</span>
+            <span class="text-[11px] text-[#C8B693] font-mono font-bold tracking-widest leading-none mb-[1px]">{{ xp }} / 1000</span>
+          </div>
+          <div class="w-full h-2.5 bg-[#150C08] border border-[#593922] rounded-full shadow-[inset_0_1px_3px_rgba(0,0,0,0.8)] relative overflow-hidden p-[1px]">
+            <div class="h-full bg-gradient-to-r from-[#2E8B57] to-[#3CB371] rounded-full transition-all duration-500 relative" 
+                :style="{ width: (xp / 1000 * 100) + '%' }">
+              <div class="absolute top-0 left-0 w-full h-[40%] bg-white/20 rounded-full"></div>
             </div>
           </div>
-          <div class="flex items-center gap-2 pl-1.5">
-            <span class="text-[15px] drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">🪙</span>
-            <span class="text-[16px] font-mono font-black text-[#FFD700] drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">{{ coins }}</span>
-          </div>
+        </div>
+        
+        <div class="flex items-center gap-2">
+          <span class="text-[22px] drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">🪙</span>
+          <span class="text-2xl font-mono font-black text-[#FFD700] drop-shadow-[0_2px_2px_rgba(0,0,0,1)] tracking-wider">{{ coins }}</span>
         </div>
       </div>
     </header>
 
-    <main class="flex-1 flex overflow-hidden p-3 gap-3">
+    <main class="flex-1 flex overflow-hidden p-3 gap-3 relative z-10">
       
       <aside class="w-[280px] bg-[#1C110C] border-4 border-[#3A2318] rounded-sm flex flex-col gap-6 p-5 overflow-y-auto custom-scrollbar shadow-[inset_0_0_20px_rgba(0,0,0,1)] z-10">
-        
         <div>
           <div class="text-[12px] font-black text-[#DAA520] uppercase tracking-widest mb-3.5 border-b-2 border-[#593922] pb-1.5 drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">Quest Objective</div>
           <div class="text-[15px] font-bold text-[#F5DEB3] leading-relaxed whitespace-pre-line bg-[#0F0805] p-3.5 rounded-sm border border-[#3A2318] shadow-[inset_0_2px_5px_rgba(0,0,0,1)]">
@@ -157,6 +191,32 @@
           </div>
         </div>
 
+        <div v-if="radarNearby && radarNearby.length > 0">
+          <div class="text-[12px] font-black text-[#FF7F50] uppercase tracking-widest mb-3.5 border-b-2 border-[#8B0000] pb-1.5 flex items-center gap-2 drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">
+            <span class="animate-pulse">📡</span> Hostile Radar
+          </div>
+          
+          <div class="flex flex-col gap-2.5">
+            <transition-group name="fade">
+              <div v-for="enemy in radarNearby" :key="'enemy-' + enemy.uniqueId" 
+                   class="bg-[#0F0805] p-2.5 rounded-sm border border-[#4299E1]/50 shadow-[inset_0_2px_5px_rgba(0,0,0,1)]">
+                <div class="flex items-center gap-2 mb-1.5">
+                  <span class="text-lg drop-shadow-md">{{ enemy.symbol }}</span>
+                  <span class="text-[#63B3ED] font-bold text-[13px] tracking-wider">{{ enemy.name }}</span>
+                </div>
+                <div class="w-full h-1.5 bg-[#1C110C] rounded-full overflow-hidden mb-1 border border-black shadow-inner">
+                  <div class="h-full bg-gradient-to-r from-[#2B6CB0] to-[#4299E1] transition-all duration-300"
+                       :style="{ width: `${Math.max(0, (enemy.hp / enemy.maxHp) * 100)}%` }"></div>
+                </div>
+                <div class="flex justify-between text-[11px] text-[#E2E8F0] font-mono">
+                  <span>HP: {{ enemy.hp }} / {{ enemy.maxHp }}</span>
+                  <span class="text-[#FC8181]">⚔️ {{ enemy.damage }}</span>
+                </div>
+              </div>
+            </transition-group>
+          </div>
+        </div>
+
         <div>
           <div class="text-[12px] font-black text-[#C0C0C0] uppercase tracking-widest mb-3.5 border-b-2 border-[#593922] pb-1.5 drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">Dungeon Info</div>
           <div class="space-y-2.5 bg-[#0F0805] p-3.5 rounded-sm border border-[#3A2318] shadow-[inset_0_2px_5px_rgba(0,0,0,1)]">
@@ -164,21 +224,11 @@
             <div class="flex justify-between text-[13px]"><span class="text-[#8C6239] font-black">深淵深度</span><span class="text-[#D4AF37] font-black">B{{ floor * 100 }}m</span></div>
           </div>
         </div>
-
-        <div class="mt-auto pt-2.5">
-          <div class="text-[11px] font-black text-[#593922] uppercase tracking-widest mb-3.5 border-b-2 border-[#3A2318] pb-1.5 drop-shadow-[0_1px_0_rgba(255,255,255,0.1)]">Map Runes</div>
-          <div class="grid grid-cols-2 gap-3 text-[11px] font-black text-[#8C6239]">
-            <div class="flex items-center gap-2.5"><span class="w-3.5 h-3.5 rounded-sm bg-[#4299E1] border border-[#2B6CB0] shadow-[0_0_5px_#4299E1]"></span> 勇者</div>
-            <div class="flex items-center gap-2.5"><span class="w-3.5 h-3.5 rounded-sm bg-[#DAA520] border border-[#B8860B] shadow-[0_0_5px_#DAA520]"></span> 下層入口</div>
-            <div class="flex items-center gap-2.5"><span class="w-3.5 h-3.5 rounded-sm bg-[#E53E3E] border border-[#9B2C2C]"></span> 魔物</div>
-            <div class="flex items-center gap-2.5"><span class="w-3.5 h-3.5 rounded-sm bg-[#48BB78] border border-[#276749]"></span> 降落點</div>
-          </div>
-        </div>
       </aside>
 
       <div class="flex-1 bg-black rounded-sm border-[8px] border-[#2A1810] overflow-hidden relative shadow-[0_0_50px_rgba(0,0,0,1)] z-0">
         <div class="absolute inset-0 border-2 border-[#593922] pointer-events-none z-10"></div>
-        <div id="endless-game-container" class="w-full h-full"></div>
+        <div id="endless-game-container" class="w-full h-full relative z-0"></div>
       </div>
 
       <aside class="w-[440px] flex flex-col gap-3 z-10">
@@ -298,6 +348,23 @@
 .custom-scrollbar::-webkit-scrollbar-track { background: rgba(15, 8, 5, 0.8); border-radius: 4px; border-left: 1px solid #2A1810; border-top: 1px solid #2A1810; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background: #593922; border-radius: 4px; border: 1px solid #3A2318; }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #8C6239; }
+
+/* 雷達動畫 */
+.fade-slide-up-enter-active, .fade-slide-up-leave-active {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.fade-slide-up-enter-from, .fade-slide-up-leave-to {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.fade-slide-down-enter-active, .fade-slide-down-leave-active {
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* 帶點彈性的進場 */
+}
+.fade-slide-down-enter-from, .fade-slide-down-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-30px);
+}
 </style>
 
 <script setup>
@@ -305,7 +372,22 @@ import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue';
 import { COMMAND_DICT } from '../../game/config/CommandList.js'; 
 import { getRandomRewards } from '../../game/config/RewardList.js';
 
-const props = defineProps(['floor', 'hp', 'maxHp', 'mp', 'maxMp', 'ap', 'maxAp', 'attack', 'coins', 'level', 'xp', 'totalExp', 'inventory']);
+const props = defineProps({
+  floor: Number,
+  hp: Number,
+  maxHp: Number,
+  mp: Number,
+  maxMp: Number,
+  ap: Number,
+  maxAp: Number,
+  attack: Number,
+  coins: Number,
+  level: Number,
+  xp: Number,
+  totalExp: Number,
+  inventory: { type: Array, default: () => [] } ,
+});
+
 const emit = defineEmits(['stop', 'abandon', 'init-game', 'execute', 'update-stats', 'floor-cleared', 'update-inventory']);
 
 const showMenu = ref(false); 
@@ -322,6 +404,14 @@ const currentRewards = ref([]);
 const currentTurn = ref(1); 
 const actionMessage = ref('');
 const floorBonusCoins = ref(0);
+const isExecuting = ref(false);
+const radarBoss = ref(null);
+const radarNearby = ref([]);
+
+const handleEnemyRadar = (e) => {
+  radarBoss.value = e.detail.boss;
+  radarNearby.value = e.detail.nearby || [];
+}
 
 const syncStatsToPhaser = () => {
   window.dispatchEvent(new CustomEvent('tower-sync-player-stats', {
@@ -332,11 +422,11 @@ const syncStatsToPhaser = () => {
   }));
 };
 
-// 🌟 新增：鎖定執行狀態
-const isExecuting = ref(false);
-
 const consumableItems = computed(() => {
-  return (props.inventory || []).filter(item => item.type === 'consumable');
+  return (props.inventory || []).filter(item => {
+    if (item.id === 'relic_holy_maiden_prayer') return false;
+    return item.type === 'consumable';
+  });
 });
 
 const availableCommands = computed(() => {
@@ -354,6 +444,20 @@ const VALID_KEYWORDS = computed(() => {
 const useItem = (item) => {
   const newInventory = JSON.parse(JSON.stringify(props.inventory || []));
   const itemIndex = newInventory.findIndex(i => i.id === item.id);
+
+  if (item.id === 'relic_holy_maiden_prayer' && isGameStarted.value) {
+    alert("聖女的祈禱只能在公會大廳生效，請先撤退至大廳使用。");
+    return;
+  }
+
+  if (item.id === 'relic_holy_maiden_prayer') {
+    const duration = 15 * 60 * 1000; // 15 分鐘
+    item.expiresAt = Date.now() + duration;
+    // 將這個帶有時效性的道具狀態，寫入資料庫的 inventory
+    updateLobbyInventory(item); 
+    actionMessage.value = "祈禱生效！EXP 提升 15%";
+    return;
+  }
 
   if (itemIndex === -1) return;
 
@@ -448,7 +552,7 @@ const lineCount = computed(() => {
 });
 
 const insertCode = (commandId) => {
-  if (isExecuting.value) return; // 鎖定中不允許插入代碼
+  if (isExecuting.value) return; 
   
   const needTargetingSkills = ['attack', 'shoot', 'magic', 'bomb', 'laser', 'dash', 'hack_wall', 'pull', 'boomerang', 'spread_shot'];
   if (needTargetingSkills.includes(commandId)) {
@@ -517,7 +621,6 @@ const clearCode = () => {
   errorMessage.value = '';
 };
 
-// 🌟 新增：靜態預估 AP 消耗 (只抓取行首指令來估算，不代表最終真實執行量)
 const expectedApCost = computed(() => {
   if (!codeContent.value) return 0;
   let total = 0;
@@ -534,26 +637,22 @@ const expectedApCost = computed(() => {
   return total;
 });
 
-// 🌟 修改：退居觀測者，將指令發送給 Phaser 去做動態扣除與執行
 const executeCode = () => {
   if (errorMessage.value || isExecuting.value) return;
   const rawCode = codeContent.value.trim();
   if (!rawCode) return;
   
-  // 進入鎖定狀態，將控制權交給 Phaser 引擎
   isExecuting.value = true;
   emit('execute', codeContent.value); 
 };
 
-// 🌟 新增：處理 Phaser 傳來的 AP 更新
 const handleApUpdate = (e) => {
   const { current, max } = e.detail;
   emit('update-stats', { ap: current, maxAp: max });
 };
 
-// 🌟 新增：處理 Phaser 傳來的回合重置事件
 const handleTurnStarted = (e) => {
-  isExecuting.value = false; // 解除 Vue 介面鎖定
+  isExecuting.value = false; 
   currentTurn.value = e.detail.turn;
   syncStatsToPhaser();
 };
@@ -600,7 +699,6 @@ const handleRetry = () => {
   isExecuting.value = false;
   currentTurn.value = 1;
 
-  // 重置機甲數值 (依你的初始設定為主)
   emit('update-stats', {
     floor: 1,
     hp: 100, 
@@ -613,13 +711,12 @@ const handleRetry = () => {
     coins: props.coins 
   });
   
-  window.dispatchEvent(new CustomEvent('tower-retry-game')); // 叫引擎重刷地圖
+  window.dispatchEvent(new CustomEvent('tower-retry-game')); 
 };
 
-// 🌟 點擊離開
 const handleExitToLobby = () => {
   showGameOverModal.value = false;
-  emit('abandon'); // 直接呼叫原有的放棄事件退回大廳
+  emit('abandon'); 
 };
 
 watch(codeContent, validateCode);
@@ -629,8 +726,8 @@ watch(() => [props.attack, props.maxAp], syncStatsToPhaser, { immediate: true })
 watch(() => props.hp, (newHp, oldHp) => {
   if (newHp <= 0 && oldHp > 0 && !showGameOverModal.value) {
     showGameOverModal.value = true;
-    isExecuting.value = false; // 解除畫面鎖定
-    window.dispatchEvent(new CustomEvent('tower-game-over-triggered')); // 叫引擎停下來
+    isExecuting.value = false; 
+    window.dispatchEvent(new CustomEvent('tower-game-over-triggered')); 
   }
 });
 
@@ -639,7 +736,7 @@ const suggestions = ref([]);
 const currentWord = ref("");
 
 const handleEditorKeyDown = async (e) => {
-  if (isExecuting.value) return e.preventDefault(); // 鎖定期間不允許打字
+  if (isExecuting.value) return e.preventDefault(); 
   
   const el = e.target;
   const key = e.key;
@@ -679,7 +776,7 @@ const handleEditorKeyDown = async (e) => {
 };
 
 const checkAutocomplete = (e) => {
-  if (isExecuting.value) return; // 鎖定期間停用
+  if (isExecuting.value) return; 
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Enter', 'Tab'].includes(e.key)) {
     showSuggestions.value = false;
     return;
@@ -730,27 +827,82 @@ const syncScroll = (e) => {
   }
 };
 
+// 🌟 確保只有這一個處理金幣的函數
+const handleCoinCollected = (e) => {
+  let addCoin = e.detail.amount || 5;
+  let newCoins = (props.coins || 0) + addCoin;
+  emit('update-stats', { coins: newCoins });
+};
+
+// 🌟 確保只有這一個處理經驗值的函數
+const handleXpGained = (e) => {
+  let baseExp = e.detail.amount || 15;
+  let multiplier = 1.0;
+  
+  const currentInventory = props.inventory || []; 
+
+  if (currentInventory.some(i => i.id === 'relic_goddess_blessing')) multiplier += 0.25;
+  const tempBuff = currentInventory.find(i => i.id === 'relic_holy_maiden_prayer');
+  if (tempBuff && tempBuff.expiresAt > Date.now()) {
+      multiplier += 0.15;
+  }
+
+  let finalExp = Math.floor(baseExp * multiplier);
+  
+  let newXp = (props.xp || 0) + finalExp;
+  let newTotalExp = (props.totalExp || 0) + finalExp; 
+  let newLevel = props.level || 1;
+  let xpThreshold = 1000; 
+
+  if (newXp >= xpThreshold) {
+    const levelsGained = Math.floor(newXp / xpThreshold);
+    newLevel += levelsGained;
+    newXp = newXp % xpThreshold; 
+    
+    console.log(`🎉 境界突破！升級至 Lv.${newLevel}`);
+    
+    emit('update-stats', { 
+      xp: newXp, 
+      totalExp: newTotalExp,
+      level: newLevel, 
+      hp: props.maxHp, 
+      mp: props.maxMp 
+    });
+  } else {
+    emit('update-stats', { xp: newXp, totalExp: newTotalExp });
+  }
+};
+
+// 🌟 把匿名函數提取出來，防止記憶體洩漏 (Memory Leak)
+const handlePlayerHurt = (e) => emit('update-stats', { hp: Math.max(0, props.hp - e.detail.damage) });
+const handlePlayerHeal = (e) => emit('update-stats', { hp: Math.min(props.maxHp, props.hp + e.detail.amount) });
+
 onMounted(() => {
   emit('init-game');
-  window.addEventListener('tower-player-hurt', (e) => emit('update-stats', { hp: Math.max(0, props.hp - e.detail.damage) }));
-  window.addEventListener('tower-player-heal', (e) => emit('update-stats', { hp: Math.min(props.maxHp, props.hp + e.detail.amount) }));
-  window.addEventListener('tower-coin-collected', (e) => emit('update-stats', { coins: props.coins + e.detail.amount }));
+  // 🌟 所有監聽器都統一在這裡註冊
+  window.addEventListener('tower-player-hurt', handlePlayerHurt);
+  window.addEventListener('tower-player-heal', handlePlayerHeal);
+  window.addEventListener('tower-coin-collected', handleCoinCollected);
+  window.addEventListener('tower-xp-gained', handleXpGained);
   window.addEventListener('tower-target-selected', handleTargetSelected);
   window.addEventListener('tower-objective-updated', handleObjectiveUpdate); 
   window.addEventListener('tower-floor-cleared', handleFloorCleared);
-  
-  // 🌟 新增：接上 Phaser 發出的 AP 與回合事件
   window.addEventListener('tower-update-ap', handleApUpdate);
   window.addEventListener('tower-turn-started', handleTurnStarted);
+  window.addEventListener('tower-enemy-radar', handleEnemyRadar);
 });
 
 onUnmounted(() => {
+  // 🌟 確保在組件銷毀時，所有註冊過的事件都能正確無誤地被移除！
+  window.removeEventListener('tower-player-hurt', handlePlayerHurt);
+  window.removeEventListener('tower-player-heal', handlePlayerHeal);
   window.removeEventListener('tower-target-selected', handleTargetSelected);
   window.removeEventListener('tower-objective-updated', handleObjectiveUpdate); 
   window.removeEventListener('tower-floor-cleared', handleFloorCleared);
-  
-  // 🌟 新增：移除監聽
+  window.removeEventListener('tower-coin-collected', handleCoinCollected);
+  window.removeEventListener('tower-xp-gained', handleXpGained);
   window.removeEventListener('tower-update-ap', handleApUpdate);
   window.removeEventListener('tower-turn-started', handleTurnStarted);
+  window.removeEventListener('tower-enemy-radar', handleEnemyRadar);
 });
 </script>

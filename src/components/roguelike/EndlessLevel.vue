@@ -46,6 +46,7 @@ import TowerBattle from './TowerBattle.vue';
 const router = useRouter();
 const isGameStarted = ref(false);
 const game = ref(null);
+const isShuttingDown = ref(false);
 
 const currentUserId = ref(null);
 const floor = ref(1);
@@ -70,6 +71,7 @@ const stat_points = ref(0);
 const mapData = ref(null);
 
 const handleStart = async (data) => {
+  isShuttingDown.value = false;
   if (data) {
     currentUserId.value = data.user_id;
     
@@ -119,6 +121,7 @@ const handleUpdateInventory = async (newInventory) => {
 
 const saveToTowerSaves = async () => {
   if (!currentUserId.value) return;
+  if (isShuttingDown.value) return;
   
   let currentMapData = mapData.value;
   if (game.value) {
@@ -176,34 +179,36 @@ const handleNextFloor = async () => {
 };
 
 const handleStopAndSave = async () => {
-  console.log("💾 [暫時中斷] 正在打包所有戰局資料存入 tower_saves...");
+  console.log("💾 [暫時中陣] 正在打包所有戰局資料存入 tower_saves...");
+  isShuttingDown.value = true; // 🌟 啟動關機鎖
 
   let currentMapState = null;
   if (game.value) {
     const currentScene = game.value.scene.getScene('EndlessScene');
-    if (currentScene) {
+    if (currentScene && typeof currentScene.exportMapState === 'function') {
       currentMapState = currentScene.exportMapState();
     }
+    game.value.destroy(true); 
+    game.value = null;
   }
 
   let lobbyDataToRestore = null;
 
   try {
     if (currentUserId.value) {
-      const { data: lobbyData } = await supabase
+      // 🌟 安全修正：改用 limit(1) 取代 single() 防止多行崩潰
+      const { data: lobbyList } = await supabase
         .from('tower_lobby')
         .select('*')
         .eq('user_id', currentUserId.value)
-        .single();
+        .limit(1);
       
-      lobbyDataToRestore = lobbyData;
+      lobbyDataToRestore = lobbyList?.[0] || null;
 
       await supabase
         .from('tower_saves')
         .upsert({
           user_id: currentUserId.value,
-          
-          // 🌟 修正：把欄位名稱加回 current_ 前綴！
           current_floor: floor.value,
           map_data: currentMapState,
           inventory: inventory.value,
@@ -214,9 +219,9 @@ const handleStopAndSave = async () => {
           max_mp: maxMp.value,
           current_ap: ap.value,
           max_ap: maxAp.value,
-          current_atk: atk.value
-          
-        }, { onConflict: 'user_id' }); // 🌟 補上這個設定，確保如果已有存檔會直接覆蓋
+          current_atk: atk.value,
+          max_atk: maxAtk.value
+        }, { onConflict: 'user_id' }); 
       
       console.log("✅ [tower_saves] 局內資料已安全暫存。");
     }
@@ -230,58 +235,93 @@ const handleStopAndSave = async () => {
 
 const handleAbandonGame = async () => {
   console.log("💀 [終結連線] 開始結算永久資源，並格式化戰局...");
+  isShuttingDown.value = true; // 🌟 1. 優先鎖定自動存檔
 
   try {
     if (currentUserId.value) {
-      const { data: lobbyData } = await supabase
-        .from('tower_lobby') 
-        .select('*')
-        .eq('user_id', currentUserId.value)
-        .single();
+      let currentRunKills = 0;
+      let currentRunBossKills = 0;
+      let currentRunPassives = 0;
 
-      const oldBestFloor = lobbyData?.best_floor || 1;
-      const newBestFloor = floor.value > oldBestFloor ? floor.value : oldBestFloor;
-      const totalCoins = (lobbyData?.coins || 0) + coins.value;
-      const finalInventory = inventory.value; 
+      // 2. 立即回收戰局數值並當場摧毀 Phaser 引擎
+      if (game.value) {
+        const scene = game.value.scene.getScene('EndlessScene');
+        if (scene) {
+           currentRunKills = scene.sessionKills || 0;
+           currentRunBossKills = scene.sessionBossKills || 0;
+           currentRunPassives = scene.sessionPassives || 0;
+        }
+        game.value.destroy(true); 
+        game.value = null;
+      }
 
-      console.log("☁️ 正在將永久資源傳遞給 tower_lobby...");
-      
-      // 🌟 修正 4：把清除寫死狀態的多餘呼叫刪掉，只保留有傳 lobbyData 的這行
-      resetLocalStatsToDefault(lobbyData);
-      
-      await supabase
-        .from('tower_lobby')
-        .update({
-          best_floor: newBestFloor,
-          coins: totalCoins,
-          inventory: finalInventory
-        })
-        .eq('user_id', currentUserId.value);
-
-      console.log("✅ 永久資源已成功回收至大廳！");
-
-      console.log("🧹 正在清空 tower_saves 暫存資料...");
+      // 3. 🌟【核心修正】第一時間優先刪除暫存檔！確保大廳按鈕絕對會恢復正常
       await supabase
         .from('tower_saves')
         .delete()
         .eq('user_id', currentUserId.value);
-        
       console.log("🗑️ tower_saves 暫存檔已安全抹除。");
+
+      // 4. 🌟【安全修正】改用 limit(1) 取代 single()，杜絕多行重複數據導致的系統崩潰
+      const { data: lobbyList } = await supabase
+        .from('tower_lobby') 
+        .select('*')
+        .eq('user_id', currentUserId.value)
+        .limit(1);
+
+      const lobbyData = lobbyList?.[0] || null;
+      const oldBestFloor = lobbyData?.best_floor || 1;
+      const newBestFloor = floor.value > oldBestFloor ? floor.value : oldBestFloor;
+      const finalInventory = inventory.value; 
+      const totalCoins = coins.value; 
+
+      console.log("☁️ 正在將永久資源傳遞給 tower_lobby...");
+      resetLocalStatsToDefault(lobbyData);
+      
+      // 更新大廳永久數據
+      await supabase
+        .from('tower_lobby')
+        .update({
+          best_floor: newBestFloor,
+          coins: totalCoins, 
+          inventory: finalInventory
+        })
+        .eq('user_id', currentUserId.value);
+
+      // 5. 更新全域成就數據
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('total_kills, boss_kills, total_deaths, passive_count')
+        .eq('id', currentUserId.value)
+        .single();
+
+      if (profile) {
+        await supabase.from('profiles').update({
+            total_kills: (profile.total_kills || 0) + currentRunKills,      
+            boss_kills: (profile.boss_kills || 0) + currentRunBossKills,    
+            passive_count: (profile.passive_count || 0) + currentRunPassives,  
+            total_deaths: (profile.total_deaths || 0) + 1,                  
+        }).eq('id', currentUserId.value);
+      }
+
+      console.log("✅ 永久資源與成就已成功結算回收！");
     }
   } catch (err) {
-    console.error("❌ 終結連線資料結算或清除失敗:", err);
+    console.error("❌ 終結連線部分結算回收失敗:", err);
   }
 
+  // 6. 強制清除本地戰局殘留變數
   floor.value = 1;
   mapData.value = null; 
   inventory.value = [];
   coins.value = 0;
-  
   isGameStarted.value = false;
+  radarNearby.value = null;
+  radarBoss.value = null;
 };
 
 const handleUpdateStats = async (newStats) => {
-  // 更新本地變數
+  // 1. 更新本地變數 (加上對 totalExp 的接收)
   if (newStats.maxHp !== undefined) maxHp.value = newStats.maxHp;
   if (newStats.maxMp !== undefined) maxMp.value = newStats.maxMp;
   if (newStats.maxAp !== undefined) maxAp.value = newStats.maxAp;
@@ -291,63 +331,46 @@ const handleUpdateStats = async (newStats) => {
   if (newStats.ap !== undefined) ap.value = Math.min(newStats.ap, maxAp.value);
   if (newStats.coins !== undefined) coins.value = newStats.coins;
   if (newStats.floor !== undefined) floor.value = newStats.floor;
+  if (newStats.totalExp !== undefined) totalExp.value = newStats.totalExp;
 
-  // 處理經驗值與升級邏輯
-  if (newStats.xp !== undefined) {
-    xp.value = newStats.xp;
-    let pointsGained = 0;
-    
-    while (xp.value >= level.value * 100) {
-      xp.value -= level.value * 100; 
-      level.value++;
-      pointsGained += 5;
-    }
-
-    if (pointsGained > 0) {
-      stat_points.value = (stat_points.value || 0) + pointsGained;
-      
-      await supabase.from('profiles').update({ 
-        level: level.value, 
-        xp: xp.value,
-        stat_points: stat_points.value 
-      }).eq('id', currentUserId.value);
-
-      await supabase.from('tower_lobby').update({ 
-        level: level.value, 
-        xp: xp.value,
-        stat_points: stat_points.value 
-      }).eq('user_id', currentUserId.value);
-    }
+  // 2. 接收從 TowerBattle 傳來的經驗值與升級結果
+  if (newStats.xp !== undefined) xp.value = newStats.xp;
+  
+  let isLevelUp = false;
+  if (newStats.level !== undefined && newStats.level > level.value) {
+    const levelsGained = newStats.level - level.value;
+    level.value = newStats.level;
+    // 🌟 每升一級獲得 5 點屬性點
+    stat_points.value = (stat_points.value || 0) + (levelsGained * 5); 
+    isLevelUp = true;
   }
 
-  // 1. 同步至當前戰鬥存檔 (tower_saves)
+  // 3. 同步至當前戰鬥存檔 (tower_saves)
   await saveToTowerSaves();
 
-  // 2. 同步外部大廳與高塔大廳
+  // 4. 即時同步外部大廳與高塔大廳
   if (currentUserId.value) {
     try {
-      await supabase
-        .from('profiles')
-        .update({
-          level: level.value,
-          xp: xp.value,
-          total_exp: totalExp.value
-        })
-        .eq('id', currentUserId.value);
+      // A. 同步全服 Profile
+      let profileUpdate = { level: level.value, xp: xp.value, total_exp: totalExp.value };
+      if (isLevelUp) profileUpdate.stat_points = stat_points.value;
+      
+      await supabase.from('profiles').update(profileUpdate).eq('id', currentUserId.value);
 
-      await supabase
-        .from('tower_lobby')
-        .update({
-          level: level.value,
-          xp: xp.value,
-          total_exp: totalExp.value
-          // 🌟 修正 3：刪除這裡的 max_hp, max_atk 等，嚴格禁止局內升級污染大廳！
-        })
-        .eq('user_id', currentUserId.value);
+      // B. 同步大廳 Lobby (🌟 這裡補上 coins，解決金幣不同步問題！)
+      let lobbyUpdate = { 
+        coins: coins.value, 
+        level: level.value, 
+        xp: xp.value, 
+        total_exp: totalExp.value 
+      };
+      if (isLevelUp) lobbyUpdate.stat_points = stat_points.value;
+      
+      await supabase.from('tower_lobby').update(lobbyUpdate).eq('user_id', currentUserId.value);
 
-      console.log(`[🔄 同步成功] 等級: ${level.value} 已同步`);
+      console.log(`[🔄 同步成功] 金幣: ${coins.value}, 等級: ${level.value}, 經驗: ${xp.value}, 總經驗: ${totalExp.value}`);
     } catch (err) {
-      console.error('同步等級失敗:', err);
+      console.error('同步資料庫失敗:', err);
     }
   }
 };
@@ -427,6 +450,8 @@ const resetLocalStatsToDefault = (lobbyData) => {
 
   atk.value = lobbyData.max_atk || 10; 
   maxAtk.value = lobbyData.max_atk || 10;
+
+  mapData.value = null;
 };
 </script>
 

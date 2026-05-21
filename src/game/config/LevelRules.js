@@ -7,77 +7,91 @@ export const FLOOR_CONFIG = {
    * @returns {Object} 難度設定檔
    */
   getDifficulty: (floor) => {
-    // 預設基礎值
     let gridSize = 10;
     let enemyCount = 1;
-    let allowedEnemies = ['patrol_bug']; 
-    
-    // 🌟 新增：通關條件與特殊物件預設值
-    // type 可以是: 'reach_goal' (單純抵達), 'kill_enemies' (殺怪), 'collect_keys' (找鑰匙)
+    let allowedEnemies = ['slime']; 
     let winCondition = { type: 'reach_goal', targetValue: 0 }; 
-    let keyCount = 0; // 該層地圖需要生成的鑰匙數量
+    let keyCount = 0; 
 
-    // 依據樓層調整難度與通關條件
-    if (floor >= 1 && floor <= 3) {
-      // 第 1~3 層：新手區 (單純抵達終點即可)
-      gridSize = 10;
-      enemyCount = Math.floor(floor / 2) + 1; 
-      allowedEnemies = ['patrol_bug'];
-      winCondition = { type: 'reach_goal', targetValue: 0 };
+    // ==========================================
+    // 👑 1. 史詩 Boss 關卡 (每 10 層觸發)
+    // ==========================================
+    if (floor % 10 === 0) {
+      // Boss 房間的空間控制在適中大小，不會無止盡變大
+      gridSize = Math.min(12 + Math.floor(floor / 20), 16); 
+      enemyCount = 1; // 競技場裡只有你跟 Boss
+      winCondition = { type: 'exterminate', targetValue: 1 }; // 必須擊殺 Boss 才能過關
+      keyCount = 0;   // 不用找鑰匙
+
+      // 對應樓層的 Boss 配置
+      const bossMap = {
+        10: 'boss_bat',
+        20: 'boss_skeleton_king',
+        30: 'boss_demon_lord',
+        40: 'boss_shadow_stalker',
+        50: 'boss_dragon',
+        60: 'boss_reaper',
+        70: 'boss_titan',
+        80: 'boss_hydra',
+        90: 'boss_lich'
+      };
       
-    } else if (floor >= 4 && floor <= 7) {
-      // 第 4~7 層：進階區 (開始出現追跡病毒，並加入變化條件)
-      gridSize = 12;
-      enemyCount = Math.floor(floor / 2) + 1; 
-      allowedEnemies = ['patrol_bug', 'patrol_bug', 'tracker_virus']; 
-      
-      // 🌟 設定樓層變化：偶數層要求殺怪，奇數層要求找鑰匙
-      if (floor % 2 === 0) {
-        // 要求擊殺目前層數一半的怪物 (向上取整)
-        winCondition = { type: 'kill_enemies', targetValue: Math.ceil(enemyCount / 2) }; 
-      } else {
-        // 要求收集 1 把鑰匙才能開門
-        winCondition = { type: 'collect_keys', targetValue: 1 };
-        keyCount = 1;
-      }
-      
-    } else if (floor >= 8 && floor <= 15) {
-      // 第 8~15 層：困難區 
-      gridSize = 15;
-      enemyCount = 4 + Math.floor((floor - 7) / 2); 
-      allowedEnemies = ['patrol_bug', 'tracker_virus'];
-      
-      // 🌟 更難的條件
-      if (floor % 3 === 0) {
-        winCondition = { type: 'collect_keys', targetValue: 2 };
-        keyCount = 2; // 地圖上會生成 2 把鑰匙
-      } else {
-        winCondition = { type: 'kill_enemies', targetValue: enemyCount }; // 必須全滅怪物
-      }
-      
+      // 100 層 (含) 以上一律出深淵主宰
+      allowedEnemies = [bossMap[floor] || 'boss_abyss_god']; 
+
+      return { gridSize, enemyCount, allowedEnemies, winCondition, keyCount };
+    }
+
+    // ==========================================
+    // ⚔️ 2. 一般樓層難度曲線 (非 Boss 層)
+    // ==========================================
+    // 網格隨層數漸漸擴大，最大限制在 20x20
+    gridSize = Math.min(10 + Math.floor(floor / 5), 20); 
+    
+    // 怪物數量隨層數增加
+    enemyCount = 2 + Math.floor(floor / 3); 
+
+    // 隨著層數推進，解鎖更強大的敵人進池子
+    if (floor < 10) allowedEnemies = ['slime', 'patrol_bug'];
+    else if (floor < 20) allowedEnemies = ['patrol_bug', 'goblin'];
+    else if (floor < 40) allowedEnemies = ['goblin', 'skeleton'];
+    else if (floor < 60) allowedEnemies = ['skeleton', 'ghost'];
+    else if (floor < 80) allowedEnemies = ['ghost', 'golem'];
+    else allowedEnemies = ['golem', 'void_creeper', 'ghost'];
+
+    // ==========================================
+    // 🎯 3. 隨機通關任務指派
+    // ==========================================
+    const missionType = floor % 4; 
+    
+    if (missionType === 0 || missionType === 2) {
+      // 任務：尋找古老金鑰
+      keyCount = Math.min(1 + Math.floor(floor / 20), 3); // 鑰匙數量隨層數增加，最多找 3 把
+      winCondition = { type: 'collect_keys', targetValue: keyCount };
+    } else if (missionType === 1) {
+      // 任務：討伐指定數量的魔物 (擊殺當前樓層 50% 數量的怪)
+      winCondition = { type: 'kill_enemies', targetValue: Math.ceil(enemyCount / 2) };
     } else {
-      // 第 16 層以上：無間地獄
-      gridSize = 18;
-      enemyCount = 8 + Math.floor((floor - 15) / 3); 
-      allowedEnemies = ['tracker_virus']; 
-      
-      // 複合條件：極端困難 (全滅且可能還有鑰匙，這裡簡化為全滅)
-      winCondition = { type: 'exterminate', targetValue: enemyCount }; 
+      // 任務：順利逃脫找到下一層的門扉
+      winCondition = { type: 'reach_goal', targetValue: 0 };
     }
 
     return {
       gridSize,
       enemyCount,
       allowedEnemies,
-      winCondition, // 回傳給遊戲場景判斷
-      keyCount      // 回傳給地圖生成器生成鑰匙
+      winCondition,
+      keyCount 
     };
   }
 };
 
-// 預留未來擴充
+// ==========================================
+// 房間型態定義 (文字轉為奇幻風格)
+// ==========================================
 export const ROOM_TYPES = {
-  'standard': { id: 'standard', name: '駭入終端機' },
+  'standard': { id: 'standard', name: '探索迷宮' },
   'exterminate': { id: 'exterminate', name: '全數殲滅' },
-  'key_retrieval': { id: 'key_retrieval', name: '資料金鑰回收' }
+  'key_retrieval': { id: 'key_retrieval', name: '收集古老金鑰' },
+  'boss_room': { id: 'boss_room', name: '首領競技場' }
 };

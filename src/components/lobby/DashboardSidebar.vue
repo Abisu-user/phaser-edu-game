@@ -31,9 +31,17 @@
             class="w-full h-full object-cover"
           />
         </div>
-        <div v-if="!isCollapsed" class="flex-1 min-w-0 overflow-hidden">
-          <p class="text-white text-sm font-bold truncate">{{ playerName || '玩家名稱' }}</p>
-          <p class="text-[#00d4aa] text-[11px] font-['Fredoka'] font-bold tracking-wider uppercase mt-0.5">Lv. {{ currentLevel }}</p>
+        <div v-if="!isCollapsed" class="flex-1 min-w-0">
+          <div class="flex items-center gap-2">
+            <h3 class="text-white font-bold text-base truncate font-[' Fredoka ']">{{ playerName }}</h3>
+            <span class="px-1.5 py-0.5 text-[10px] font-extrabold bg-[#00d4aa]/20 text-[#00d4aa] border border-[#00d4aa]/30 rounded">
+              Lv.{{ currentLevel }}
+            </span>
+          </div>
+
+          <div class="text-[11px] font-bold text-[#ffbb33] tracking-widest uppercase mb-0.5 truncate bg-[#ffbb33]/10 px-2 py-0.5 rounded border border-[#ffbb33]/20 w-max">
+          《 {{ currentTitle }} 》
+          </div>
         </div>
       </div>
     </div>
@@ -140,14 +148,15 @@ import ConfirmModal from '../common/ConfirmModal.vue';
 
 const props = defineProps({
   isCollapsed: Boolean,
-  currentSection: String,
-  activeAdminTab: String, 
-  activeTeacherTab: String, // 🌟 新增：用來追蹤老師點了哪個子分頁
-  currentLevel: [Number, String],
+  currentLevel: Number,
   playerName: String,
   playerAvatarUrl: String,
+  playerRole: String,
   hasUnread: Boolean,
-  playerRole: { type: String, default: 'student' }
+  currentSection: String,
+  activeAdminTab: String,
+  activeTeacherTab: String,
+  currentTitle: { type: String, default: '見習學徒' }
 });
 
 const emit = defineEmits([

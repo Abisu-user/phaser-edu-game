@@ -28,27 +28,40 @@
           <div class="flex items-center gap-3 mb-1.5">
             <span class="font-black text-[#F5DEB3] tracking-widest text-xl drop-shadow-[1px_2px_0_rgba(0,0,0,1)]">{{ playerName }}</span>
             <span class="px-2 py-0.5 bg-[#4A0E17] text-[#FFD700] text-xs font-bold border border-[#8B0000] shadow-[1px_1px_0_rgba(0,0,0,0.8)]">Lv.{{ playerLevel }}</span>
-            <div v-if="stat_points > 0" class="flex items-center gap-1 bg-[#B8860B] px-2 py-0.5 border border-[#FFD700] animate-pulse shadow-[0_0_10px_rgba(184,134,11,0.5)] text-black">
-              <span class="text-xs font-black">🌟 點數分配</span>
+            <div class="text-[11px] font-black text-[#DAA520] tracking-widest mb-0.5 drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">
+              <span class="opacity-70">《</span>{{ currentTitle }}<span class="opacity-70">》</span>
             </div>
           </div>
+          
           <div class="w-56 h-2.5 bg-[#150C08] border-[1px] border-[#593922] shadow-[inset_0_2px_5px_rgba(0,0,0,1)] overflow-hidden relative p-[1px]">
             <div class="h-full bg-gradient-to-r from-red-700 to-red-400 transition-all duration-1000 relative" :style="{ width: (xp / 1000 * 100) + '%' }">
               <div class="absolute top-0 left-0 w-full h-[30%] bg-white/20"></div>
             </div>
           </div>
+          
+          <div class="text-[11px] text-[#A08060] font-mono font-bold mt-1 tracking-wider flex justify-between w-56 drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">
+            <span>EXP 經驗值</span>
+            <span class="text-[#F5DEB3]">{{ xp }} / 1000</span>
+          </div>
         </div>
       </div>
 
-      <div class="flex flex-col items-end gap-3 pointer-events-auto transition-opacity duration-500" :class="{ 'opacity-0': isLoading }">
+     <div class="flex flex-col items-end gap-3 pointer-events-auto transition-opacity duration-500" :class="{ 'opacity-0': isLoading }">
         <div class="bg-[#2A1810] border-2 border-[#B8860B] px-6 py-2 flex items-center gap-3 shadow-[0_5px_15px_rgba(0,0,0,0.6)] rounded-l-full relative">
           <div class="absolute left-4 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-[#8C6239] shadow-[inset_-1px_-1px_2px_rgba(0,0,0,0.8)]"></div>
           <span class="text-2xl drop-shadow-[0_2px_5px_rgba(255,215,0,0.4)] ml-4">🪙</span>
           <span class="font-bold text-[#FFD700] text-xl drop-shadow-[1px_2px_0_rgba(0,0,0,1)] tracking-wider">{{ coins }}</span>
         </div>
-        <div class="flex items-center gap-2 text-xs font-bold text-[#8FBC8F] bg-[#1A2F1A]/80 border border-[#2E8B57] px-4 py-1.5 shadow-[2px_2px_0_rgba(0,0,0,0.5)]">
-          <span class="animate-pulse">✨</span> 聖女祈禱: EXP +15%
-        </div>
+        
+        <transition name="fade" mode="out-in">
+          <div v-if="hasPermanentBuff" class="flex items-center gap-2 text-xs font-bold text-[#FFD700] bg-[#3A2318]/90 border border-[#DAA520] px-4 py-1.5 shadow-[2px_2px_0_rgba(0,0,0,0.8)]">
+            <span class="animate-pulse">✨</span> 女神眷顧: EXP +25%
+          </div>
+          <div v-else-if="hasTemporaryBuff" class="flex items-center gap-2 text-xs font-bold text-[#8FBC8F] bg-[#1A2F1A]/90 border border-[#2E8B57] px-4 py-1.5 shadow-[2px_2px_0_rgba(0,0,0,0.8)]" :class="{ 'text-red-400 border-red-500': isBuffExpiring }">
+            <span class="animate-spin-slow">⏳</span> 聖女祈禱: EXP +15% 
+            <span class="text-white ml-1 bg-black/40 px-1.5 rounded">{{ timeRemaining }}</span>
+          </div>
+        </transition>
       </div>
     </header>
 
@@ -155,8 +168,8 @@
             </div>
             <div class="text-right">
               <div class="text-xs text-[#8C6239] mb-1 font-bold">冒險者評級</div>
-              <div class="text-4xl font-black text-[#FF0000] font-serif italic drop-shadow-[0_2px_4px_rgba(0,0,0,1)] transform -rotate-6">
-                {{ bestFloor > 10 ? 'S' : (bestFloor > 5 ? 'A' : 'B') }}
+              <div class="text-4xl font-black font-serif italic drop-shadow-[0_2px_4px_rgba(0,0,0,1)] transform -rotate-6" :class="rankColor">
+                {{ adventurerRank }}
               </div>
             </div>
           </div>
@@ -165,21 +178,19 @@
         <div class="bg-[#2C2C2C] border-4 border-[#1A1A1A] p-6 shadow-[8px_8px_20px_rgba(0,0,0,0.9)]">
           <div class="flex justify-between items-center mb-4 border-b-2 border-[#404040] pb-3">
             <div class="text-[#A0A0A0] text-sm font-black tracking-widest flex items-center gap-2">
-              <span class="text-xl">⚔️</span> 裝備與聖物
+              <span class="text-xl">⚔️</span> 戰鬥流派分析
             </div>
           </div>
           <div class="mb-5">
-            <div class="text-xs text-[#808080] mb-1 font-bold">當前作戰流派</div>
-            <div class="font-black text-[#FFF8DC] tracking-widest text-lg drop-shadow-[0_1px_2px_rgba(0,0,0,1)]">狂戰士的輓歌</div>
+            <div class="text-xs text-[#808080] mb-1 font-bold">根據屬性推演出的流派</div>
+            <div class="font-black text-[#FFF8DC] tracking-widest text-lg drop-shadow-[0_1px_2px_rgba(0,0,0,1)]">
+              {{ combatStyle.name }}
+            </div>
           </div>
           <div class="flex gap-4">
-            <div class="w-14 h-14 bg-[#111] border-2 border-[#000] rounded-sm flex items-center justify-center text-3xl shadow-[inset_0_4px_10px_rgba(0,0,0,1)] cursor-pointer hover:bg-[#222] transition-colors relative">
+            <div v-for="(icon, idx) in combatStyle.icons" :key="idx" class="w-14 h-14 bg-[#111] border-2 border-[#000] rounded-sm flex items-center justify-center text-3xl shadow-[inset_0_4px_10px_rgba(0,0,0,1)] cursor-help hover:bg-[#222] transition-colors relative">
               <div class="absolute inset-0 border border-[#555] m-[1px]"></div>
-              🩸
-            </div>
-            <div class="w-14 h-14 bg-[#111] border-2 border-[#000] rounded-sm flex items-center justify-center text-3xl shadow-[inset_0_4px_10px_rgba(0,0,0,1)] cursor-pointer hover:bg-[#222] transition-colors relative">
-              <div class="absolute inset-0 border border-[#555] m-[1px]"></div>
-              🦅
+              {{ icon }}
             </div>
           </div>
         </div>
@@ -187,26 +198,25 @@
     </main>
 
     <ShopPanel v-if="isShopOpen" :coins="coins" :playerLevel="playerLevel" :maxHp="max_hp" :maxMp="max_mp" :maxAp="max_ap" :maxAtk="max_atk" @close="isShopOpen = false" @purchase="handlePurchase" />
-    <InventoryPanel v-if="isInventoryOpen" :inventory="inventory" @close="isInventoryOpen = false" />
+    <InventoryPanel v-if="isInventoryOpen" :inventory="inventory" @close="isInventoryOpen = false" @use="useItem" />
     <DictionaryPanel v-if="isDictionaryOpen" :inventory="inventory" @close="isDictionaryOpen = false" />
     <LeaderboardPanel v-if="isLeaderboardOpen" :currentUserId="currentUserId" @close="isLeaderboardOpen = false" />
     <StatUpgradePanel v-if="isStatUpgradeOpen" :currentUserId="currentUserId" :level="playerLevel" :points="stat_points" :coins="coins" :stats="{ max_hp: max_hp, max_mp: max_mp, max_ap: max_ap, max_atk: max_atk }" @close="isStatUpgradeOpen = false" @updated="fetchPlayerData" />
+    <AchievementPanel v-if="isAchievementOpen" :achievements="allAchievements" :currentTitle="currentTitle" @close="isAchievementOpen = false" @equip="handleEquipTitle"
+/>
   </div>
 </template>
 
 <style scoped>
-/* 將按鈕反光改為更符合 RPG 武器亮光的掃光效果 */
 .animate-sweep { animation: sweep 2.5s ease-in-out infinite; }
 @keyframes sweep {
   0% { transform: translateX(-150%) skewX(20deg); }
   30%, 100% { transform: translateX(250%) skewX(20deg); }
 }
 
-/* 🌟 新增：魔法陣背景的慢速轉動特效 (不使用科幻霓虹轉速) */
 .animate-spin-extremely-slow { animation: spin 180s linear infinite; }
 .animate-spin-reverse-extremely-slow { animation: spin 150s linear infinite reverse; }
 
-/* 🌟 新增：魔法呼吸效果，讓法陣忽隱忽現，更融入燭光背景 */
 .animate-magical-breathe { animation: magical-breathe 8s ease-in-out infinite; }
 @keyframes magical-breathe {
   0%, 100% { opacity: 0.08; filter: drop-shadow(0 0 20px rgba(218,165,32,0.1)); }
@@ -215,13 +225,15 @@
 </style>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { supabase } from '../../supabase.js';
+import { BADGE_LIST } from '../../game/config/badges.js';
 import ShopPanel from './ShopPanel.vue';
 import InventoryPanel from './InventoryPanel.vue';
 import DictionaryPanel from './DictionaryPanel.vue';
 import LeaderboardPanel from './LeaderboardPanel.vue';
 import StatUpgradePanel from './StatUpgradePanel.vue';
+import AchievementPanel from './AchievementPanel.vue';
 
 const emit = defineEmits(['start', 'exit']);
 
@@ -233,10 +245,10 @@ const isInventoryOpen = ref(false);
 const isDictionaryOpen = ref(false);
 const isLeaderboardOpen = ref(false);
 const isStatUpgradeOpen = ref(false);
+const isAchievementOpen = ref(false);
 const inventory = ref([]);
 const stat_points = ref(0);
 
-// 玩家基本資料
 const playerName = ref('連線中...');
 const playerLevel = ref(1);
 const xp = ref(0);
@@ -249,12 +261,130 @@ const max_atk = ref(10);
 const bestFloor = ref(0);
 const expPercent = ref(0);
 const avatarUrl = ref(''); 
+const actionMessage = ref('');
+const currentTitle = ref('見習冒險者');
+const unlockedAchievements= ref(['first_steps']);
 
-// 暫存從大廳抓回來的原始物件，方便開局時「繼承」數值到存檔
 const rawLobbyData = ref(null);
-
-// 塔的存檔資料
 const activeSave = ref(null);
+
+// ==========================================
+// 🌟 1. 冒險者評級邏輯 (每 10 層一階)
+// ==========================================
+const adventurerRank = computed(() => {
+  const f = bestFloor.value;
+  if (f >= 80) return 'SSS';
+  if (f >= 70) return 'SS';
+  if (f >= 60) return 'S';
+  if (f >= 50) return 'A';
+  if (f >= 40) return 'B';
+  if (f >= 30) return 'C';
+  if (f >= 20) return 'D';
+  if (f >= 10) return 'E';
+  return 'F';
+});
+
+const rankColor = computed(() => {
+  const r = adventurerRank.value;
+  if (r.includes('S')) return 'text-[#FFD700]'; // 閃耀金
+  if (r === 'A') return 'text-[#FF4500]'; // 橘紅
+  if (r === 'B') return 'text-[#9370DB]'; // 史詩紫
+  if (r === 'C') return 'text-[#4169E1]'; // 稀有藍
+  if (r === 'D') return 'text-[#32CD32]'; // 優秀綠
+  return 'text-[#A0A0A0]'; // E與F 普通灰
+});
+
+// ==========================================
+// 🌟 2. 動態作戰流派判斷 (根據投資的屬性點數)
+// ==========================================
+const combatStyle = computed(() => {
+  // 換算各屬性投資了「多少點」 (減去基礎值並除以每點收益)
+  const ptsHP = (max_hp.value - 100) / 10;
+  const ptsMP = (max_mp.value - 50) / 5;
+  const ptsAP = (max_ap.value - 30) / 2;
+  const ptsATK = (max_atk.value - 10) / 1;
+
+  const totalPts = ptsHP + ptsMP + ptsAP + ptsATK;
+
+  // 如果完全沒點，或是點數極低
+  if (totalPts === 0) {
+    return { name: '見習冒險者 (Novice)', icons: ['🎒', '🕯️'] };
+  }
+
+  // 排序屬性，找出最高的前兩名
+  const stats = [
+    { id: 'hp', pts: ptsHP, icon: '❤️' },
+    { id: 'mp', pts: ptsMP, icon: '🔮' },
+    { id: 'ap', pts: ptsAP, icon: '⚡' },
+    { id: 'atk', pts: ptsATK, icon: '⚔️' }
+  ].sort((a, b) => b.pts - a.pts);
+
+  const primary = stats[0];
+  const secondary = stats[1];
+
+  let name = '';
+  
+  // 根據最高的屬性決定流派基調
+  if (primary.id === 'atk') name = '毀滅破劍者 (Berserker)';
+  else if (primary.id === 'mp') name = '深淵大魔導 (Archmage)';
+  else if (primary.id === 'hp') name = '不滅之神盾 (Paladin)';
+  else if (primary.id === 'ap') name = '幻影風行者 (Assassin)';
+
+  // 如果第一名跟第二名點數很接近 (平衡流派)
+  if (primary.pts > 0 && (primary.pts - secondary.pts <= Math.max(2, totalPts * 0.15))) {
+     if ((primary.id === 'atk' && secondary.id === 'mp') || (primary.id === 'mp' && secondary.id === 'atk')) name = '魔劍士 (Magic Knight)';
+     else if ((primary.id === 'hp' && secondary.id === 'atk') || (primary.id === 'atk' && secondary.id === 'hp')) name = '重裝戰士 (Heavy Warrior)';
+     else if ((primary.id === 'ap' && secondary.id === 'atk') || (primary.id === 'atk' && secondary.id === 'ap')) name = '致命刺客 (Deadly Rogue)';
+     else name = '全能勇者 (Wandering Hero)';
+  }
+
+  return {
+    name,
+    icons: [primary.icon, secondary.icon]
+  };
+});
+
+const allAchievements = computed(() => {
+  // 將大廳的變數統整成一個 stats 物件
+  const currentStats = {
+    currentTotalXP: total_exp.value,
+    currentLevel: playerLevel.value,
+    bestFloor: bestFloor.value,
+    coins: coins.value,
+    // clearedLevelsCount 可以從 profile 資料庫撈取，若無則預設 0
+    clearedLevelsCount: rawLobbyData.value?.clearedLevelsCount || 0 
+  };
+
+  // 映射出完整的成就清單，供 Panel 使用
+  return BADGE_LIST.map(badge => {
+    return {
+      ...badge,
+      progress: badge.getCurrent(currentStats),
+      isUnlocked: badge.checkUnlock(currentStats)
+    };
+  });
+});
+
+const handleEquipTitle = async (newTitle) => {
+  currentTitle.value = newTitle; // 先在本地端切換畫面
+  
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ current_title: newTitle })
+      .eq('id', currentUserId.value);
+
+    if (!error) {
+      // 利用原本寫好的 actionMessage 來顯示成功提示
+      actionMessage.value = `已裝備稱號：《${newTitle}》`;
+      setTimeout(() => { actionMessage.value = ''; }, 2000);
+    } else {
+      console.error("❌ 更新稱號失敗:", error);
+    }
+  } catch (err) {
+    console.error("❌ 裝備稱號發生錯誤:", err);
+  }
+};
 
 // === 獲取資料庫資料 ===
 const fetchPlayerData = async () => {
@@ -265,16 +395,14 @@ const fetchPlayerData = async () => {
 
     currentUserId.value = session.user.id;
 
-    // 1. 🌟 修改：多抓取 profiles 裡的 stat_points
     const [towerRes, profileRes] = await Promise.all([
-      supabase.from('tower_lobby').select('*').eq('user_id', session.user.id).maybeSingle(),
-      supabase.from('profiles').select('username, avatar_url, level, xp, total_exp, stat_points').eq('id', session.user.id).single()
+      supabase.from('tower_lobby').select('*').eq('user_id', session.user.id).limit(1),
+      supabase.from('profiles').select('username, avatar_url, level, xp, total_exp, stat_points, current_title, total_kills, boss_kills, total_deaths, passive_count').eq('id', session.user.id).single()
     ]);
 
-    let towerData = towerRes.data;
+    let towerData = towerRes.data?.[0] || null; 
     const profileData = profileRes.data;
 
-    // 2. 如果高塔還沒有資料 (第一次進來)
     if (!towerData) {
       console.log("🆕 第一次進入高塔，正在從全服 Profile 初始化資料...");
       
@@ -287,7 +415,8 @@ const fetchPlayerData = async () => {
             level: profileData?.level || 1,
             xp: profileData?.xp || 0,
             total_exp: profileData?.total_exp || 0,
-            stat_points: profileData?.stat_points || 0, // 🌟 第一次進塔，直接繼承外部的正確點數
+            stat_points: profileData?.stat_points || 0,
+            currentTitle: profileData?.current_title || '見習冒險者',
             max_hp: 100,
             max_mp: 50,
             max_ap: 30,
@@ -300,28 +429,31 @@ const fetchPlayerData = async () => {
       
       towerData = newData;
     } else {
-      // 🌟 [修改]：檢查「等級、經驗值、點數」是否與全服 Profile 同步
       if (towerData.level !== profileData.level || towerData.xp !== profileData.xp || towerData.stat_points !== profileData.stat_points) {
     
-          // 🌟 修正：點數以高塔內部的為準 (因為剛花完)，等級以全服為準 (因為可能在外面升級)
-          const finalPoints = towerData.stat_points; 
+          let finalPoints = towerData.stat_points; 
           const finalLevel = Math.max(towerData.level, profileData.level);
+
+          if (profileData.level > towerData.level) {
+              const levelDiff = profileData.level - towerData.level;
+              finalPoints += (levelDiff * 5); 
+          }
 
           await supabase.from('tower_lobby').update({
               level: finalLevel,
               stat_points: finalPoints,
-              // ...
           }).eq('user_id', session.user.id);
 
-          // 同步回全服，確保一致
           await supabase.from('profiles').update({
               level: finalLevel,
               stat_points: finalPoints
           }).eq('id', session.user.id);
+          
+          towerData.level = finalLevel;
+          towerData.stat_points = finalPoints;
       }
     }
 
-    // 3. 將最終同步後的資料映射到畫面變數
     if (towerData) {
       rawLobbyData.value = towerData; 
       playerName.value = towerData.username;
@@ -336,10 +468,18 @@ const fetchPlayerData = async () => {
       max_ap.value = towerData.max_ap || 30;
       max_atk.value = towerData.max_atk || 10;
       inventory.value = towerData.inventory || []; 
-      stat_points.value = towerData.stat_points || 0; // 🌟 映射到畫面
+      stat_points.value = towerData.stat_points || 0;
+
+      const currentStats = {
+        bestFloor: towerData.best_floor || 0,
+        coins: towerData.coins || 0,
+        totalKills: profileData?.total_kills || 0,
+        bossKills: profileData?.boss_kills || 0,
+        totalDeaths: profileData?.total_deaths || 0,
+        passiveCount: profileData?.passive_count || 0
+      };
     }
 
-    // 4. 抓取進行中的存檔
     const { data: saveData } = await supabase
       .from('tower_saves')
       .select('*')
@@ -349,34 +489,30 @@ const fetchPlayerData = async () => {
     activeSave.value = saveData;
 
   } catch (err) {
-    console.error('初始化失敗:', err);
+    console.error('大廳初始化失敗:', err);
   } finally {
     isLoading.value = false;
   }
 };
 
-// === 處理按鈕點擊事件 ===
 const handleStartNew = async () => {
   if (activeSave.value) {
     const confirmOverwrite = confirm('⚠️ 警告：您目前有未完成的作戰進度，開啟新局將會銷毀原本的進度。確定要繼續嗎？');
     if (!confirmOverwrite) return;
     
     isLoading.value = true;
-    // 刪除舊有暫存
     await supabase.from('tower_saves').delete().eq('user_id', currentUserId.value);
   }
 
   try {
     isLoading.value = true;
-    
-    // 建立新存檔時，從 Lobby 抓取「當前大廳數值」存進 Saves 裡面作為該局基底
     const lobby = rawLobbyData.value;
     
     const { data: newSave, error } = await supabase
       .from('tower_saves')
       .insert([{ 
         user_id: currentUserId.value,
-        current_floor: 1,               // 新局從第一層開始
+        current_floor: 1,              
         current_hp: lobby?.max_hp || 100,
         max_hp: lobby?.max_hp || 100,
         current_mp: lobby?.max_mp || 50,
@@ -384,12 +520,12 @@ const handleStartNew = async () => {
         current_ap: lobby?.max_ap || 30,
         max_ap: lobby?.max_ap || 30,
         max_atk: lobby?.max_atk || 10,
-        current_atk: lobby?.max_atk || 10, // 🌟 繼承大廳的永久攻擊力
+        current_atk: lobby?.max_atk || 10,
         coins: lobby?.coins || 0,       
         level: lobby?.level || 1,       
         xp: lobby?.xp || 0,             
         total_exp: lobby?.total_exp || 0, 
-        inventory: lobby?.inventory || [], // 🌟 繼承大廳的背包物品
+        inventory: lobby?.inventory || [],
         updated_at: new Date()
       }])
       .select()
@@ -408,17 +544,13 @@ const handleStartNew = async () => {
 };
 
 const handleContinue = () => {
-  if (activeSave.value) {
-    // 繼續遊戲則直接傳遞已存在的 saves 資料
-    emit('start', activeSave.value);
-  }
+  if (activeSave.value) emit('start', activeSave.value);
 };
 
 onMounted(() => {
   fetchPlayerData();
 });
 
-// 功能選單資料
 const menus = [
   { name: '背包', icon: '👝' },
   { name: '商店', icon: '⚖️' },
@@ -429,27 +561,17 @@ const menus = [
 ];
 
 const handleMenuClick = (menuName) => {
-  if (menuName === '商店') {
-    isShopOpen.value = true;
-  } else if (menuName === '背包') {
-    isInventoryOpen.value = true;
-  } else if (menuName === '圖鑑') {
-    isDictionaryOpen.value = true;
-  } else if (menuName === '排行') {
-    isLeaderboardOpen.value = true;
-  } else if (menuName === '潛能') { 
-    isStatUpgradeOpen.value = true;
-  } else {
-    alert(`系統提示：[${menuName}] 模組正在建構中...`);
-  }
+  if (menuName === '商店') isShopOpen.value = true;
+  else if (menuName === '背包') isInventoryOpen.value = true;
+  else if (menuName === '圖鑑') isDictionaryOpen.value = true;
+  else if (menuName === '排行') isLeaderboardOpen.value = true;
+  else if (menuName === '潛能') isStatUpgradeOpen.value = true;
+  else if (menuName === '成就') isAchievementOpen.value = true;
+  else alert(`系統提示：[${menuName}] 模組正在建構中...`);
 };
 
-// 🌟 處理商店購買事件，並將資料寫回資料庫
-// 🌟 處理商店購買事件，並將資料寫回資料庫
 const handlePurchase = async (payload) => {
   const { item, cost } = payload;
-  
-  // 1. 本地扣錢
   coins.value -= cost;
 
   if (rawLobbyData.value) rawLobbyData.value.coins = coins.value;
@@ -457,79 +579,151 @@ const handlePurchase = async (payload) => {
   
   if (item.type === 'system') {
     await supabase.from('tower_lobby').update({ coins: coins.value }).eq('user_id', currentUserId.value);
-    if (activeSave.value) {
-      await supabase.from('tower_saves').update({ coins: coins.value }).eq('user_id', currentUserId.value);
-    }
+    if (activeSave.value) await supabase.from('tower_saves').update({ coins: coins.value }).eq('user_id', currentUserId.value);
     return;
   }
   
-  // 2. 判斷升級與道具
-  if (item.id === 'max_hp_up') {
-    max_hp.value += 20;
-    rawLobbyData.value.max_hp += 20;
-  } else if (item.id === 'atk_up') {
-    max_atk.value += 5;
-    rawLobbyData.value.max_atk += 5;
-  } else if (item.id === 'max_mp_up') {
-    max_mp.value += 10;
-    rawLobbyData.value.max_mp += 10;
-  } else if (item.id === 'max_ap_up') {
-    max_ap.value += 10;
-    rawLobbyData.value.max_ap += 10;
-  } else if (item.type === 'consumable' || item.type === 'unlock') {
-    const existingItem = inventory.value.find(i => i.id === item.id);
-    if (existingItem) {
-      existingItem.quantity += 1; 
+  if (item.id === 'max_hp_up') { max_hp.value += 20; rawLobbyData.value.max_hp += 20; } 
+  else if (item.id === 'atk_up') { max_atk.value += 5; rawLobbyData.value.max_atk += 5; } 
+  else if (item.id === 'max_mp_up') { max_mp.value += 10; rawLobbyData.value.max_mp += 10; } 
+  else if (item.id === 'max_ap_up') { max_ap.value += 10; rawLobbyData.value.max_ap += 10; } 
+  // 🌟 特殊處理：限時祈禱 Buff
+  else if (item.id === 'relic_holy_maiden_prayer') {
+    const existing = inventory.value.find(i => i.id === item.id);
+    if (existing) {
+        existing.quantity += 1; // 變成累加數量，不設定時間
     } else {
-      inventory.value.push({ ...item, quantity: 1 }); 
+        inventory.value.push({ ...item, quantity: 1 });
     }
   }
-
-  if (activeSave.value) {
-    activeSave.value.inventory = inventory.value;
+  // 🌟 特殊處理：永久眷顧 Buff
+  else if (item.id === 'relic_goddess_blessing') {
+    const existing = inventory.value.find(i => i.id === item.id);
+    if (!existing) inventory.value.push({ ...item, quantity: 1 });
   }
+  // 其他常規消耗品/解鎖
+  else if (item.type === 'consumable' || item.type === 'unlock') {
+    const existingItem = inventory.value.find(i => i.id === item.id);
+    if (existingItem) existingItem.quantity += 1; 
+    else inventory.value.push({ ...item, quantity: 1 }); 
+  }
+
+  if (activeSave.value) activeSave.value.inventory = inventory.value;
   
-  // 3. 🌟 強制檢查錯誤的資料庫寫入寫法
-  const { error } = await supabase
-    .from('tower_lobby')
-    .update({
-      coins: coins.value,
-      max_hp: max_hp.value,
-      max_atk: max_atk.value,
-      max_mp: max_mp.value,
-      max_ap: max_ap.value,
-      inventory: inventory.value // 將背包陣列轉存雲端
-    })
-    .eq('user_id', currentUserId.value);
+  const { error } = await supabase.from('tower_lobby').update({
+      coins: coins.value, max_hp: max_hp.value, max_atk: max_atk.value, max_mp: max_mp.value, max_ap: max_ap.value, inventory: inventory.value 
+    }).eq('user_id', currentUserId.value);
 
   if (activeSave.value && !error) {
-    await supabase
-      .from('tower_saves')
-      .update({
-        coins: coins.value,
-        inventory: inventory.value
-      })
+    await supabase.from('tower_saves').update({ coins: coins.value, inventory: inventory.value }).eq('user_id', currentUserId.value);
+  }
+
+  if (error) console.error('❌ 同步資料庫失敗:', error);
+  else console.log(`✅ 成功購買 [${item.name}] 並已同步至雲端資料庫！`);
+};
+
+const useItem = async (item) => {
+  // 1. 聖女祈禱邏輯 (限時 buff)
+  if (item.id === 'relic_holy_maiden_prayer') {
+    const idx = inventory.value.findIndex(i => i.id === item.id);
+    if (idx !== -1) {
+      // 🌟 重點：扣除數量，但不使用 splice 刪除它！
+      // 把它留在陣列裡，讓戰鬥畫面能繼續讀取它的 expiresAt
+      inventory.value[idx].quantity -= 1;
+      inventory.value[idx].expiresAt = Date.now() + (15 * 60 * 1000);
+      await updateInventory(inventory.value); 
+    }
+  } 
+  // 2. 一般消耗品使用邏輯 (如果大廳允許使用的話)
+  else if (item.type === 'consumable') {
+    const idx = inventory.value.findIndex(i => i.id === item.id);
+    if (idx !== -1) {
+      if (inventory.value[idx].quantity > 1) {
+        inventory.value[idx].quantity -= 1;
+      } else {
+        // 數量剩 1，且不是 Buff 道具，直接從陣列徹底移除
+        inventory.value.splice(idx, 1);
+      }
+      await updateInventory(inventory.value);
+    }
+  }
+};
+
+// 🌟 這個函式才是與資料庫同步的核心
+const updateInventory = async (newInventory) => {
+  try {
+    // 1. 同步到 tower_lobby (大廳資料)
+    const { error } = await supabase
+      .from('tower_lobby')
+      .update({ inventory: newInventory })
       .eq('user_id', currentUserId.value);
-  }
 
-  if (error) {
-    console.error('❌ 同步資料庫失敗:', error);
-  } else {
-    console.log(`✅ 成功購買 [${item.name}] 並已同步至雲端資料庫！`);
+    if (error) throw error;
+
+    // 2. 如果戰局中也有存檔，同步過去 (防止局內背包顯示舊資料)
+    if (activeSave.value) {
+      await supabase
+        .from('tower_saves')
+        .update({ inventory: newInventory })
+        .eq('user_id', currentUserId.value);
+    }
+
+    actionMessage.value = "使用成功！";
+    setTimeout(() => { actionMessage.value = ''; }, 2000);
+    
+    console.log("✅ 背包已同步至雲端");
+  } catch (err) {
+    console.error("❌ 同步背包失敗:", err);
+    alert("同步失敗，請檢查網路。");
   }
 };
 
-// 生成隨機粒子樣式
-const getParticleStyle = (index) => {
-  const size = Math.random() * 4 + 1; 
-  const left = Math.random() * 100; 
-  const top = Math.random() * 100; 
-  const duration = Math.random() * 10 + 10; 
-  const delay = Math.random() * 5; 
-  return {
-    width: `${size}px`, height: `${size}px`, left: `${left}%`, top: `${top}%`,
-    animation: `float-particle ${duration}s linear ${delay}s infinite`,
-    opacity: Math.random() * 0.5 + 0.1
-  };
-};
+// ==========================================
+// 🌟 3. Buff 狀態與倒數計時系統
+// ==========================================
+const currentTime = ref(Date.now());
+let buffTimer = null;
+
+onMounted(() => {
+  fetchPlayerData();
+  // 每秒更新一次當前時間，用來計算倒數
+  buffTimer = setInterval(() => {
+    currentTime.value = Date.now();
+  }, 1000);
+});
+
+onUnmounted(() => {
+  if (buffTimer) clearInterval(buffTimer);
+});
+
+// 判斷是否有永久 Buff
+const hasPermanentBuff = computed(() => {
+  return inventory.value.some(i => i.id === 'relic_goddess_blessing');
+});
+
+// 找出限時 Buff (如果存在且還沒過期)
+const temporaryBuff = computed(() => {
+  const buff = inventory.value.find(i => i.id === 'relic_holy_maiden_prayer');
+  if (buff && buff.expiresAt && buff.expiresAt > currentTime.value) {
+    return buff;
+  }
+  return null;
+});
+
+const hasTemporaryBuff = computed(() => !!temporaryBuff.value);
+
+// 判斷快過期 (小於 1 分鐘) 讓字體變紅警告
+const isBuffExpiring = computed(() => {
+  if (!temporaryBuff.value) return false;
+  return (temporaryBuff.value.expiresAt - currentTime.value) < 60000;
+});
+
+// 格式化倒數時間 (mm:ss)
+const timeRemaining = computed(() => {
+  if (!temporaryBuff.value) return '';
+  const diff = temporaryBuff.value.expiresAt - currentTime.value;
+  const m = Math.floor(diff / 60000).toString().padStart(2, '0');
+  const s = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
+  return `${m}:${s}`;
+});
 </script>

@@ -16,6 +16,7 @@ export const RANDOM_ITEM_POOL = [
   { id: 'potion_large', name: '女神的聖水',   desc: '受到神聖祝福，恢復 100 點生命值 (HP)', basePrice: 250, minLevel: 3, icon: '🍷', type: 'consumable' },
   { id: 'bomb_item',    name: '煉金爆火',     desc: '行囊奇物：擲出後對周圍九宮格造成毀滅性範圍傷害', basePrice: 400, minLevel: 2, icon: '💣', type: 'consumable' },
   { id: 'shield_item',  name: '聖光護身符',   desc: '行囊奇物：產生聖光法陣，完全抵擋下一次受到的傷害', basePrice: 500, minLevel: 4, icon: '🛡️', type: 'consumable' },
+  { id: 'relic_holy_maiden_prayer', name: '聖女的限時祈禱', desc: '獲得聖女的祝福，15 分鐘內獲得的 EXP 提升 15%', basePrice: 300, minLevel: 1, icon: '⏳', type: 'consumable' },
   
   // --- 系統指令解鎖區 (魔法卷軸與戰技) ---
   { id: 'module_dash',      name: '瞬動術卷軸',   desc: '永久解鎖高速位移法術 (dash)', basePrice: 800, minLevel: 1, icon: '💨', type: 'unlock' },
@@ -29,4 +30,5 @@ export const RANDOM_ITEM_POOL = [
   { id: 'module_pull',      name: '引力漩渦卷軸', desc: '永久解鎖將目標強制牽引的法術 (pull)', basePrice: 4000, minLevel: 5, icon: '🌀', type: 'unlock' },
   { id: 'module_laser',     name: '貫穿魔光卷軸', desc: '永久解鎖釋放直線貫穿魔砲 (laser)', basePrice: 4500, minLevel: 6, icon: '☄️', type: 'unlock' },
   { id: 'module_whirlwind', name: '劍刃風暴卷軸', desc: '永久解鎖剿滅周圍魔物的清場戰技 (whirlwind)', basePrice: 6000, minLevel: 7, icon: '🌪️', type: 'unlock' },
+  { id: 'relic_goddess_blessing', name: '女神的永久眷顧', desc: '靈魂與女神綁定，永久提升 25% 獲得的 EXP', basePrice: 5000, minLevel: 10, icon: '✨', type: 'unlock' },
 ];

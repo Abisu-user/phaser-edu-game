@@ -18,6 +18,7 @@
         :playerAvatarUrl="playerAvatarUrl"  
         :playerRole="playerRole"
         :hasUnread="hasUnreadMessages"
+        :currentTitle="currentTitle" 
         v-model:currentSection="currentSection"
         v-model:activeAdminTab="activeAdminTab"
         v-model:activeTeacherTab="activeTeacherTab"
@@ -54,10 +55,12 @@
             :clearedLevelsCount="clearedLevelsCount"
             :dailyQuests="dailyQuests"  
             :badges="badges"         
+            :pinnedBadges="pinnedBadges"
             @claim-quest="claimQuest"            
             @trigger-level-up="triggerLevelUp"
             @continue-game="startLevel"
             @go-to-achievements="currentSection = 'achievements'"
+            @save-pinned="handleSavePinnedBadges"
           />
 
           <CoursesSection 
@@ -79,6 +82,9 @@
           <AchievementsSection
             v-show="currentSection === 'achievements'" 
             :badges="badges"
+            :currentTitle="currentTitle"
+            :pinnedBadges="pinnedBadges"
+            @equip="handleEquipTitle"
           />
 
           <LeaderboardSection 
@@ -256,6 +262,10 @@ const activeAdminTab = ref('system');
 const isForceLogoutModalOpen = ref(false);
 const activeTeacherTab = ref('overview');
 const stat_points = ref(0);
+const bestFloor = ref(0);
+const coins = ref(0);
+const currentTitle = ref('見習冒險者');
+const pinnedBadges = ref([]);
 
 const emit = defineEmits(['enter-game', 'logout']);
 
@@ -266,6 +276,53 @@ let maintenanceSubscription = null;
 
 // --- 邏輯函數區 ---
 const handleNameUpdate = (newName) => playerName.value = newName; 
+
+const handleEquipTitle = async (newTitle) => {
+  currentTitle.value = newTitle;
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from('profiles').update({ current_title: newTitle }).eq('id', user.id);
+      
+      const notifId = Date.now(); 
+
+      toastNotifications.value.push({
+        id: notifId,
+        senderName: '🏆 榮耀殿堂',
+        content: `成功佩戴新稱號：《${newTitle}》！`
+      });
+
+      setTimeout(() => {
+        toastNotifications.value = toastNotifications.value.filter(n => n.id !== notifId);
+      }, 5000);
+
+    }
+  } catch (err) {
+    console.error('儲存稱號失敗:', err);
+  }
+};
+
+// 🌟 處理徽章展示/取消展示
+const handleSavePinnedBadges = async (newPinnedArray) => {
+  pinnedBadges.value = newPinnedArray; // 更新本地端畫面
+
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from('profiles').update({ pinned_badges: newPinnedArray }).eq('id', user.id);
+      
+      // 顯示成功提示
+      toastNotifications.value.push({
+        id: Date.now(),
+        senderName: '系統提示',
+        content: '✅ 首頁榮譽展示牆已更新！'
+      });
+      setTimeout(() => { toastNotifications.value.shift(); }, 3000);
+    }
+  } catch (err) {
+    console.error('更新展示徽章失敗:', err);
+  }
+};
 
 const executeForceLogout = async () => {
   await supabase.auth.signOut();
@@ -426,10 +483,20 @@ const initDailyQuests = () => {
 };
 
 const badges = computed(() => {
-  const playerStats = { clearedLevelsCount: clearedLevelsCount.value, currentTotalXP: currentTotalXP.value, currentLevel: currentLevel.value };
+ 
+  const playerStats = { 
+    clearedLevelsCount: clearedLevelsCount.value, 
+    currentTotalXP: currentTotalXP.value, 
+    currentLevel: currentLevel.value,
+    bestFloor: bestFloor.value, 
+    coins: coins.value       
+  };
+
   return BADGE_LIST.map(badge => ({
-    id: badge.id, icon: badge.icon, name: badge.name, desc: badge.desc, target: badge.target,
-    current: badge.getCurrent(playerStats), isUnlocked: badge.checkUnlock(playerStats)
+    ...badge,
+    current: badge.getCurrent(playerStats), 
+    progress: badge.getCurrent(playerStats), 
+    isUnlocked: badge.checkUnlock(playerStats)
   }));
 });
 
@@ -456,8 +523,9 @@ const fetchLobbyData = async () => {
     const { count } = await supabase.from('user_progress').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
     clearedLevelsCount.value = count || 0;
 
-    // 🌟 注意：這裡的 select 加入了 stat_points
-    const { data: profile } = await supabase.from('profiles').select('id, xp, level, username, avatar_url, role, total_exp, last_login_at, consecutive_days, stat_points').eq('id', user.id).single();
+    const { data: profile } = await supabase.from('profiles')
+    .select('id, xp, level, username, avatar_url, role, total_exp, last_login_at, consecutive_days, stat_points, current_title, pinned_badges, total_kills, boss_kills, total_deaths, passive_count')
+    .eq('id', user.id).single();
 
     if (profile) {
       currentId.value = profile.id || '';
@@ -467,10 +535,20 @@ const fetchLobbyData = async () => {
       playerAvatarUrl.value = profile.avatar_url || ''; 
       playerName.value = profile.username || '遊客模式';
       playerRole.value = profile.role || 'student';
-
+      currentTitle.value = profile.current_title || '見習冒險者';
+      pinnedBadges.value = profile.pinned_badges || [];
+      totalKills.value = profile.total_kills || 0;
+      bossKills.value = profile.boss_kills || 0;
+      totalDeaths.value = profile.total_deaths || 0;
+      passiveCount.value = profile.passive_count || 0;
       let shouldUpdateDB = false;
 
-      const { data: towerCheck } = await supabase.from('tower_lobby').select('max_hp').eq('user_id', user.id).maybeSingle();
+      const { data: towerCheck } = await supabase.from('tower_lobby').select('max_hp, max_atk, best_floor, coins').eq('user_id', user.id).maybeSingle();
+
+      if (towerCheck) {
+        bestFloor.value = towerCheck.best_floor || 0;
+        coins.value = towerCheck.coins || 0;
+      }
 
       let currentPoints = profile.stat_points;
       

@@ -31,6 +31,16 @@ export default class EndlessScene extends Phaser.Scene {
     this.mapData = data?.mapData;
     this.isGameOverInterrupted = false;
 
+    this.sessionKills = this.sessionKills || 0;
+    this.sessionBossKills = this.sessionBossKills || 0;
+    this.sessionPassives = this.sessionPassives || 0;
+
+    if (this.currentFloor === 1 || this.currentFloor === undefined) {
+       this.sessionKills = 0;
+       this.sessionBossKills = 0;
+       this.sessionPassives = 0;
+    }
+
     if (this.currentFloor === undefined) {
       const event = new CustomEvent('tower-request-init-data', { detail: { data: {} } });
       window.dispatchEvent(event);
@@ -84,7 +94,10 @@ export default class EndlessScene extends Phaser.Scene {
 
     // 監聽晶片(遺物)安裝
     const onAddRelic = (e) => {
-        if (!this.relics.includes(e.detail)) this.relics.push(e.detail);
+        if (!this.relics.includes(e.detail)) {
+            this.relics.push(e.detail);
+            this.sessionPassives++; // 🌟 新增這行：累加被動技能獲取數量
+        }
         console.log("💎 當前已獲得女神祝福(遺物):", this.relics);
     };
     window.addEventListener('tower-add-relic', onAddRelic);
@@ -223,6 +236,7 @@ export default class EndlessScene extends Phaser.Scene {
     this.showFloorObjective();
     this.updateObjectiveUI();
     this.emitApUpdate();
+    this.updateEnemyRadar();
     window.dispatchEvent(new CustomEvent('tower-turn-started', { detail: { turn: this.turnCounter } }));
     
     // 🌟 收到死亡信號，立刻切斷所有法術詠唱
@@ -404,6 +418,7 @@ export default class EndlessScene extends Phaser.Scene {
           this.tweens.add({ targets: this.player, x: px, y: py, duration: 200, onComplete: resolve });
         });
         this.checkInteractions();
+        this.updateEnemyRadar();
         return;
       } else {
         this.cameras.main.shake(100, 0.005);
@@ -502,107 +517,144 @@ export default class EndlessScene extends Phaser.Scene {
     
     if (enemyIndex !== -1) {
       const enemy = this.enemies[enemyIndex];
-      this.cameras.main.shake(150, 0.015); // 鏡頭震動(打擊感)
+      if (!enemy) return false; 
       
-      const px = this.startX + tx * this.tileSize;
-      const py = this.startY + ty * this.tileSize;
-
-      // 1. 扣除魔物生命
+      this.cameras.main.shake(150, 0.015);
       enemy.hp -= damage;
 
-      // 2. 更新血條視覺 (平滑扣血)
-      const hpRatio = Math.max(0, enemy.hp / enemy.maxHp);
+      // 更新血條
+      if (enemy.hpFill && enemy.maxHp) {
+        const hpPercent = Phaser.Math.Clamp(enemy.hp / enemy.maxHp, 0, 1);
+        enemy.hpFill.width = (this.tileSize * 0.65) * hpPercent;
+      }
+
+      // 傷害飄字
+      const dmgText = this.add.text(enemy.sprite.x, enemy.sprite.y - 20, `-${damage}`, { 
+        fontSize: '20px', color: '#FF0000', fontStyle: 'bold', stroke: '#000000', strokeThickness: 4 
+      }).setOrigin(0.5).setDepth(50);
+
       this.tweens.add({
-        targets: enemy.hpFill,
-        scaleX: hpRatio,
-        duration: 200,
-        ease: 'Power2'
+        targets: dmgText, y: enemy.sprite.y - 50, alpha: 0, duration: 800,
+        onComplete: () => dmgText.destroy()
       });
 
-      // 3. 跳出傷害數字 (奇幻風格的爆擊紅字)
-      const dmgText = this.add.text(px, py - 20, `-${damage}`, { 
-        fontSize: '26px', color: '#FFF8DC', fontFamily: 'serif', fontStyle: 'black', stroke: '#8B0000', strokeThickness: 5 
-      }).setOrigin(0.5).setDepth(60);
-      
-      this.tweens.add({ 
-        targets: dmgText, y: py - 60, alpha: 0, duration: 700, ease: 'Cubic.easeOut', 
-        onComplete: () => dmgText.destroy() 
-      });
-
-      // 4. 附加元素附魔特效 (遺物能力)
-      if (this.relics && this.relics.includes('element_fire')) {
-          const fire = this.add.text(px, py, '🔥', { fontSize: Math.floor(this.tileSize * 0.9) + 'px' }).setOrigin(0.5);
-          this.tweens.add({ targets: fire, y: py - 30, scale: 1.5, alpha: 0, duration: 500, onComplete: () => fire.destroy() });
-      }
-      if (this.relics && this.relics.includes('element_lightning')) {
-          const zap = this.add.text(px, py, '⚡', { fontSize: Math.floor(this.tileSize * 0.9) + 'px' }).setOrigin(0.5);
-          this.tweens.add({ targets: zap, scale: 2.5, alpha: 0, duration: 300, ease: 'Bounce.easeOut', onComplete: () => zap.destroy() });
-      }
-      if (this.relics && this.relics.includes('element_ice')) {
-          const ice = this.add.text(px, py, '❄️', { fontSize: Math.floor(this.tileSize * 0.9) + 'px' }).setOrigin(0.5);
-          this.tweens.add({ targets: ice, angle: 90, alpha: 0, duration: 600, onComplete: () => ice.destroy() });
-      }
-
-      // 5. 判斷是否死亡
+      // 🌟 死亡判定與掉落物結算
       if (enemy.hp <= 0) {
         console.log(`💀 魔物消散！`);
-        const reward = enemy.coinReward || 5;
+
+        this.sessionKills++;
+
+        const enemyConfig = ENEMY_DICT && ENEMY_DICT[enemy.id] ? ENEMY_DICT[enemy.id] : {};
+        if (enemyConfig.isBoss || enemy.id.includes('boss')) {
+             this.sessionBossKills++; 
+        }
         
-        // 死亡掉落奉獻金幣
-        const coinText = this.add.text(px, py - 20, `+${reward} 🪙`, { 
+        // 確保這兩個變數在這裡被宣告
+        const coinAmt = enemy.coinReward || 5;
+        const xpAmt = enemy.xpReward || 15;
+        
+        const px = enemy.sprite.x;
+        const py = enemy.sprite.y;
+
+        // 金幣飄字
+        const coinText = this.add.text(px, py - 20, `+${coinAmt} 🪙`, { 
           fontSize: '24px', color: '#FFD700', fontFamily: 'serif', fontStyle: 'bold', stroke: '#593922', strokeThickness: 4
         }).setOrigin(0.5).setDepth(60);
 
         this.tweens.add({
-            targets: coinText,
-            y: py - 70,   // 往上飄落
-            alpha: 0,     // 漸隱
-            duration: 1200,
-            ease: 'Power2',
+            targets: coinText, y: py - 70, alpha: 0, duration: 1200, ease: 'Power2',
             onComplete: () => coinText.destroy()
         });
 
-        // 死亡處理：魔物化為煙塵 (縮小並漸隱)
+        // 經驗值飄字
+        const xpText = this.add.text(px, py - 40, `+${xpAmt} ✨`, { 
+          fontSize: '22px', color: '#8FBC8F', fontFamily: 'serif', fontStyle: 'bold', stroke: '#1A2F1A', strokeThickness: 4
+        }).setOrigin(0.5).setDepth(60);
+
         this.tweens.add({
-          targets: enemy.sprite,
-          scale: 0.1, alpha: 0, angle: 180, duration: 300,
-          onComplete: () => {
-            enemy.sprite.destroy();
-          }
+            targets: xpText, y: py - 90, alpha: 0, duration: 1200, ease: 'Power2', delay: 150,
+            onComplete: () => xpText.destroy()
+        });
+
+        // 魔物化為煙塵動畫
+        this.tweens.add({
+          targets: enemy.sprite, scale: 0.1, alpha: 0, angle: 180, duration: 300,
+          onComplete: () => { enemy.sprite.destroy(); }
         });
         
         this.enemies.splice(enemyIndex, 1);
         this.enemiesKilled++;
         this.updateObjectiveUI(); 
         
-        window.dispatchEvent(new CustomEvent('tower-coin-collected', { 
-          detail: { amount: reward } 
-        }));
+        // 🌟 正確發送事件 (變數名稱為 coinAmt 與 xpAmt)
+        window.dispatchEvent(new CustomEvent('tower-coin-collected', { detail: { amount: coinAmt } }));
+        window.dispatchEvent(new CustomEvent('tower-xp-gained', { detail: { amount: xpAmt } }));
         
-        // 若通關條件為「討伐所有魔物」，判定是否開啟下一層
         if (this.levelConfig.winCondition.type === 'exterminate' && this.enemies.length === 0) {
             if (this.terminal && this.playerGridX === this.terminal.gx && this.playerGridY === this.terminal.gy) {
                 window.dispatchEvent(new CustomEvent('tower-floor-cleared'));
             }
         }
-      } else {
-        // 受擊效果：如果沒死，讓魔物痛苦地閃爍一下
-        this.tweens.add({
-          targets: enemy.spriteText,
-          alpha: 0.2,
-          yoyo: true,
-          duration: 100
-        });
       }
-
+      this.updateEnemyRadar();
       return true;
     }
     return false;
   }
 
+  // ==========================================
+  // 🌟 敵意雷達掃描系統
+  // ==========================================
+  updateEnemyRadar() {
+    if (!this.enemies || this.isGameOverInterrupted) return;
+
+    let bossInfo = null;
+    let nearbyEnemies = []; // 🌟 改成陣列，收集所有周圍敵人
+
+    this.enemies.forEach((e, index) => {
+      const config = ENEMY_DICT && ENEMY_DICT[e.id] ? ENEMY_DICT[e.id] : null;
+      if (!config) return;
+
+      // 1. 如果這層有 Boss，直接鎖定 Boss 資訊
+      if (config.isBoss) {
+        bossInfo = {
+          name: config.name,
+          hp: e.hp,
+          maxHp: e.maxHp,
+          damage: config.damage,
+          symbol: config.symbol
+        };
+      } 
+      // 2. 尋找 3 格內的所有普通怪
+      else {
+        const dist = Math.abs(e.gx - this.playerGridX) + Math.abs(e.gy - this.playerGridY);
+        if (dist <= 3) {
+          nearbyEnemies.push({
+            uniqueId: index, // 用 index 當作穩定 key，血條動畫才不會斷
+            name: config.name,
+            hp: e.hp,
+            maxHp: e.maxHp,
+            damage: config.damage,
+            symbol: config.symbol,
+            dist: dist
+          });
+        }
+      }
+    });
+
+    // 🌟 依照距離由近到遠排序
+    nearbyEnemies.sort((a, b) => a.dist - b.dist);
+
+    // 觸發事件傳給 Vue
+    window.dispatchEvent(new CustomEvent('tower-enemy-radar', {
+      detail: { boss: bossInfo, nearby: nearbyEnemies }
+    }));
+  }
+
   async processEnemyTurns() {
     if (this.isGameOverInterrupted) return;
     console.log("👻 怪物回合開始...");
+    this.updateEnemyRadar();
     
     // 讓怪物依序行動，避免兩隻怪物走到同一個格子重疊
     for (let i = 0; i < this.enemies.length; i++) {
