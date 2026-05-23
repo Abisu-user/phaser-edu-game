@@ -57,12 +57,15 @@
     :xpReward="levelConfig?.xpReward || 100"
     :stars="hp"  
     :maxStars="levelConfig?.hearts || 3" 
+    :isPreviewMode="isPreviewMode"
+    :isLastLevel="isLastLevel"
     @next="handleNextLevel"
     @home="$emit('back')"
   />
 
   <LevelFailModal 
     v-if="showFailModal"
+    :isPreviewMode="isPreviewMode"
     @restart="handleRestart"
     @home="$emit('back')"
   />
@@ -72,17 +75,17 @@
 import { onMounted, onUnmounted, ref, watch, nextTick } from 'vue';
 import { supabase } from '../../supabase.js';
 import { BADGE_LIST } from '../../game/config/badges.js';
-import { levels as staticLevels } from '../../game/scenes/LevelConfig.js'; // 🌟 修正：補上遺漏的 Import！
+import { levels as staticLevels } from '../../game/scenes/LevelConfig.js'; 
 import Phaser from 'phaser';
 import TeachingScene from '../../game/scenes/TeachingScene.js';
 import CodeEditorPanel from './CodeEditorPanel.vue';
 import LevelWinModal from './LevelWinModal.vue';
 import LevelFailModal from './LevelFailModal.vue';
 
-// 🌟 修正：移除了衝突的 levelConfig prop，現在 GameLevel 完全靠自己抓資料
 const props = defineProps({
   courseId: { type: String, required: true },
-  levelId: { type: [String, Number], required: true }
+  levelId: { type: [String, Number], required: true },
+  isPreviewMode: { type: Boolean, default: false }
 });
 const emit = defineEmits(['back', 'next-level']);
 
@@ -90,46 +93,20 @@ const isLevelCleared = ref(false);
 const showWinModal = ref(false);
 const isExecuting = ref(false);
 const showFailModal = ref(false);
-const isLoading = ref(true); // 🌟 新增：讀取狀態控制
+const isLoading = ref(true); 
 const currentLine = ref(-1);
 const currentLevel = ref(1);
 const currentXP = ref(0);
 const xpPerLevel = ref(1000);
 const hp = ref(3);
-const today = new Date().toISOString().split('T')[0];
-const storedDaily = JSON.parse(localStorage.getItem('code_quest_daily') || '{}');
 const currentTotalXP = ref(0);
 const enterTime = ref(0);
-const levelConfig = ref({}); // 這是我們唯一使用的關卡資料狀態
+const levelConfig = ref({});
+const isLastLevel = ref(false);
 
 let game = null;
-let goalPos = null;
-let keyPos = null;
-let actualObstacles = [];
-
-if (Array.isArray(obsArray)) {
-        obsArray.forEach(item => {
-          const itemX = Number(item.x);
-          const itemY = Number(item.y);
-
-          if (item.type === 'player') {
-            if (!isNaN(itemX)) playerPos.gridX = itemX;
-            if (!isNaN(itemY)) playerPos.gridY = itemY;
-          } else if (item.type === 'enemy') {
-            if (!isNaN(itemX)) enemyPos.gridX = itemX;
-            if (!isNaN(itemY)) enemyPos.gridY = itemY;
-          } else if (item.type === 'goal') {   // 🌟 獨立抓出終點
-            if (!isNaN(itemX)) goalPos = { gridX: itemX, gridY: itemY, emoji: '🚪' };
-          } else if (item.type === 'key') {    // 🌟 獨立抓出鑰匙
-            if (!isNaN(itemX)) keyPos = { gridX: itemX, gridY: itemY, emoji: '🗝️' };
-          } else {
-            actualObstacles.push({ ...item, x: itemX, y: itemY });
-          }
-        });
-      }
 
 const executeCode = async (code, blockCount = 0) => {
-  // 🌟 修正：統一 maxBlocks 的存取路徑
   const maxBlocks = levelConfig.value?.restrictions?.maxBlocks;
   if (maxBlocks && blockCount > maxBlocks) {
     alert(`⚠️ 魔法能量不足！這關最多只能使用 ${maxBlocks} 個積木，但你使用了 ${blockCount} 個。請嘗試使用迴圈來優化！`);
@@ -147,15 +124,13 @@ const executeCode = async (code, blockCount = 0) => {
   setTimeout(async () => {
       try {
         const asyncCode = `
-          return (async () => {
-            ${code}
-            scene.checkVictory();
-            return scene.enemy.alpha === 0; 
+          return (async () => { 
+            ${code}; 
+            return scene.checkVictory(rawCode); 
           })();
         `;
-        
-        const run = new Function('scene', asyncCode);
-        const isSuccess = await run(phaserScene);
+        const run = new Function('scene', 'rawCode', asyncCode);
+        const isSuccess = await run(phaserScene, code); 
 
         if (!isSuccess) {
            hp.value = Math.max(0, hp.value - 1);
@@ -175,6 +150,54 @@ const onLevelWin = () => {
   handleWin();
 };
 
+const handleWin = () => {
+  if (props.isPreviewMode) {
+    showWinModal.value = true;
+    return; 
+  }
+  const xpReward = levelConfig.value?.xpReward || 200; 
+  currentXP.value += xpReward;
+  currentTotalXP.value += xpReward;
+
+  if (currentXP.value >= xpPerLevel.value) {
+    currentLevel.value += Math.floor(currentXP.value / xpPerLevel.value);
+    currentXP.value = currentXP.value % xpPerLevel.value;
+    localStorage.setItem('justLeveledUp', 'true'); 
+  }
+
+  showWinModal.value = true;
+
+  // 🌟 2. 背景資料庫結算 (Fire & Forget)：讓它在背後自己慢慢跑，不阻礙玩家視窗跳出
+  (async () => {
+      const leaveTime = Date.now();
+      const timeSpentSeconds = Math.floor((leaveTime - enterTime.value) / 1000);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const safeCourseId = props.courseId || 'python';
+      const levelId = levelConfig.value?.id || Number(props.levelId) || 0; 
+
+      const { data: existingProgress } = await supabase.from('user_progress').select('id').eq('user_id', user.id).eq('course_id', safeCourseId).eq('level_id', levelId).maybeSingle(); 
+
+      if (existingProgress) {
+        await supabase.from('user_progress').update({ stars: hp.value, time_spent_seconds: timeSpentSeconds }).eq('id', existingProgress.id);
+      } else {
+        await supabase.from('user_progress').insert({ user_id: user.id, course_id: safeCourseId, level_id: levelId, stars: hp.value, time_spent_seconds: timeSpentSeconds });
+      }
+
+      await supabase.from('profiles').update({ xp: currentXP.value, level: currentLevel.value, total_exp: currentTotalXP.value }).eq('id', user.id);
+        
+      const { count: clearedCount } = await supabase.from('user_progress').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
+      const currentStats = { clearedLevelsCount: clearedCount || 0, currentTotalXP: currentTotalXP.value, currentLevel: currentLevel.value };
+
+      for (const badge of BADGE_LIST) {
+        if (badge.checkUnlock(currentStats)) {
+          await supabase.from('user_achievements').upsert({ user_id: user.id, achievement_id: badge.id }, { onConflict: 'user_id, achievement_id', ignoreDuplicates: true });
+        }
+      }
+  })();
+};
+
 const handleNextLevel = () => {
   isLevelCleared.value = false;
   emit('next-level');
@@ -182,121 +205,22 @@ const handleNextLevel = () => {
 
 watch(hp, (newHp) => {
   if (newHp <= 0) {
-    setTimeout(() => {
-      showFailModal.value = true;
-    }, 500);
+    setTimeout(() => { showFailModal.value = true; }, 500);
   }
 });
 
 const handleRestart = () => {
   showFailModal.value = false;
-  
   hp.value = levelConfig.value.hearts || 3; 
-  
   enterTime.value = Date.now(); 
-
   if (game) {
     const scene = game.scene.getScene('TeachingScene');
     if (scene) scene.resetLevel();
   }
 };
 
-const clearCode = () => {
-  currentLine.value = -1;
-};
+const clearCode = () => { currentLine.value = -1; };
 
-if (storedDaily.date === today) {
-  const quests = storedDaily.quests;
-  const passTask = quests.find(q => q.id === 'pass_levels');
-  if (passTask && passTask.progress < passTask.target) passTask.progress += 1;
-  const perfectTask = quests.find(q => q.id === 'perfect_clear');
-  if (perfectTask && perfectTask.progress < perfectTask.target) perfectTask.progress += 1; 
-  localStorage.setItem('code_quest_daily', JSON.stringify({ date: today, quests }));
-}
-
-const handleWin = async () => {
-  const leaveTime = Date.now();
-  const timeSpentSeconds = Math.floor((leaveTime - enterTime.value) / 1000);
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  
-  if (authError || !user) {
-    showWinModal.value = true;
-    return;
-  }
-
-  const safeCourseId = props.courseId || 'python';
-  const levelId = levelConfig.value?.id || Number(props.levelId) || 0; 
-
-  const { data: existingProgress, error: fetchError } = await supabase
-    .from('user_progress')
-    .select('id')
-    .eq('user_id', user.id)
-    .eq('course_id', safeCourseId) // 👈 就是加了這行
-    .eq('level_id', levelId) 
-    .maybeSingle(); 
-
-  let progressError = null;
-
-  if (existingProgress) {
-    // 已經破過這關，更新星星與通關秒數
-    const { error } = await supabase.from('user_progress').update({ 
-        stars: hp.value, 
-        time_spent_seconds: timeSpentSeconds 
-      }).eq('id', existingProgress.id);
-    progressError = error;
-  } else {
-    // 第一次破關，新增一筆進度紀錄
-    const { error } = await supabase.from('user_progress').insert({ 
-        user_id: user.id, 
-        course_id: safeCourseId, 
-        level_id: levelId, 
-        stars: hp.value,
-        time_spent_seconds: timeSpentSeconds 
-      });
-    progressError = error;
-  }
-
-  if (progressError) {
-    console.error('存檔過程發生錯誤:', progressError);
-  }
-
-  const xpReward = levelConfig.value?.xpReward || 200; 
-  
-  const { data: profile } = await supabase.from('profiles').select('xp, level, total_exp').eq('id', user.id).single();
-
-  if (profile) {
-    let newXp = (profile.xp || 0) + xpReward;
-    let newLevel = profile.level || 1;
-    let newTotalXp = (profile.total_exp || 0) + xpReward; 
-
-    if (newXp >= xpPerLevel.value) {
-      newLevel += Math.floor(newXp / xpPerLevel.value);
-      newXp = newXp % xpPerLevel.value;
-      localStorage.setItem('justLeveledUp', 'true'); 
-    }
-
-    await supabase.from('profiles').update({ xp: newXp, level: newLevel, total_exp: newTotalXp }).eq('id', user.id);
-      
-    currentLevel.value = newLevel;
-    currentXP.value = newXp;
-    currentTotalXP.value = newTotalXp; 
-
-    const { count: clearedCount } = await supabase.from('user_progress').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
-    const currentStats = { clearedLevelsCount: clearedCount || 0, currentTotalXP: newTotalXp, currentLevel: newLevel };
-
-    for (const badge of BADGE_LIST) {
-      if (badge.checkUnlock(currentStats)) {
-        await supabase.from('user_achievements').upsert({
-          user_id: user.id, achievement_id: badge.id
-        }, { onConflict: 'user_id, achievement_id', ignoreDuplicates: true });
-      }
-    }
-  }
-
-  showWinModal.value = true;
-};
-
-// 🌟 修正：負責判斷去哪裡抓資料
 const loadLevelData = async () => {
   isLoading.value = true;
   if (props.courseId === 'python') {
@@ -306,67 +230,50 @@ const loadLevelData = async () => {
     const { data, error } = await supabase.from('levels').select('*').eq('level_number', Number(props.levelId)).single();
     if (!error && data) {
       
-      let gridCols = 10;
-      let gridRows = 10;
+      let gridCols = 10, gridRows = 10;
       try {
           const gs = typeof data.grid_size === 'string' ? JSON.parse(data.grid_size) : (data.grid_size || {});
           gridCols = Number(gs.cols) || 10;
           gridRows = Number(gs.rows) || 10;
-      } catch(e) { console.warn("網格大小解析失敗"); }
+      } catch(e) {}
 
-      // 給予預設值 (避免設計器沒存到時，整個遊戲當機)
       let playerPos = { gridX: 0, gridY: 0, emoji: '🧙', label: '玩家' };
       let enemyPos = { gridX: gridCols - 1, gridY: gridRows - 1, emoji: '👾', label: data.enemy_name || '怪物' };
+      let goalPos = null;
+      let keyPos = null;
       let actualObstacles = [];
 
-      // 🌟 2. 安全解析 obstacles
       let obsArray = [];
-      try {
-          obsArray = typeof data.obstacles === 'string' ? JSON.parse(data.obstacles) : (data.obstacles || []);
-      } catch(e) { console.warn("障礙物解析失敗"); }
+      try { obsArray = typeof data.obstacles === 'string' ? JSON.parse(data.obstacles) : (data.obstacles || []); } catch(e) {}
 
       if (Array.isArray(obsArray)) {
         obsArray.forEach(item => {
-          // 確保就算有意外，座標也絕對是數字
-          const itemX = Number(item.x);
-          const itemY = Number(item.y);
-
-          if (item.type === 'player') {
-            if (!isNaN(itemX)) playerPos.gridX = itemX;
-            if (!isNaN(itemY)) playerPos.gridY = itemY;
-          } else if (item.type === 'enemy') {
-            if (!isNaN(itemX)) enemyPos.gridX = itemX;
-            if (!isNaN(itemY)) enemyPos.gridY = itemY;
-          } else {
-            // 剩下的都是石頭或岩漿
-            actualObstacles.push({ ...item, x: itemX, y: itemY });
-          }
+          const itemX = Number(item.x), itemY = Number(item.y);
+          if (item.type === 'player') { playerPos.gridX = itemX; playerPos.gridY = itemY; }
+          else if (item.type === 'enemy') { enemyPos.gridX = itemX; enemyPos.gridY = itemY; }
+          else if (item.type === 'goal') { goalPos = { gridX: itemX, gridY: itemY, emoji: '🚪' }; }
+          else if (item.type === 'key') { keyPos = { gridX: itemX, gridY: itemY, emoji: '🗝️' }; }
+          else { actualObstacles.push({ ...item, x: itemX, y: itemY }); }
         });
       }
 
-      // 🌟 3. 防呆：如果你設計器其實把座標存在獨立欄位 (player_pos) 的話，優先吃這個
-      if (data.player_pos) {
-          try {
-              const pp = typeof data.player_pos === 'string' ? JSON.parse(data.player_pos) : data.player_pos;
-              if (pp.x !== undefined) playerPos.gridX = Number(pp.x);
-              if (pp.y !== undefined) playerPos.gridY = Number(pp.y);
-          } catch(e){}
-      }
-      if (data.enemy_pos) {
-          try {
-              const ep = typeof data.enemy_pos === 'string' ? JSON.parse(data.enemy_pos) : data.enemy_pos;
-              if (ep.x !== undefined) enemyPos.gridX = Number(ep.x);
-              if (ep.y !== undefined) enemyPos.gridY = Number(ep.y);
-          } catch(e){}
+      let vCond = data.victory_condition;
+      try { vCond = typeof vCond === 'string' ? JSON.parse(vCond) : vCond; } catch(e) {}
+      if (!Array.isArray(vCond)) {
+        if (vCond === 'key_and_goal') vCond = ['get_key', 'reach_goal'];
+        else if (vCond) vCond = [vCond];
+        else vCond = ['kill_enemy'];
       }
 
-      // 🌟 4. 安全解析可用指令 (Blockly 編輯器才不會壞掉)
+      let rCmd = data.required_command;
+      try { rCmd = typeof rCmd === 'string' ? JSON.parse(rCmd) : rCmd; } catch(e) {}
+      if (!Array.isArray(rCmd)) {
+        rCmd = rCmd ? [rCmd] : [];
+      }
+
       let cmds = ['moveRight', 'attack'];
-      try {
-          cmds = typeof data.available_commands === 'string' ? JSON.parse(data.available_commands) : (data.available_commands || cmds);
-      } catch(e){}
+      try { cmds = typeof data.available_commands === 'string' ? JSON.parse(data.available_commands) : (data.available_commands || cmds); } catch(e){}
 
-      // 最終拼裝
       levelConfig.value = {
         id: data.level_number,
         title: data.title,
@@ -381,11 +288,19 @@ const loadLevelData = async () => {
         restrictions: { maxBlocks: Number(data.max_blocks) || 20 }, 
         hearts: Number(data.hearts) || 3,
         xpReward: Number(data.xp_reward) || 200, 
-        victoryCondition: data.victory_condition || 'kill_enemy',
-        requiredCommand: data.required_command || '',
+        victoryCondition: vCond, 
+        requiredCommand: rCmd,   
       };
 
       hp.value = levelConfig.value.hearts;
+
+      const { data: nextLevelData } = await supabase
+        .from('levels')
+        .select('id')
+        .gt('level_number', Number(props.levelId))
+        .limit(1);
+      
+      isLastLevel.value = (!nextLevelData || nextLevelData.length === 0);
     } else {
       console.error('抓取關卡資料失敗:', error);
       alert('無法載入此關卡資料！');
@@ -398,7 +313,6 @@ onMounted(async () => {
   enterTime.value = Date.now();
   window.addEventListener('level-win', onLevelWin);
 
-  // 先拿玩家經驗值
   const { data: { user } } = await supabase.auth.getUser();
   if (user) {
     const { data: profile } = await supabase.from('profiles').select('xp, level, total_exp').eq('id', user.id).single();
@@ -409,27 +323,17 @@ onMounted(async () => {
     }
   }
   
-  // 1. 等待資料載入並結算
   await loadLevelData();
-
-  // 🛑 2. 超級關鍵魔法：強迫 Vue 等到畫布 <div id="game-container"> 真正出現後，才往下走！
   await nextTick();
 
-  // 3. 啟動 Phaser 遊戲
-  const config = {
-      type: Phaser.AUTO,
-      parent: 'game-container',
+  game = new Phaser.Game({
+      type: Phaser.AUTO, parent: 'game-container',
       scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH, width: 800, height: 800 },
       physics: { default: 'arcade', arcade: { gravity: { y: 0 } } },
-      scene: [TeachingScene],
-      backgroundColor: '#1e1e3f' 
-  };
-  game = new Phaser.Game(config);
-
-  game.events.once('ready', () => {
-      game.scene.start('TeachingScene', levelConfig.value);
+      scene: [TeachingScene], backgroundColor: '#1e1e3f' 
   });
-  
+
+  game.events.once('ready', () => game.scene.start('TeachingScene', levelConfig.value));
   setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 100);
 });
 

@@ -6,16 +6,13 @@ export default class TeachingScene extends Phaser.Scene {
     super({ key: 'TeachingScene' });
     this.cellSize = 80;
     this.levelConfig = null;
-    this.lastFacing = 'moveRight'; // 記錄玩家最後朝向，供感應器使用
-    this.isFailed = false;         // 紀錄是否已經撞牆失敗
-    this.stepCount = 0;            // 記錄目前已走步數
-    this.labelOffsetY = 28;        // 統一管理標籤偏移，不再寫死
-    this.playerData = { hasKey: false }; // 初始化玩家資料
+    this.lastFacing = 'moveRight'; 
+    this.isFailed = false;         
+    this.stepCount = 0;            
+    this.labelOffsetY = 28;        
+    this.playerData = { hasKey: false }; 
     
-    // 🌟 新增：生命值相關變數
-    this.maxHearts = 3;
-    this.currentHearts = 3;
-    this.heartsUI = []; 
+    this.usedCommands = new Set();
   }
 
   init(data) {
@@ -32,7 +29,6 @@ export default class TeachingScene extends Phaser.Scene {
 
     const cfg = this.levelConfig;
 
-    // 1. 動態計算網格與格子大小
     const cols = cfg.grid_size?.cols || 10;
     const rows = cfg.grid_size?.rows || 10;
     const maxGrid = Math.max(cols, rows);
@@ -41,23 +37,13 @@ export default class TeachingScene extends Phaser.Scene {
     const mapWidth  = cols * this.cellSize;
     const mapHeight = rows * this.cellSize;
 
-    // 2. 根據格子大小動態縮放 Emoji 與文字比例
     const emojiFontSize = Math.floor(this.cellSize * 0.7) + 'px';
     const labelFontSize = Math.max(10, Math.floor(this.cellSize * 0.22)) + 'px';
-
     this.labelOffsetY = this.cellSize * 0.35;
 
-    const emojiStyle = {
-      fontSize: emojiFontSize,
-      fontFamily: '"Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif'
-    };
-    const labelStyle = {
-      fontSize: labelFontSize,
-      fill: '#f0f0f0',
-      fontFamily: 'sans-serif'
-    };
+    const emojiStyle = { fontSize: emojiFontSize, fontFamily: '"Segoe UI Emoji", "Apple Color Emoji", sans-serif' };
+    const labelStyle = { fontSize: labelFontSize, fill: '#f0f0f0', fontFamily: 'sans-serif' };
 
-    // --- 畫網格 ---
     const graphics = this.add.graphics();
     graphics.lineStyle(2, 0x00d4aa, 0.2);
     for (let i = 0; i <= mapWidth; i += this.cellSize) {
@@ -68,7 +54,6 @@ export default class TeachingScene extends Phaser.Scene {
     }
     graphics.strokePath();
 
-    // --- 繪製障礙物 ---
     if (cfg.obstacles) {
       cfg.obstacles.forEach(obs => {
         const icon = obs.type === 'lava' ? '🔥' : (obs.type === 'wall' ? '🧱' : '🪨');
@@ -78,63 +63,59 @@ export default class TeachingScene extends Phaser.Scene {
       });
     }
 
-    // --- 設定玩家 ---
+    if (cfg.key) {
+      this.keyGridX = cfg.key.gridX;
+      this.keyGridY = cfg.key.gridY;
+      const kx = this.keyGridX * this.cellSize + this.cellSize / 2;
+      const ky = this.keyGridY * this.cellSize + this.cellSize / 2;
+      this.keyIcon = this.add.text(kx, ky, cfg.key.emoji, emojiStyle).setOrigin(0.5);
+    }
+
+    if (cfg.goal) {
+      this.goalGridX = cfg.goal.gridX;
+      this.goalGridY = cfg.goal.gridY;
+      const gx = this.goalGridX * this.cellSize + this.cellSize / 2;
+      const gy = this.goalGridY * this.cellSize + this.cellSize / 2;
+      this.goalIcon = this.add.text(gx, gy, cfg.goal.emoji, emojiStyle).setOrigin(0.5);
+    }
+
     this.playerGridX = cfg.player.gridX;
     this.playerGridY = cfg.player.gridY;
     this.startX = this.playerGridX * this.cellSize + this.cellSize / 2;
     this.startY = this.playerGridY * this.cellSize + this.cellSize / 2;
 
-    this.player = this.add.text(this.startX, this.startY, cfg.player.emoji, emojiStyle).setOrigin(0.5);
-    this.playerLabel = this.add.text(
-      this.startX, this.startY + this.labelOffsetY, cfg.player.label, labelStyle
-    ).setOrigin(0.5);
-    this.player.setDepth(10);
-    this.playerLabel.setDepth(10);
+    this.player = this.add.text(this.startX, this.startY, cfg.player.emoji, emojiStyle).setOrigin(0.5).setDepth(10);
+    this.playerLabel = this.add.text(this.startX, this.startY + this.labelOffsetY, cfg.player.label, labelStyle).setOrigin(0.5).setDepth(10);
 
-    // --- 設定敵人 ---
     this.enemyGridX = cfg.enemy.gridX;
     this.enemyGridY = cfg.enemy.gridY;
     this.enemyX = this.enemyGridX * this.cellSize + this.cellSize / 2;
     this.enemyY = this.enemyGridY * this.cellSize + this.cellSize / 2;
 
     this.enemy = this.add.text(this.enemyX, this.enemyY, cfg.enemy.emoji, emojiStyle).setOrigin(0.5);
-    this.enemyLabel = this.add.text(
-      this.enemyX, this.enemyY + this.labelOffsetY,
-      cfg.enemy.label,
-      { ...labelStyle, fill: '#ff6b6b' }
-    ).setOrigin(0.5);
+    this.enemyLabel = this.add.text(this.enemyX, this.enemyY + this.labelOffsetY, cfg.enemy.label, { ...labelStyle, fill: '#ff6b6b' }).setOrigin(0.5);
 
-    // --- 訊息框 ---
-    const msgY = mapHeight + 40;
-    this.messageBox = this.add.text(mapWidth / 2, msgY, '', {
-      fontSize: '18px',
-      fill: '#fff',
-      backgroundColor: 'rgba(20, 20, 40, 0.95)',
-      padding: { x: 16, y: 10 },
-      stroke: '#ff6b6b',
-      strokeThickness: 2,
-      wordWrap: { width: mapWidth - 40 }
-    }).setOrigin(0.5).setVisible(false);
-    this.messageBox.setDepth(20);
-
+    // 🌟 修正：將訊息框放在正中央 (400, 400)，並將層級 Depth 設為超高，確保不會被遮擋！
+    this.messageBox = this.add.text(400, 400, '', {
+      fontSize: '22px', fill: '#ffffff', backgroundColor: '#1a1a2e',
+      padding: { x: 30, y: 20 }, stroke: '#ff6b6b', strokeThickness: 3, wordWrap: { width: 600 }, align: 'center',
+      shadow: { offsetX: 0, offsetY: 5, color: '#000000', blur: 10, fill: true }
+    }).setOrigin(0.5).setVisible(false).setDepth(1000);
   }
 
-  // ==========================================
-  // 重置關卡
-  // ==========================================
   resetLevel() {
     this.tweens.killAll();
     this.time.removeAllEvents();
+    
+    this.playerData.hasKey = false;
+    this.usedCommands.clear(); 
+    if (this.keyIcon) this.keyIcon.setAlpha(1); 
 
     this.playerGridX = this.levelConfig.player.gridX;
     this.playerGridY = this.levelConfig.player.gridY;
     this.lastFacing = 'moveRight';
     this.isFailed = false;
-    this.stepCount = 0;
-
-    // 🌟 恢復生命值 UI
-    this.currentHearts = this.maxHearts;
-    this.heartsUI.forEach(heart => heart.setAlpha(1)); // 把變半透明的愛心恢復
+    this.stepCount = 0; 
 
     if (this.player) {
       this.player.setPosition(this.startX, this.startY);
@@ -152,10 +133,6 @@ export default class TeachingScene extends Phaser.Scene {
       this.enemyLabel.setPosition(this.enemyX, this.enemyY + this.labelOffsetY);
     }
   }
-
-  // ==========================================
-  // 遊戲核心邏輯
-  // ==========================================
 
   isObstacle(x, y) {
     if (!this.levelConfig?.obstacles) return false;
@@ -179,39 +156,23 @@ export default class TeachingScene extends Phaser.Scene {
 
   checkEnemyNear() {
     if (!this.enemy || this.enemy.alpha === 0) return false; 
-    const dist = Math.abs(this.playerGridX - this.enemyGridX)
-               + Math.abs(this.playerGridY - this.enemyGridY);
+    const dist = Math.abs(this.playerGridX - this.enemyGridX) + Math.abs(this.playerGridY - this.enemyGridY);
     return dist <= 1;
   }
 
   _checkMaxSteps() {
     const maxSteps = this.levelConfig?.restrictions?.maxSteps;
     if (maxSteps && this.stepCount > maxSteps) {
-      const msg = this.levelConfig.failMessages?.maxStepsExceeded
-        || `👣 步數超過 ${maxSteps} 步！請找出更短的路線。`;
-      this.showResult(false, msg);
+      this.showResult(false, this.levelConfig.failMessages?.maxStepsExceeded || `👣 步數超過 ${maxSteps} 步！請找出更短的路線。`);
       this.isFailed = true;
       return true;
     }
     return false;
   }
 
-  // 🌟 新增：扣血邏輯
-  takeDamage() {
-    if (this.currentHearts > 0) {
-      this.currentHearts--;
-      // 將最後一顆心變為半透明 (或者你可以換成 🖤 emoji)
-      this.heartsUI[this.currentHearts].setAlpha(0.2); 
-    }
-    
-    // 檢查是否死亡
-    if (this.currentHearts <= 0) {
-      this.isFailed = true;
-    }
-  }
-
   async addCommand(action) {
-    if (this.isFailed || !this.player || this.enemy.alpha === 0) return;
+    this.usedCommands.add(action);
+    if (this.isFailed || !this.player) return;
 
     const forbidden = this.levelConfig?.restrictions?.forbidden || [];
     if (forbidden.includes(action)) {
@@ -225,7 +186,6 @@ export default class TeachingScene extends Phaser.Scene {
       const cols = this.levelConfig?.grid_size?.cols || 10;
       const rows = this.levelConfig?.grid_size?.rows || 10;
 
-      // --- 移動類 ---
       if (['moveRight', 'moveLeft', 'moveUp', 'moveDown', 'dash'].includes(action)) {
         if (action !== 'dash') this.lastFacing = action;
 
@@ -242,35 +202,26 @@ export default class TeachingScene extends Phaser.Scene {
           const midX = this.playerGridX + dx / 2;
           const midY = this.playerGridY + dy / 2;
           if (this.isObstacle(midX, midY)) {
-            // 🌟 衝刺撞牆：扣血並判斷是否死亡
-            this.takeDamage();
-            if (this.isFailed) {
-               this.showResult(false, '💥 衝刺途中撞到障礙物！生命值歸零。');
-            } else {
-               // 這裡可以選擇不直接失敗，而是回到原地或中斷這個指令
-               this.showResult(false, `💥 撞到了！剩餘生命: ${this.currentHearts}`);
-            }
-            resolve();
-            return;
+            this.showResult(false, '💥 衝刺途中撞到障礙物！');
+            this.isFailed = true;
+            resolve(); return;
           }
         }
 
         if (nextX < 0 || nextX >= cols || nextY < 0 || nextY >= rows || this.isObstacle(nextX, nextY)) {
-          // 🌟 一般移動撞牆：扣血並判斷是否死亡
-          this.takeDamage();
-          if (this.isFailed) {
-            const msg = this.levelConfig.failMessages?.hitObstacle || '💥 碰！撞到障礙物，生命值歸零！';
-            this.showResult(false, msg);
-          } else {
-            this.showResult(false, `💥 碰！剩餘生命: ${this.currentHearts}`);
-          }
-          resolve();
-          return;
+          this.showResult(false, this.levelConfig.failMessages?.hitObstacle || '💥 碰！撞到障礙物或牆壁了！');
+          this.isFailed = true;
+          resolve(); return;
         }
 
         this.playerGridX = nextX;
         this.playerGridY = nextY;
         this.stepCount++; 
+
+        if (this.keyIcon && this.keyIcon.alpha > 0 && this.playerGridX === this.keyGridX && this.playerGridY === this.keyGridY) {
+          this.playerData.hasKey = true;
+          this.keyIcon.setAlpha(0); 
+        }
 
         if (this._checkMaxSteps()) { resolve(); return; }
 
@@ -280,19 +231,13 @@ export default class TeachingScene extends Phaser.Scene {
 
         this.tweens.add({ targets: this.player, x: targetX, y: targetY, duration, ease: 'Power2' });
         this.tweens.add({
-          targets: this.playerLabel,
-          x: targetX,
-          y: targetY + this.labelOffsetY,
-          duration,
-          ease: 'Power2',
+          targets: this.playerLabel, x: targetX, y: targetY + this.labelOffsetY, duration, ease: 'Power2',
           onComplete: () => this.time.delayedCall(50, () => resolve())
         });
       }
-      // --- 近戰攻擊 ---
       else if (action === 'attack') {
-        const distance = Math.abs(this.playerGridX - this.enemyGridX)
-                       + Math.abs(this.playerGridY - this.enemyGridY);
-        if (distance <= 1) {
+        const distance = Math.abs(this.playerGridX - this.enemyGridX) + Math.abs(this.playerGridY - this.enemyGridY);
+        if (distance <= 1 && this.enemy.alpha > 0) {
           const slash = this.add.text(this.enemy.x, this.enemy.y, '⚔️', { fontSize: '64px' }).setOrigin(0.5);
           this.tweens.add({
             targets: slash, scale: 1.5, alpha: 0, duration: 200,
@@ -300,8 +245,7 @@ export default class TeachingScene extends Phaser.Scene {
               slash.destroy();
               this.enemy.setTint(0xff0000);
               this.tweens.add({
-                targets: [this.enemy, this.enemyLabel],
-                x: '+=8', yoyo: true, for: 2, duration: 50,
+                targets: [this.enemy, this.enemyLabel], x: '+=8', yoyo: true, for: 2, duration: 50,
                 onComplete: () => {
                   this.enemy.setAlpha(0);
                   this.enemyLabel.setAlpha(0);
@@ -311,18 +255,14 @@ export default class TeachingScene extends Phaser.Scene {
             }
           });
         } else {
-          const msg = this.levelConfig.failMessages?.tooFar || '❌ 攻擊失敗！距離太遠了。';
-          this.showResult(false, msg);
-          // 這裡可以決定揮空要不要扣血，目前維持原本邏輯：直接失敗
+          this.showResult(false, this.levelConfig.failMessages?.tooFar || '❌ 攻擊失敗！距離太遠或目標不存在。');
           this.isFailed = true; 
           resolve();
         }
       }
-      // --- 等待 ---
       else if (action === 'wait') {
         this.time.delayedCall(300, () => resolve());
       }
-      // --- 特效類 ---
       else if (['heal', 'magic', 'shoot', 'bomb', 'take', 'open'].includes(action)) {
         const iconMap = { heal: '💖', magic: '🔥', shoot: '🏹', bomb: '💣', take: '🤏', open: '🚪' };
         const icon = iconMap[action] || '✨';
@@ -339,50 +279,92 @@ export default class TeachingScene extends Phaser.Scene {
     });
   }
 
-  checkVictory() {
-    if (this.isFailed) return;
+  // ==========================================
+  // 🌟 智慧勝利判定
+  // ==========================================
+  checkVictory(rawCode = '') {
+    if (this.isFailed) return false;
 
-    const isSuccess = (this.enemy.alpha === 0);
-    const msg = isSuccess
-      ? (this.levelConfig?.successMessage || '✨ 任務完成！')
-      : '❌ 喔不，怪物還活著！請確認是否走到怪物旁邊並使用 attack()。';
+    let isSuccess = true;
+    let failMsgs = []; 
 
-    this.showResult(isSuccess, msg);
+    let vcs = this.levelConfig?.victoryCondition || ['kill_enemy'];
+    if (typeof vcs === 'string') { try { vcs = JSON.parse(vcs); } catch(e){} }
+    if (!Array.isArray(vcs)) {
+      if (vcs === 'key_and_goal') vcs = ['get_key', 'reach_goal'];
+      else vcs = [vcs];
+    }
 
-    if (isSuccess) {
+    let reqCmds = this.levelConfig?.requiredCommand || [];
+    if (typeof reqCmds === 'string') { try { reqCmds = JSON.parse(reqCmds); } catch(e){} }
+    if (!Array.isArray(reqCmds)) reqCmds = [reqCmds];
+
+    if (vcs.includes('kill_enemy')) {
+      if (this.enemy && this.enemy.alpha > 0) { isSuccess = false; failMsgs.push('怪物還活著 (需進行攻擊)'); }
+    }
+    if (vcs.includes('reach_goal')) {
+      if (!this.checkIsOnGoal()) { isSuccess = false; failMsgs.push('未抵達終點之門'); }
+    }
+    if (vcs.includes('get_key')) {
+      if (!this.playerData.hasKey) { isSuccess = false; failMsgs.push('必須取得地圖上的鑰匙'); }
+    }
+
+    if (reqCmds.length > 0) {
+      // 🌟 給予好讀的中文提示
+      const cmdLabels = { 'for': '迴圈 (for)', 'while': '條件迴圈 (while)', 'if': '判斷式 (if)' };
+      reqCmds.forEach(cmd => {
+        if (!cmd || cmd.trim() === '') return;
+        const codeHasCommand = rawCode.includes(cmd) || this.usedCommands.has(cmd);
+        if (!codeHasCommand) {
+          isSuccess = false;
+          failMsgs.push(`未使用「${cmdLabels[cmd] || cmd}」相關積木`);
+        }
+      });
+    }
+
+    if (!isSuccess) {
+      this.isFailed = true; 
+      const errorText = '❌ 任務未達成：\n' + failMsgs.map(m => ' 🔸 ' + m).join('\n');
+      this.showResult(false, errorText);
+      return false; 
+    } else {
+      this.showResult(true, this.levelConfig?.successMessage || '✨ 所有條件達成，任務完成！');
       window.dispatchEvent(new Event('level-win'));
+      return true; 
     }
   }
 
   showResult(isSuccess, text) {
     if (!this.messageBox) return;
     this.messageBox.setText(text);
-    this.messageBox.setStyle({ stroke: isSuccess ? '#00d4aa' : '#ff6b6b' });
+    
+    // 🌟 改變背景色與邊框來增強警示效果
+    this.messageBox.setStyle({ 
+      stroke: isSuccess ? '#00d4aa' : '#ff6b6b',
+      backgroundColor: isSuccess ? 'rgba(0, 50, 30, 0.95)' : 'rgba(50, 10, 20, 0.95)'
+    });
     this.messageBox.setVisible(true);
+
+    // 🌟 彈跳動畫，保證玩家一定會看到
+    this.messageBox.setScale(0.8);
+    this.tweens.add({
+      targets: this.messageBox,
+      scale: 1,
+      duration: 300,
+      ease: 'Back.out'
+    });
   }
 
   async checkSensor(sensorId) {
     await new Promise(resolve => this.time.delayedCall(200, resolve));
-
     switch (sensorId) {
       case 'isWall':
-      case 'isObstacleAhead':
-        return this.checkObstacleAhead();
-
+      case 'isObstacleAhead': return this.checkObstacleAhead();
       case 'isEnemy':
-      case 'isEnemyNear':
-        return this.checkEnemyNear();
-
-      case 'isGoal':
-        return this.checkIsOnGoal();
-
-      case 'hasKey':
-        return !!this.playerData?.hasKey;
-
-      case 'lowHp':
-        // 🌟 更新 lowHp 的判斷邏輯，改為目前的生命值判斷
-        return this.currentHearts <= 1;
-
+      case 'isEnemyNear':     return this.checkEnemyNear();
+      case 'isGoal':          return this.checkIsOnGoal();
+      case 'hasKey':          return !!this.playerData?.hasKey;
+      case 'lowHp':           return false; 
       default:
         console.warn('未知的感知指令:', sensorId);
         return false;
@@ -390,8 +372,7 @@ export default class TeachingScene extends Phaser.Scene {
   }
 
   checkIsOnGoal() {
-    const goal = this.levelConfig?.goalPosition;
-    if (!goal) return false;
-    return this.playerGridX === goal.x && this.playerGridY === goal.y;
+    if (!this.goalGridX && this.goalGridX !== 0) return false;
+    return this.playerGridX === this.goalGridX && this.playerGridY === this.goalGridY;
   }
 }

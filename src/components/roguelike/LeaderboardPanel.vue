@@ -202,7 +202,7 @@ const fetchData = async () => {
     if (profilesRes.data) rawProfiles.value = profilesRes.data;
     if (towerRes.data) rawTowerData.value = towerRes.data;
 
-    applySorting(); // 抓完資料後，根據當前 Tab 進行排序
+    applySorting(); 
   } catch (err) {
     console.error('資料庫同步失敗:', err);
   } finally {
@@ -214,10 +214,27 @@ const fetchData = async () => {
 const applySorting = () => {
   // 1. 先把高塔資料合併進 profiles 裡面
   let mergedData = rawProfiles.value.map(profile => {
-    const towerRecord = rawTowerData.value.find(t => t.user_id === profile.id);
+    
+    // 💡 修正：抓出該玩家「所有」的高塔紀錄，而不是只抓第一筆
+    const userRecords = rawTowerData.value.filter(t => t.user_id === profile.id);
+    
+    let maxFloor = null;
+    
+    if (userRecords.length > 0) {
+      // 濾掉 null 或是 undefined 的無效資料，並轉為數字
+      const validFloors = userRecords
+        .filter(t => t.best_floor !== null && t.best_floor !== undefined)
+        .map(t => Number(t.best_floor));
+        
+      // 如果該玩家有有效的樓層紀錄，取最大值！
+      if (validFloors.length > 0) {
+        maxFloor = Math.max(...validFloors);
+      }
+    }
+
     return {
       ...profile,
-      best_floor: towerRecord ? towerRecord.best_floor : null // 找不到高塔紀錄就是 null
+      best_floor: maxFloor // 現在這裡絕對會是該玩家歷史最高的樓層
     };
   });
 
@@ -250,7 +267,7 @@ const applySorting = () => {
 
 const switchTab = (tab) => {
   activeTab.value = tab;
-  applySorting(); // 切換分頁不用重新 fetch，直接重新排序就好，極致順暢！
+  applySorting(); 
 };
 
 onMounted(() => {

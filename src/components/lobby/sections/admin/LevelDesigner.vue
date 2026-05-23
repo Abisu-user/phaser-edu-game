@@ -26,7 +26,7 @@
           👁️ 預覽試玩
         </button>
 
-        <button @click="saveLevel" :disabled="loading" class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 px-6 py-2 rounded-lg font-bold transition-all disabled:opacity-50 shadow-[0_0_15px_rgba(79,70,229,0.4)]">
+        <button @click="saveLevel()" :disabled="loading" class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 px-6 py-2 rounded-lg font-bold transition-all disabled:opacity-50 shadow-[0_0_15px_rgba(79,70,229,0.4)]">
           {{ loading ? '處理中...' : '💾 發布 / 儲存' }}
         </button>
       </div>
@@ -34,80 +34,120 @@
 
     <div class="flex-1 overflow-hidden flex flex-col lg:flex-row-reverse">
       
-      <aside class="w-full lg:w-80 border-l border-indigo-900/40 bg-[#171527] overflow-y-auto custom-scrollbar flex flex-col">
+      <aside class="w-full lg:w-[340px] shrink-0 border-l border-indigo-900/40 bg-[#171527] overflow-y-auto custom-scrollbar flex flex-col">
         <div class="p-5 space-y-6">
           
           <section>
             <h3 class="text-sm font-bold text-indigo-300 mb-4 flex items-center gap-2 uppercase tracking-wider">
-              <span class="w-1.5 h-1.5 rounded-full bg-indigo-400"></span> 基本資訊
+              <span class="w-1.5 h-1.5 rounded-full bg-indigo-400"></span> 基礎設定
             </h3>
             <div class="space-y-4">
-              <div>
-                <label class="block text-xs text-gray-400 mb-1.5">關卡編號 (Level Number)</label>
-                <input v-model.number="form.level_number" type="number" placeholder="例如: 1" class="w-full bg-[#0a0914] border border-indigo-900/50 rounded-lg p-2.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition" />
+              
+              <div class="flex gap-3">
+                <div class="w-20 shrink-0">
+                  <label class="block text-xs text-gray-400 mb-1.5">編號</label>
+                  <input v-model.number="form.level_number" type="number" placeholder="1" class="w-full bg-[#0a0914] border border-indigo-900/50 rounded-lg p-2.5 text-sm text-center focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition" />
+                </div>
+                <div class="flex-1">
+                  <label class="block text-xs text-gray-400 mb-1.5">關卡標題</label>
+                  <input v-model="form.title" type="text" placeholder="例如: 窄門試煉" class="w-full bg-[#0a0914] border border-indigo-900/50 rounded-lg p-2.5 text-sm focus:border-indigo-500 outline-none transition" />
+                </div>
               </div>
+              
               <div>
-                <label class="block text-xs text-gray-400 mb-1.5">關卡標題 (Title)</label>
-                <input v-model="form.title" type="text" placeholder="例如: 窄門試煉" class="w-full bg-[#0a0914] border border-indigo-900/50 rounded-lg p-2.5 text-sm focus:border-indigo-500 outline-none transition" />
-              </div>
-              <div>
-                <label class="block text-xs text-gray-400 mb-1.5">任務描述 (Description)</label>
+                <label class="block text-xs text-gray-400 mb-1.5">任務描述</label>
                 <textarea v-model="form.description" rows="2" placeholder="敘述通關目標..." class="w-full bg-[#0a0914] border border-indigo-900/50 rounded-lg p-2.5 text-sm focus:border-indigo-500 outline-none transition resize-none"></textarea>
               </div>
-              <div>
-                <label class="block text-xs text-gray-400 mb-1.5">🏆 過關條件</label>
-                <select v-model="form.victory_condition" class="w-full bg-[#0a0914] border border-indigo-900/50 rounded-lg p-2.5 text-sm focus:border-indigo-500 outline-none">
-                  <option value="kill_enemy">⚔️ 必須擊殺怪物</option>
-                  <option value="reach_goal">🚪 抵達終點之門</option>
-                  <option value="key_and_goal">🗝️ 取得鑰匙並抵達終點</option>
-                </select>
-              </div>
+
               <div class="flex gap-3">
                 <div class="flex-1">
-                  <label class="block text-xs text-gray-400 mb-1.5">怪物名稱 (Enemy)</label>
+                  <label class="block text-xs text-gray-400 mb-1.5">怪物名稱</label>
                   <input v-model="form.enemy_name" type="text" placeholder="史萊姆" class="w-full bg-[#0a0914] border border-indigo-900/50 rounded-lg p-2.5 text-sm focus:border-indigo-500 outline-none transition" />
                 </div>
-                <div class="w-24 shrink-0">
-                  <label class="block text-xs text-gray-400 mb-1.5">生命值 ❤️</label>
+                <div class="w-20 shrink-0">
+                  <label class="block text-xs text-gray-400 mb-1.5">次數 ❤️</label>
                   <input v-model.number="form.hearts" type="number" min="1" max="10" placeholder="3" class="w-full bg-[#0a0914] border border-indigo-900/50 rounded-lg p-2.5 text-sm text-center text-rose-400 font-bold focus:border-indigo-500 outline-none transition" />
                 </div>
-                <div class="flex-1">
-                  <label class="block text-xs text-gray-400 mb-1.5">🎓 必須包含指令 (選填)</label>
-                  <select v-model="form.required_command" class="w-full bg-[#0a0914] border border-indigo-900/50 rounded-lg p-2.5 text-sm focus:border-indigo-500 outline-none">
-                    <option value="">無限制</option>
-                    <option value="for">🔄 迴圈 (for)</option>
-                    <option value="if">🤔 判斷式 (if)</option>
-                    <option value="while">🔁 條件迴圈 (while)</option>
-                  </select>
-                </div>
-                <div class="w-24 shrink-0">
-                  <label class="block text-xs text-gray-400 mb-1.5">⚡ 經驗值</label>
-                  <input v-model.number="form.xp_reward" type="number" min="10" step="10" placeholder="200" class="w-full bg-[#0a0914] border border-indigo-900/50 rounded-lg p-2.5 text-sm text-center text-[#ffbb33] font-bold focus:border-indigo-500 outline-none" />
-                </div>
               </div>
+
             </div>
-            
           </section>
 
           <hr class="border-indigo-900/30">
 
           <section>
             <h3 class="text-sm font-bold text-indigo-300 mb-4 flex items-center gap-2 uppercase tracking-wider">
-              <span class="w-1.5 h-1.5 rounded-full bg-indigo-400"></span> 限制與環境
+              <span class="w-1.5 h-1.5 rounded-full bg-indigo-400"></span> 條件與獎勵
             </h3>
             <div class="space-y-4">
+              
               <div>
-                <label class="block text-xs text-gray-400 mb-1.5">網格尺寸 (欄 x 列)</label>
-                <div class="flex gap-2">
-                  <input v-model.number="form.grid_size.cols" type="number" min="5" max="20" class="w-1/2 bg-[#0a0914] border border-indigo-900/50 rounded-lg p-2.5 text-sm text-center focus:border-indigo-500 outline-none" />
-                  <span class="text-gray-500 self-center">x</span>
-                  <input v-model.number="form.grid_size.rows" type="number" min="5" max="20" class="w-1/2 bg-[#0a0914] border border-indigo-900/50 rounded-lg p-2.5 text-sm text-center focus:border-indigo-500 outline-none" />
+                <label class="block text-xs text-gray-400 mb-2">🏆 過關條件 (可複選)</label>
+                <div class="space-y-2 bg-[#0a0914] border border-indigo-900/50 rounded-lg p-3">
+                  <label class="flex items-center gap-2 cursor-pointer hover:text-indigo-300 transition">
+                    <input type="checkbox" value="kill_enemy" v-model="form.victory_condition" class="accent-indigo-500 w-4 h-4">
+                    <span class="text-sm font-bold">⚔️ 必須擊殺怪物</span>
+                  </label>
+                  <label class="flex items-center gap-2 cursor-pointer hover:text-indigo-300 transition">
+                    <input type="checkbox" value="reach_goal" v-model="form.victory_condition" class="accent-indigo-500 w-4 h-4">
+                    <span class="text-sm font-bold">🚪 抵達終點之門</span>
+                  </label>
+                  <label class="flex items-center gap-2 cursor-pointer hover:text-indigo-300 transition">
+                    <input type="checkbox" value="get_key" v-model="form.victory_condition" class="accent-indigo-500 w-4 h-4">
+                    <span class="text-sm font-bold">🗝️ 必須取得鑰匙</span>
+                  </label>
                 </div>
               </div>
+
               <div>
-                <label class="block text-xs text-gray-400 mb-1.5">積木數量限制 (Max Blocks)</label>
-                <input v-model.number="form.max_blocks" type="number" placeholder="預設 20" class="w-full bg-[#0a0914] border border-indigo-900/50 rounded-lg p-2.5 text-sm focus:border-indigo-500 outline-none" />
+                <label class="block text-xs text-gray-400 mb-2">🎓 強制包含指令 (可複選)</label>
+                <div class="grid grid-cols-2 gap-2 bg-[#0a0914] border border-indigo-900/50 rounded-lg p-3">
+                  <label class="flex items-center gap-2 cursor-pointer hover:text-indigo-300 transition">
+                    <input type="checkbox" value="for" v-model="form.required_command" class="accent-indigo-500 w-4 h-4">
+                    <span class="text-sm font-bold">🔄 迴圈 (for)</span>
+                  </label>
+                  <label class="flex items-center gap-2 cursor-pointer hover:text-indigo-300 transition">
+                    <input type="checkbox" value="while" v-model="form.required_command" class="accent-indigo-500 w-4 h-4">
+                    <span class="text-sm font-bold">🔁 條件 (while)</span>
+                  </label>
+                  <label class="flex items-center gap-2 cursor-pointer hover:text-indigo-300 transition">
+                    <input type="checkbox" value="if" v-model="form.required_command" class="accent-indigo-500 w-4 h-4">
+                    <span class="text-sm font-bold">🤔 判斷 (if)</span>
+                  </label>
+                </div>
               </div>
+
+              <div>
+                <label class="block text-xs text-gray-400 mb-1.5">⚡ 經驗值</label>
+                <input v-model.number="form.xp_reward" type="number" min="10" step="10" placeholder="200" class="w-full bg-[#0a0914] border border-indigo-900/50 rounded-lg p-2.5 text-sm text-[#ffbb33] font-bold focus:border-indigo-500 outline-none" />
+              </div>
+
+            </div>
+          </section>
+
+          <hr class="border-indigo-900/30">
+
+          <section>
+            <h3 class="text-sm font-bold text-indigo-300 mb-4 flex items-center gap-2 uppercase tracking-wider">
+              <span class="w-1.5 h-1.5 rounded-full bg-indigo-400"></span> 環境與限制
+            </h3>
+            <div class="space-y-4">
+              
+              <div class="flex gap-3">
+                <div class="flex-1">
+                  <label class="block text-xs text-gray-400 mb-1.5">網格 (欄 x 列)</label>
+                  <div class="flex gap-2">
+                    <input v-model.number="form.grid_size.cols" type="number" min="5" max="20" class="w-1/2 bg-[#0a0914] border border-indigo-900/50 rounded-lg p-2.5 text-sm text-center focus:border-indigo-500 outline-none" />
+                    <span class="text-gray-500 self-center">x</span>
+                    <input v-model.number="form.grid_size.rows" type="number" min="5" max="20" class="w-1/2 bg-[#0a0914] border border-indigo-900/50 rounded-lg p-2.5 text-sm text-center focus:border-indigo-500 outline-none" />
+                  </div>
+                </div>
+                <div class="w-[88px] shrink-0">
+                  <label class="block text-xs text-gray-400 mb-1.5">積木上限</label>
+                  <input v-model.number="form.max_blocks" type="number" placeholder="20" class="w-full bg-[#0a0914] border border-indigo-900/50 rounded-lg p-2.5 text-sm text-center focus:border-indigo-500 outline-none" />
+                </div>
+              </div>
+
             </div>
           </section>
 
@@ -247,6 +287,18 @@
   </div>
 </template>
 
+<style scoped>
+.custom-scrollbar::-webkit-scrollbar { width: 6px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #333355; border-radius: 4px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #4f46e5; }
+@keyframes pop {
+  0% { transform: scale(0.8); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-pop { animation: pop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+</style>
+
 <script setup>
 import { ref, computed } from 'vue';
 import { supabase } from '../../../../supabase'; 
@@ -260,9 +312,10 @@ const isDrawing = ref(false);
 const showLoadModal = ref(false);
 const savedLevels = ref([]);
 const isFetchingLevels = ref(false);
-const isModifying = ref(false); // 🌟 新增：控制刪除/排序時的讀取狀態
+const isModifying = ref(false); 
 
 const form = ref({
+  id: null,
   level_number: 1,
   title: '',
   description: '',
@@ -270,10 +323,11 @@ const form = ref({
   hearts: 3,
   max_blocks: 20,
   xp_reward: 200,              
-  victory_condition: 'kill_enemy', 
-  required_command: '',           
+  // 🌟 將兩者初始化為「陣列」
+  victory_condition: ['kill_enemy'], 
+  required_command: [],           
   grid_size: { cols: 10, rows: 10 },
-  available_commands: ['moveUp', 'moveDown', 'moveLeft', 'moveRight', 'attack']
+  available_commands: ['moveUp', 'moveDown', 'moveLeft', 'moveRight', 'attack'],
 });
 
 const gridMap = ref({});
@@ -309,8 +363,8 @@ const groupedCommands = computed(() => {
 const brushes = [
   { id: 'player', name: '玩家', icon: '🧙', activeClass: 'bg-indigo-600 text-white shadow-[0_0_15px_rgba(79,70,229,0.5)]', unique: true },
   { id: 'enemy', name: '怪物', icon: '👾', activeClass: 'bg-rose-600 text-white shadow-[0_0_15px_rgba(225,29,72,0.5)]', unique: true },
-  { id: 'goal', name: '終點', icon: '🚪', activeClass: 'bg-emerald-600 text-white shadow-[0_0_15px_rgba(5,150,105,0.5)]', unique: true }, // 新增
-  { id: 'key', name: '鑰匙', icon: '🗝️', activeClass: 'bg-amber-500 text-white shadow-[0_0_15px_rgba(245,158,11,0.5)]', unique: true }, // 新增
+  { id: 'goal', name: '終點', icon: '🚪', activeClass: 'bg-emerald-600 text-white shadow-[0_0_15px_rgba(5,150,105,0.5)]', unique: true }, 
+  { id: 'key', name: '鑰匙', icon: '🗝️', activeClass: 'bg-amber-500 text-white shadow-[0_0_15px_rgba(245,158,11,0.5)]', unique: true }, 
   { id: 'rock', name: '石頭', icon: '🪨', activeClass: 'bg-slate-600 text-white shadow-[0_0_15px_rgba(71,85,105,0.5)]', unique: false },
   { id: 'lava', name: '岩漿', icon: '🔥', activeClass: 'bg-orange-600 text-white shadow-[0_0_15px_rgba(234,88,12,0.5)]', unique: false },
   { id: 'empty', name: '橡皮擦', icon: '🧹', activeClass: 'bg-gray-800 text-white border border-gray-600', unique: false }
@@ -370,7 +424,7 @@ const openLoadModal = async () => {
 };
 
 const loadLevel = async (lvlInfo) => {
-  try {
+  try { 
     const { data, error } = await supabase
       .from('levels')
       .select('*')
@@ -379,18 +433,35 @@ const loadLevel = async (lvlInfo) => {
     
     if (error) throw error;
 
+    // 🌟 解析過關條件與指令為陣列 (兼容舊資料字串)
+    let vc = data.victory_condition;
+    try { vc = JSON.parse(vc); } catch(e) {}
+    if (!Array.isArray(vc)) {
+      if (vc === 'key_and_goal') vc = ['get_key', 'reach_goal'];
+      else if (vc) vc = [vc];
+      else vc = ['kill_enemy'];
+    }
+
+    let rc = data.required_command;
+    try { rc = JSON.parse(rc); } catch(e) {}
+    if (!Array.isArray(rc)) {
+      if (rc) rc = [rc];
+      else rc = [];
+    }
+
     form.value = {
+      id: data.id, 
       level_number: data.level_number,
       title: data.title,
       description: data.description || '',
       enemy_name: data.enemy_name || '怪物',
-      hearts: data.hearts || 3, // 🌟 載入生命值
+      hearts: data.hearts || 3, 
       max_blocks: data.max_blocks || 20,
       grid_size: data.grid_size || { cols: 10, rows: 10 },
       available_commands: data.available_commands || [],
       xp_reward: data.xp_reward || 200,
-      victory_condition: data.victory_condition || 'kill_enemy',
-      required_command: data.required_command || '',
+      victory_condition: vc, // 塞入陣列
+      required_command: rc,  // 塞入陣列
     };
 
     gridMap.value = {};
@@ -411,15 +482,14 @@ const loadLevel = async (lvlInfo) => {
   }
 };
 
-// 🌟 新增：刪除關卡
 const deleteLevel = async (lvl) => {
   if (!confirm(`確定要刪除「Level ${lvl.level_number}: ${lvl.title}」嗎？\n此操作無法復原！`)) return;
-  
+
   isModifying.value = true;
   try {
     const { error } = await supabase.from('levels').delete().eq('id', lvl.id);
     if (error) throw error;
-    await openLoadModal(); // 刪除成功後重新載入列表
+    await openLoadModal(); 
   } catch (error) {
     alert("刪除失敗：" + error.message);
   } finally {
@@ -427,7 +497,6 @@ const deleteLevel = async (lvl) => {
   }
 };
 
-// 🌟 新增：交換順序 (上移/下移)
 const swapLevels = async (indexA, indexB) => {
   if (indexB < 0 || indexB >= savedLevels.value.length) return;
   
@@ -438,15 +507,11 @@ const swapLevels = async (indexA, indexB) => {
     const numA = lvlA.level_number;
     const numB = lvlB.level_number;
 
-    // 💡 技巧：為了避免在切換的過程中違反資料庫的 (teacher_id, level_number) 組合唯一限制
-    // 我們需要先把 A 暫時設為一個絕對不會重複的負數 (-999)
     await supabase.from('levels').update({ level_number: -999 }).eq('id', lvlA.id);
-    // 再把 B 設為 A 原本的數字
     await supabase.from('levels').update({ level_number: numA }).eq('id', lvlB.id);
-    // 最後把 A 設為 B 原本的數字
     await supabase.from('levels').update({ level_number: numB }).eq('id', lvlA.id);
 
-    await openLoadModal(); // 更新成功後重新載入列表
+    await openLoadModal(); 
   } catch (error) {
     alert("排序失敗：" + error.message);
   } finally {
@@ -456,7 +521,7 @@ const swapLevels = async (indexA, indexB) => {
 
 
 // --- 儲存與預覽 ---
-const saveLevel = async () => {
+const saveLevel = async (showAlert = true) => {
   if (!form.value.title) {
     alert('請輸入關卡名稱！');
     return false;
@@ -472,13 +537,26 @@ const saveLevel = async () => {
   try {
     const { data: { user } } = await supabase.auth.getUser();
 
-    // 將 teacher_id, hearts 等資訊包裝進去
-    const payload = { ...form.value, obstacles, teacher_id: user.id };
-    const { error } = await supabase.from('levels').upsert([payload]);
+    const payload = { 
+      ...form.value, 
+      // 🌟 將陣列轉換成 JSON 字串存入資料庫
+      victory_condition: JSON.stringify(form.value.victory_condition),
+      required_command: JSON.stringify(form.value.required_command),
+      obstacles, 
+      teacher_id: user.id 
+    };
+    
+    if (!payload.id) delete payload.id;
+
+    const { data, error } = await supabase.from('levels').upsert([payload]).select().single();
     
     if (error) throw error;
     
-    alert('✅ 儲存成功！');
+    if (data && data.id) {
+      form.value.id = data.id;
+    }
+    
+    if (showAlert) alert('✅ 儲存成功！');
     return true;
   } catch (err) {
     console.error('儲存失敗', err);
@@ -490,21 +568,9 @@ const saveLevel = async () => {
 };
 
 const previewLevel = async () => {
-  const isSaved = await saveLevel();
+  const isSaved = await saveLevel(false);
   if (isSaved) {
     emit('preview', form.value.level_number);
   }
 };
 </script>
-
-<style scoped>
-.custom-scrollbar::-webkit-scrollbar { width: 6px; }
-.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: #333355; border-radius: 4px; }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #4f46e5; }
-@keyframes pop {
-  0% { transform: scale(0.8); opacity: 0; }
-  100% { transform: scale(1); opacity: 1; }
-}
-.animate-pop { animation: pop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
-</style>
