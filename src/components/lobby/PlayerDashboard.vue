@@ -63,7 +63,7 @@
               </div>
             </div>
             
-            <button @click="handleLogout" class="p-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 active:scale-95 transition-all border border-red-500/30 shadow-inner" title="登出">
+            <button @click="triggerLogout" class="p-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 active:scale-95 transition-all border border-red-500/30 shadow-inner" title="登出">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
                 <polyline points="16 17 21 12 16 7"></polyline>
@@ -256,11 +256,22 @@
       @cancel="executeForceLogout" 
     />
 
+    <ConfirmModal 
+      :isOpen="isLogoutModalOpen"
+      title="確定要登出？"
+      message="登出將會結束您目前的冒險連練，您的進度已經安全儲存。期待您的再次歸來！"
+      confirmText="確認登出"
+      cancelText="不，我點錯了" 
+      icon="🚪"
+      :isDanger="true"
+      @confirm="executeLogout"
+      @cancel="isLogoutModalOpen = false" 
+    />
+
     <LevelDesigner 
       v-if="currentSection === 'level-designer'" 
       @preview="handlePreview" 
     />
-
   </div>
 </template>
 
@@ -333,8 +344,21 @@ const totalKills = ref(0);
 const bossKills = ref(0);
 const totalDeaths = ref(0);
 const passiveCount = ref(0);
+const isLogoutModalOpen = ref(false);
 
 const emit = defineEmits(['enter-game', 'logout']);
+
+const triggerLogout = () => {
+  isLogoutModalOpen.value = true;
+};
+
+const executeLogout = async () => {
+  const { error } = await supabase.auth.signOut();
+  if (error) {
+    console.error('登出失敗:', error);
+    alert('登出時發生錯誤，請稍後再試！');
+  }
+};
 
 // 訂閱事件管理
 let globalMessageSubscription = null;

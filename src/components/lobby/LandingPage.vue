@@ -12,7 +12,7 @@
 
       <LandingPageHeader @enter-dashboard="$emit('go-login')" />
 
-      <section class="relative z-10 px-6 pt-10 pb-16 md:pt-16 md:pb-24 max-w-7xl mx-auto">
+      <section class="relative z-10 px-6 pt-10 pb-8 md:pt-16 md:pb-16 max-w-7xl mx-auto">
         <div class="flex flex-col lg:flex-row items-center gap-12 lg:gap-8">
           
           <div class="flex-1 text-center lg:text-left w-full">
@@ -28,9 +28,9 @@
               <button @click="$emit('go-login')" class="cta-btn px-8 py-4 rounded-xl text-lg font-black shadow-[0_5px_15px_rgba(255,187,51,0.3)]" style="background:linear-gradient(135deg,#ffbb33,#ff8800);color:#0f0e17;"> 
                 🚀 開始冒險 
               </button> 
-              <button class="px-8 py-4 rounded-xl text-lg font-bold border-2 transition-all hover:bg-white/10 hover:border-white" style="border-color:#a0a0b8;color:#f0f0f0;"> 
+              <a href="#introduce" class="px-8 py-4 rounded-xl text-lg font-bold border-2 transition-all hover:bg-white/10 hover:border-white" style="border-color:#a0a0b8;color:#f0f0f0;"> 
                 觀看介紹 
-              </button>
+              </a>
             </div>
             
             <p class="slide-up slide-up-d4 text-[13px] font-medium text-[#ffbb33] mt-4 lg:hidden text-center px-4">
@@ -38,15 +38,14 @@
             </p>
             
             <div class="slide-up slide-up-d4 flex flex-wrap gap-6 sm:gap-10 mt-10 justify-center lg:justify-start">
-              <div><span class="text-3xl font-black" style="color:#ffbb33;">100+</span><p class="text-[13px] font-bold mt-1 uppercase tracking-wider" style="color:#a0a0b8;">活躍玩家</p></div>
-              <div><span class="text-3xl font-black" style="color:#00d4aa;">50+</span><p class="text-[13px] font-bold mt-1 uppercase tracking-wider" style="color:#a0a0b8;">遊戲關卡</p></div>
-              <div><span class="text-3xl font-black" style="color:#ff6b6b;">99%</span><p class="text-[13px] font-bold mt-1 uppercase tracking-wider" style="color:#a0a0b8;">好評率</p></div>
+              <div><span class="text-3xl font-black" style="color:#ffbb33;">5+</span><p class="text-[13px] font-bold mt-1 uppercase tracking-wider" style="color:#a0a0b8;">活躍玩家</p></div>
+              <div><span class="text-3xl font-black" style="color:#00d4aa;">20+</span><p class="text-[13px] font-bold mt-1 uppercase tracking-wider" style="color:#a0a0b8;">遊戲關卡</p></div>
+              <div><span class="text-3xl font-black" style="color:#ff6b6b;">4%</span><p class="text-[13px] font-bold mt-1 uppercase tracking-wider" style="color:#a0a0b8;">好評率</p></div>
             </div>
           </div>
           
           <div class="flex-1 relative flex justify-center w-full mt-6 lg:mt-0">
             <div class="relative w-full max-w-[300px] sm:max-w-[340px] md:max-w-[380px]">
-              
               <div class="slide-up slide-up-d2 rounded-2xl p-1 w-full float-1 shadow-[0_20px_50px_rgba(0,0,0,0.5)]" style="background:linear-gradient(135deg,#1e1e2e,#2a2a3e);border:1px solid #333355;">
                 <div class="flex gap-2 px-4 py-3" style="border-bottom:1px solid #333355;">
                   <div class="w-3 h-3 rounded-full" style="background:#ff6b6b;"></div>
@@ -91,6 +90,97 @@
         </div>
       </section>
 
+      <section id="introduce" class="py-12 md:py-16 relative z-10 max-w-[1400px] mx-auto group">
+        <div class="text-center mb-10 px-6 slide-up slide-up-d2">
+          <h2 class="text-3xl md:text-4xl font-bold text-white font-['Fredoka'] tracking-wide" style="text-shadow: 0 0 15px rgba(0,212,170,0.3);">
+            探索 Code Quest 的魔法
+          </h2>
+          <p class="text-[#a0a0b8] mt-3 text-sm md:text-base font-medium">左右滑動，看看你能在這裡體驗到什麼！</p>
+        </div>
+
+        <button @click="scrollCarousel(-1)" class="hidden md:flex absolute left-4 lg:left-8 top-[60%] -translate-y-1/2 z-20 w-14 h-14 rounded-full bg-[#1a1a3e] border border-[#00d4aa]/50 items-center justify-center text-[#00d4aa] hover:bg-[#00d4aa] hover:text-[#0a0e27] hover:scale-110 transition-all shadow-[0_0_20px_rgba(0,212,170,0.3)] opacity-0 group-hover:opacity-100">
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+
+        <button @click="scrollCarousel(1)" class="hidden md:flex absolute right-4 lg:right-8 top-[60%] -translate-y-1/2 z-20 w-14 h-14 rounded-full bg-[#1a1a3e] border border-[#00d4aa]/50 items-center justify-center text-[#00d4aa] hover:bg-[#00d4aa] hover:text-[#0a0e27] hover:scale-110 transition-all shadow-[0_0_20px_rgba(0,212,170,0.3)] opacity-0 group-hover:opacity-100">
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
+
+        <div ref="carouselContainer" class="flex overflow-x-auto snap-x snap-mandatory gap-5 pb-8 px-6 md:px-24 hide-scrollbar slide-up slide-up-d3" style="scroll-behavior: smooth;">
+
+          <div class="snap-center shrink-0 w-[82vw] sm:w-[320px] md:w-[380px] bg-[#1a1a3e]/80 border border-white/10 rounded-3xl overflow-hidden shadow-2xl hover:border-[#00d4aa]/50 hover:-translate-y-2 transition-all duration-300">
+            <div class="h-48 md:h-52 w-full bg-[#0a0e27] relative flex flex-col items-center justify-center border-b border-white/10 group overflow-hidden">
+              <img :src="getImageUrl('landing1.png')" class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+              </div>
+            <div class="p-5 md:p-6">
+              <h3 class="text-lg md:text-xl font-bold text-white mb-2 flex items-center gap-2">
+                <span class="text-2xl">🎮</span> 沉浸式闖關學習
+              </h3>
+              <p class="text-[#a0a0b8] text-sm leading-relaxed">
+                揮別枯燥的教科書！透過組合積木程式碼操控角色，在一次次的迷宮挑戰中自然學會核心程式邏輯。
+              </p>
+            </div>
+          </div>
+
+          <div class="snap-center shrink-0 w-[82vw] sm:w-[320px] md:w-[380px] bg-[#1a1a3e]/80 border border-white/10 rounded-3xl overflow-hidden shadow-2xl hover:border-[#ffbb33]/50 hover:-translate-y-2 transition-all duration-300">
+            <div class="h-48 md:h-52 w-full bg-[#0a0e27] relative flex flex-col items-center justify-center border-b border-white/10 group overflow-hidden">
+              <img :src="getImageUrl('landing2.png')" class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+            </div>
+            <div class="p-5 md:p-6">
+              <h3 class="text-lg md:text-xl font-bold text-white mb-2 flex items-center gap-2">
+                <span class="text-2xl">⚔️</span> 無盡深淵挑戰
+              </h3>
+              <p class="text-[#a0a0b8] text-sm leading-relaxed">
+                挑戰隨機生成的 Roguelike 地下城迷宮模式。善用迴圈與判斷式，擊退源源不絕的怪物和BOSS，看你能否主宰深淵！
+              </p>
+            </div>
+          </div>
+
+          <div class="snap-center shrink-0 w-[82vw] sm:w-[320px] md:w-[380px] bg-[#1a1a3e]/80 border border-white/10 rounded-3xl overflow-hidden shadow-2xl hover:border-[#ff6b6b]/50 hover:-translate-y-2 transition-all duration-300">
+            <div class="h-48 md:h-52 w-full bg-[#0a0e27] relative flex flex-col items-center justify-center border-b border-white/10 group overflow-hidden">
+              <img :src="getImageUrl('landing3.png')" class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+            </div>
+            <div class="p-5 md:p-6">
+              <h3 class="text-lg md:text-xl font-bold text-white mb-2 flex items-center gap-2">
+                <span class="text-2xl">👑</span> 公會榮譽排行榜
+              </h3>
+              <p class="text-[#a0a0b8] text-sm leading-relaxed">
+                與全服冒險者一較高下！挑戰無盡深淵的最高樓層，或是比拚累積經驗值，在公會排行榜上刻下你的傳奇名號，成為萬人景仰的大魔法師。
+              </p>
+            </div>
+          </div>
+
+          <div class="snap-center shrink-0 w-[82vw] sm:w-[320px] md:w-[380px] bg-[#1a1a3e]/80 border border-white/10 rounded-3xl overflow-hidden shadow-2xl hover:border-[#38bdf8]/50 hover:-translate-y-2 transition-all duration-300">
+            <div class="h-48 md:h-52 w-full bg-[#0a0e27] relative flex flex-col items-center justify-center border-b border-white/10 group overflow-hidden">
+              <img :src="getImageUrl('landing4.png')" class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+            </div>
+            <div class="p-5 md:p-6">
+              <h3 class="text-lg md:text-xl font-bold text-white mb-2 flex items-center gap-2">
+                <span class="text-2xl">💬</span> 即時社交互動
+              </h3>
+              <p class="text-[#a0a0b8] text-sm leading-relaxed">
+                結交志同道合的程式夥伴！透過專屬頻道與好友即時交流、分享通關神操作，讓學習寫程式的冒險之路不再孤單。
+              </p>
+            </div>
+          </div>
+
+           <div class="snap-center shrink-0 w-[82vw] sm:w-[320px] md:w-[380px] bg-[#1a1a3e]/80 border border-white/10 rounded-3xl overflow-hidden shadow-2xl hover:border-[#ff6b6b]/50 hover:-translate-y-2 transition-all duration-300">
+            <div class="h-48 md:h-52 w-full bg-[#0a0e27] relative flex flex-col items-center justify-center border-b border-white/10 group overflow-hidden">
+              <img :src="getImageUrl('landing5.png')" class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+            </div>
+            <div class="p-5 md:p-6">
+              <h3 class="text-lg md:text-xl font-bold text-white mb-2 flex items-center gap-2">
+                <span class="text-2xl">🏆</span> 榮耀成就系統
+              </h3>
+              <p class="text-[#a0a0b8] text-sm leading-relaxed">
+                解鎖各式稀有稱號與徽章，在公會大廳向所有冒險者展示你的火力，累積經驗值成為最強魔法師！
+              </p>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
       <footer class="relative z-10 px-6 py-10 text-center" style="border-top:1px solid rgba(255,255,255,0.05);">
         <p class="text-[13px] font-medium tracking-wide" style="color:#a0a0b8;">
           © 2026 Code Quest — 讓每個人都能用遊戲學會寫程式 🎮
@@ -104,16 +194,30 @@
 import { ref, onMounted } from 'vue';
 import LandingPageHeader from './LandingPageHeader.vue';
 import CourseCard from './CourseCard.vue';
+import img1 from '../../assets/images/landing1.png';
 
+const getImageUrl = (name) => {
+  return new URL(`../../assets/images/${name}`, import.meta.url).href;
+};
 const emit = defineEmits(['enter-game', 'go-login']);
 const coursesSection = ref(null);
+const carouselContainer = ref(null); 
+
+// 🌟 點擊左右按鈕的滑動控制邏輯
+const scrollCarousel = (direction) => {
+  if (carouselContainer.value) {
+    // 根據視窗大小決定每次滾動的距離 (手機滾單張，電腦滾單張)
+    const scrollAmount = window.innerWidth < 768 ? 320 : 400; 
+    carouselContainer.value.scrollBy({ left: direction * scrollAmount, behavior: 'smooth' });
+  }
+};
 
 const courses = ref([
   {
     id: 'python',
     icon: '🐍',
-    title: 'Python 大冒險',
-    description: '從零開始，用 Python 操控角色闖關打怪，學會基礎語法與邏輯思維。',
+    title: '基礎邏輯教學',
+    description: '從零開始，利用程式積木操控角色闖關打怪，學會基礎語法與邏輯思維。',
     badgeText: '入門',
     badgeColor: '#00d4aa',
     badgeBg: '#00d4aa22',
@@ -125,12 +229,12 @@ const courses = ref([
   {
     id: 'js',
     icon: '⚔️',
-    title: 'JavaScript 戰場',
-    description: '在即時對戰中寫出 JS 程式碼，擊敗對手、攻佔城池！(點擊進入)',
+    title: '教師專屬挑戰',
+    description: '由你的指導老師為班級量身打造的特訓地圖!準備好接受考驗了嗎？',
     badgeText: '中級',
     badgeColor: '#ffbb33',
     badgeBg: '#ffbb3322',
-    levelsText: '15 關卡',
+    levelsText: '? 關卡',
     progress: 42,
     barGradient: 'linear-gradient(90deg,#ffbb33,#ff8800)',
     disabled: false
@@ -170,7 +274,7 @@ onMounted(() => {
         observer.unobserve(e.target);
       }
     });
-  }, { threshold: 0.2 }); // 稍微降低觸發門檻，讓手機版提早載入動畫
+  }, { threshold: 0.2 }); 
   
   if (coursesSection.value) {
     observer.observe(coursesSection.value);
@@ -220,5 +324,14 @@ onMounted(() => {
   border-radius: 50%;
   animation: particle 2.5s ease-out infinite;
   pointer-events: none;
+}
+
+/* 🌟 隱藏水平滑動的預設捲軸，保持畫面乾淨 */
+.hide-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari and Opera */
 }
 </style>

@@ -9,8 +9,7 @@
 
       <div class="hidden md:flex items-center gap-8">
         <a href="#courses" class="nav-item text-[15px] font-bold" style="color:#a0a0b8;">探索課程</a> 
-        <a href="#leaderboard" class="nav-item text-[15px] font-bold" style="color:#a0a0b8;">排行榜</a> 
-        <a href="#achievements" class="nav-item text-[15px] font-bold" style="color:#a0a0b8;">成就系統</a> 
+        <a href="#introduce" class="nav-item text-[15px] font-bold" style="color:#a0a0b8;">遊戲介紹</a> 
         <button @click="$emit('enter-dashboard')" class="px-5 py-2.5 rounded-lg text-[15px] font-black shadow-[0_4px_15px_rgba(255,187,51,0.3)] hover:scale-105 transition-transform" style="background:#ffbb33;color:#0f0e17;">登入 / 進入大廳</button>
       </div>
 

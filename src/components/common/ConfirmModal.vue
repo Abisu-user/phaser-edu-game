@@ -45,7 +45,7 @@ defineProps({
   confirmText: { type: String, default: '確認' },
   cancelText: { type: String, default: '取消' },
   icon: { type: String, default: '⚠️' },
-  isDanger: { type: Boolean, default: false } // 若為 true，確認按鈕會變紅色
+  isDanger: { type: Boolean, default: false }
 });
 
 defineEmits(['confirm', 'cancel']);

@@ -251,21 +251,6 @@
           <div v-if="activeChatFriend.role === 'teacher'" class="text-center text-[#a0a0b8] text-sm py-2">
             🔒 此為教師廣播頻道，無法直接回覆
           </div>
-          <div v-else class="flex space-x-2">
-            <input 
-              v-model="newMessage" 
-              @keyup.enter="sendMessage"
-              type="text" 
-              placeholder="輸入訊息..." 
-              class="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-white/30 focus:outline-none focus:border-[#00d4aa]/50"
-            />
-            <button 
-              @click="sendMessage" 
-              :disabled="!newMessage.trim()"
-              class="bg-[#00d4aa] text-[#0a0e27] px-4 rounded-xl font-bold disabled:opacity-50 transition-colors flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 transform rotate-90" viewBox="0 0 20 20" fill="currentColor"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" /></svg>
-            </button>
-          </div>
         </div>
 
         <div class="p-3 bg-white/5 border-t border-white/10 flex-shrink-0">

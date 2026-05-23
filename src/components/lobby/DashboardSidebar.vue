@@ -129,7 +129,7 @@
     <ConfirmModal 
       :isOpen="isLogoutModalOpen"
       title="確定要登出了嗎？"
-      message="登出將會結束您目前的冒險連線。您的進度已經安全儲存。"
+      message="登出將會結束您目前的冒險連線。您的進度已經安全儲存。期待您的再次歸來！"
       confirmText="確認登出"
       cancelText="不，我點錯了"
       icon="🚪"
