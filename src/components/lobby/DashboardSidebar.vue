@@ -55,30 +55,47 @@
         </p>
         <div v-if="section.header && isCollapsed && index > 0" class="h-px bg-white/5 my-4 mx-2"></div>
 
-        <div 
-          v-for="item in section.items" 
-          :key="item.id" 
-          class="group flex items-center rounded-xl cursor-pointer transition-all duration-300 relative mb-1"
-          :class="[
-            isActive(item.id)
-              ? (item.id.startsWith('admin-') ? 'bg-[#9d4edd]/10 text-[#9d4edd] border border-[#9d4edd]/30 shadow-[0_0_15px_rgba(157,78,221,0.15)]' 
-                 : item.id.startsWith('teacher-') ? 'bg-[#ffbb33]/20 text-[#ffbb33] border border-[#ffbb33]/30 shadow-[0_0_15px_rgba(255,187,51,0.15)]' 
-                 : 'bg-[#00d4aa]/10 text-[#00d4aa] border border-[#00d4aa]/30 shadow-[0_0_15px_rgba(0,212,170,0.15)]') 
-              : 'text-[#a0a0b8] border border-transparent hover:bg-white/5 hover:text-white hover:border-white/10',
-            isCollapsed ? 'p-3 justify-center' : 'px-4 py-3 gap-4'
-          ]"
-          @click="selectItem(item.id)"
-        >
-          <div v-if="isActive(item.id)" class="absolute left-0 top-0 bottom-0 w-1" :class="item.id.startsWith('admin-') ? 'bg-[#9d4edd] shadow-[0_0_10px_#9d4edd]' : item.id.startsWith('teacher-') ? 'bg-[#ffbb33] shadow-[0_0_10px_#ffbb33]' : 'bg-[#00d4aa] shadow-[0_0_10px_#00d4aa]'"></div>
+        <div v-for="item in section.items" :key="item.id" class="mb-1">
           
-          <div class="text-xl group-hover:scale-110 transition-transform duration-300 relative">
-            {{ item.icon }}
-            <div v-if="item.id === 'friends' && props.hasUnread && currentSection !== 'friends'" 
-                class="absolute -top-1.5 -right-1.5 w-3 h-3 bg-red-500 rounded-full border-2 border-[#0a0e27] shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse">
+          <div 
+            class="group flex items-center rounded-xl cursor-pointer transition-all duration-300 relative"
+            :class="[
+              isActive(item.id)
+                ? (item.id.startsWith('admin-') ? 'bg-[#9d4edd]/10 text-[#9d4edd] border border-[#9d4edd]/30 shadow-[0_0_15px_rgba(157,78,221,0.15)]' 
+                   : item.id.startsWith('teacher-') ? 'bg-[#ffbb33]/20 text-[#ffbb33] border border-[#ffbb33]/30 shadow-[0_0_15px_rgba(255,187,51,0.15)]' 
+                   : 'bg-[#00d4aa]/10 text-[#00d4aa] border border-[#00d4aa]/30 shadow-[0_0_15px_rgba(0,212,170,0.15)]') 
+                : 'text-[#a0a0b8] border border-transparent hover:bg-white/5 hover:text-white hover:border-white/10',
+              isCollapsed ? 'p-3 justify-center' : 'px-4 py-3 gap-4'
+            ]"
+            @click="selectItem(item.id)"
+          >
+            <div v-if="isActive(item.id)" class="absolute left-0 top-0 bottom-0 w-1" :class="item.id.startsWith('admin-') ? 'bg-[#9d4edd] shadow-[0_0_10px_#9d4edd]' : item.id.startsWith('teacher-') ? 'bg-[#ffbb33] shadow-[0_0_10px_#ffbb33]' : 'bg-[#00d4aa] shadow-[0_0_10px_#00d4aa]'"></div>
+            
+            <div class="text-xl group-hover:scale-110 transition-transform duration-300 relative">
+              {{ item.icon }}
+              <div v-if="item.id === 'friends' && props.hasUnread && currentSection !== 'friends'" 
+                  class="absolute -top-1.5 -right-1.5 w-3 h-3 bg-red-500 rounded-full border-2 border-[#0a0e27] shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse">
+              </div>
             </div>
+
+            <div v-if="!isCollapsed" class="font-medium tracking-wide whitespace-nowrap flex-1">{{ item.label }}</div>
+            
+            <svg v-if="!isCollapsed && item.subItems" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="transition-transform duration-300" :class="isClassDropdownOpen ? 'rotate-180 text-[#00d4aa]' : 'text-[#a0a0b8]'">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
           </div>
 
-          <div v-if="!isCollapsed" class="font-medium tracking-wide whitespace-nowrap">{{ item.label }}</div>
+          <div v-if="!isCollapsed && item.subItems && isClassDropdownOpen" class="mt-1 ml-6 pl-2 border-l border-[#333366] flex flex-col gap-1">
+            <button 
+              v-for="sub in item.subItems" :key="sub.id"
+              @click.stop="selectItem(sub.id)"
+              class="px-4 py-2 text-xs font-bold rounded-lg text-left transition-all flex items-center gap-2"
+              :class="getSubItemClass(sub.id)"
+            >
+              <span class="text-sm">{{ sub.icon }}</span> {{ sub.label }}
+            </button>
+          </div>
+
         </div>
       </div>
 
@@ -155,6 +172,7 @@ const props = defineProps({
   hasUnread: Boolean,
   currentSection: String,
   activeAdminTab: String,
+  activeClassTab: {type: String, default: 'home'},
   activeTeacherTab: String,
   currentTitle: { type: String, default: '見習學徒' }
 });
@@ -163,11 +181,13 @@ const emit = defineEmits([
   'toggle', 
   'update:currentSection', 
   'update:activeAdminTab', 
-  'update:activeTeacherTab', // 🌟 新增：讓父層知道老師切換了分頁
+  'update:activeClassTab', 
+  'update:activeTeacherTab', 
   'clear-unread'
 ]);
 
 const isLogoutModalOpen = ref(false);
+const isClassDropdownOpen = ref(false);
 
 // 基礎大廳選單
 const lobbyItems = [
@@ -188,9 +208,17 @@ const sectionedMenus = computed(() => {
     { id: 'courses', label: '課程', icon: '📚' }
   ];
 
-  // 🌟 關鍵：只有身份是 student (學生) 時，才加入「我的班級」
   if (props.playerRole === 'student') {
-    baseItems.push({ id: 'class', label: '班級', icon: '🏫' });
+    baseItems.push({ 
+      id: 'class', 
+      label: '班級', 
+      icon: '🏫',
+      subItems: [
+        { id: 'class-home', label: '班級首頁', icon: '🏠' },
+        { id: 'class-polls', label: '投票系統', icon: '📊' },
+        { id: 'class-surveys', label: '問卷系統', icon: '📝' }
+      ]
+    });
   }
 
   // 將剩下的通用選項補上
@@ -224,7 +252,9 @@ const sectionedMenus = computed(() => {
         { id: 'teacher-overview', icon: '📊', label: '班級概況' },
         { id: 'teacher-students', icon: '🎓', label: '學生管理' },
         { id: 'teacher-analytics', icon: '📈', label: '進度分析' },
-        { id: 'teacher-content', icon: '🗺️', label: '內容管理' } // 🌟 新增：讓教師也可以使用內容管理
+        { id: 'teacher-content', icon: '🗺️', label: '內容管理' },
+        { id: 'teacher-interactions', icon: '✨', label: '互動管理' },
+        { id: 'teacher-announcements', icon: '📢', label: '班級公告管理' }
       ]
     });
   }
@@ -234,6 +264,18 @@ const sectionedMenus = computed(() => {
 
 // 🔥 處理點擊事件與路由分發
 const selectItem = (itemId) => {
+  if (itemId === 'class') {
+    emit('update:currentSection', 'class');
+    if (!props.isCollapsed) isClassDropdownOpen.value = !isClassDropdownOpen.value;
+    return;
+  }
+  
+  if (itemId.startsWith('class-')) {
+    emit('update:currentSection', 'class');
+    emit('update:activeClassTab', itemId.replace('class-', ''));
+    return;
+  }
+
   if (itemId.startsWith('admin-')) {
     emit('update:currentSection', 'admin');
     emit('update:activeAdminTab', itemId.replace('admin-', ''));
@@ -246,8 +288,14 @@ const selectItem = (itemId) => {
   }
 };
 
-// 🔥 判斷當前項目是否為 Active 狀態
 const isActive = (itemId) => {
+  // 🌟 班級狀態判斷
+  if (itemId === 'class') return props.currentSection === 'class';
+  if (itemId.startsWith('class-')) {
+    return props.currentSection === 'class' && props.activeClassTab === itemId.replace('class-', '');
+  }
+
+  // 既有的狀態判斷
   if (itemId.startsWith('admin-')) {
     return props.currentSection === 'admin' && props.activeAdminTab === itemId.replace('admin-', '');
   }
@@ -257,7 +305,16 @@ const isActive = (itemId) => {
   return props.currentSection === itemId;
 };
 
-// 登出邏輯
+const getSubItemClass = (id) => {
+  if (!isActive(id)) return 'text-[#a0a0b8] hover:text-white hover:bg-white/5';
+  
+  if (id === 'class-home') return 'text-[#ffbb33] bg-[#ffbb33]/10 border border-[#ffbb33]/30 shadow-[0_0_10px_rgba(255,187,51,0.15)]';
+  if (id === 'class-polls') return 'text-[#a78bfa] bg-[#a78bfa]/10 border border-[#a78bfa]/30 shadow-[0_0_10px_rgba(167,139,250,0.15)]';
+  if (id === 'class-surveys') return 'text-[#4299e1] bg-[#4299e1]/10 border border-[#4299e1]/30 shadow-[0_0_10px_rgba(66,153,225,0.15)]';
+  
+  return 'text-white bg-white/10';
+};
+
 const triggerLogout = () => {
   isLogoutModalOpen.value = true;
 };

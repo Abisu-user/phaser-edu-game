@@ -1,5 +1,5 @@
 <template>
-  <div class="p-8 max-w-6xl mx-auto text-white font-['Fredoka'] h-full flex flex-col">
+  <div class="max-w-6xl mx-auto text-white font-['Fredoka'] h-full flex flex-col">
     
     <GameLevel 
       v-if="isPreviewing"
@@ -26,7 +26,8 @@
       <div class="flex-1 overflow-y-auto animate-fade-in pr-2 sidebar-scroll">
         
         <TeacherDashboardPanel v-if="currentTab === 'overview'" />
-        
+        <TeacherInteractions v-if="currentTab === 'interactions'" />
+        <TeacherAnnouncements v-if="currentTab === 'announcements'" />
         <StudentManagementPanel v-if="currentTab === 'students'" />
 
         <LevelDesigner v-show="currentTab === 'content'" @preview="handlePreview" />
@@ -50,6 +51,8 @@ import TeacherDashboardPanel from './teacher/TeacherDashboardPanel.vue';
 import StudentManagementPanel from './teacher/StudentManagementPanel.vue';
 import LevelDesigner from './admin/LevelDesigner.vue';
 import GameLevel from '../../level/GameLevel.vue'; 
+import TeacherInteractions from './teacher/TeacherInteractions.vue';
+import TeacherAnnouncements from './teacher/TeacherAnnouncements.vue';
 
 const props = defineProps({
   currentTab: { type: String, default: 'overview' }
@@ -70,12 +73,12 @@ const handleEndPreview = () => {
 // -----------------------
 
 const currentTabTitle = computed(() => {
-  const titles = { overview: '班級概況總覽', students: '學生進度管理', analytics: '學習數據分析', content: '內容管理' };
+  const titles = { overview: '班級概況總覽', students: '學生進度管理', analytics: '學習數據分析', content: '內容管理', interactions: '互動管理', announcements: '班級公告管理'   };
   return titles[props.currentTab] || '教師中心';
 });
 
 const currentTabIcon = computed(() => {
-  const icons = { overview: '📊', students: '🎓', analytics: '📈', content: '🗺️' };
+  const icons = { overview: '📊', students: '🎓', analytics: '📈', content: '🗺️', interactions: '✨', announcements: '📢' };
   return icons[props.currentTab] || '👨‍🏫';
 });
 
@@ -84,7 +87,9 @@ const currentTabDesc = computed(() => {
     overview: '快速查看班級活躍度與平均學習進度',
     students: '追蹤個別學生進度，查看詳細通關紀錄',
     analytics: '深度分析班級整體的邏輯弱點與卡關熱點',
-    content: '設計和管理課程內容'
+    content: '設計和管理課程內容',
+    interactions: '管理與學生的互動與交流',
+    announcements: '發布和管理班級公告'
   };
   return descs[props.currentTab] || '教師專屬管理模組';
 });

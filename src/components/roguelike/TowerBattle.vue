@@ -109,11 +109,11 @@
         <div class="flex flex-col justify-center min-w-[220px] border-r-2 border-[#3A2318] pr-6 mr-6">
           <div class="flex justify-between items-end mb-1.5 gap-5">
             <span class="text-[#FFD700] font-black text-xl drop-shadow-[0_2px_2px_rgba(0,0,0,1)] tracking-wider leading-none">Lv.{{ level }}</span>
-            <span class="text-[11px] text-[#C8B693] font-mono font-bold tracking-widest leading-none mb-[1px]">{{ xp }} / 1000</span>
+            <span class="text-[11px] text-[#C8B693] font-mono font-bold tracking-widest leading-none mb-[1px]">{{ xp }} / {{ requiredXp }}</span>
           </div>
           <div class="w-full h-2.5 bg-[#150C08] border border-[#593922] rounded-full shadow-[inset_0_1px_3px_rgba(0,0,0,0.8)] relative overflow-hidden p-[1px]">
             <div class="h-full bg-gradient-to-r from-[#2E8B57] to-[#3CB371] rounded-full transition-all duration-500 relative" 
-                :style="{ width: (xp / 1000 * 100) + '%' }">
+                :style="{ width: Math.min((xp / requiredXp) * 100, 100) + '%' }">
               <div class="absolute top-0 left-0 w-full h-[40%] bg-white/20 rounded-full"></div>
             </div>
           </div>
@@ -407,6 +407,9 @@ const floorBonusCoins = ref(0);
 const isExecuting = ref(false);
 const radarBoss = ref(null);
 const radarNearby = ref([]);
+const requiredXp = computed(() => {
+  return 1000 + ((props.level || 1) - 1) * 500;
+});
 
 const handleEnemyRadar = (e) => {
   radarBoss.value = e.detail.boss;
@@ -852,13 +855,17 @@ const handleXpGained = (e) => {
   let newXp = (props.xp || 0) + finalExp;
   let newTotalExp = (props.totalExp || 0) + finalExp; 
   let newLevel = props.level || 1;
-  let xpThreshold = 1000; 
+  let levelsGained = 0;
+  
+  const getReqExp = (lvl) => 1000 + (lvl - 1) * 500;
 
-  if (newXp >= xpThreshold) {
-    const levelsGained = Math.floor(newXp / xpThreshold);
-    newLevel += levelsGained;
-    newXp = newXp % xpThreshold; 
-    
+  while (newXp >= getReqExp(newLevel)) {
+    newXp -= getReqExp(newLevel);
+    newLevel++;
+    levelsGained++;
+  }
+
+  if (levelsGained > 0) {
     console.log(`🎉 境界突破！升級至 Lv.${newLevel}`);
     
     emit('update-stats', { 

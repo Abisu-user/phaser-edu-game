@@ -1,11 +1,11 @@
 import * as Blockly from 'blockly';
 import { javascriptGenerator } from 'blockly/javascript';
-import { COMMAND_DICT } from './CommandList';
+import { OUTGAME_COMMANDS } from './CommandList';
 
 export const setupBlockly = (blocklyDiv, currentLevel) => {
 
-  // 1. 根據 COMMAND_DICT 動態註冊所有自訂積木 (Action & Sensor)
-  COMMAND_DICT.forEach(def => {
+  // 1. 根據 OUTGAME_COMMANDS 動態註冊所有自訂積木 (Action & Sensor)
+  OUTGAME_COMMANDS.forEach(def => {
     if (def.type === 'logic') return; // 邏輯類使用 Blockly 內建積木，跳過
 
     if (!Blockly.Blocks[def.id]) {
@@ -92,9 +92,9 @@ export const setupBlockly = (blocklyDiv, currentLevel) => {
       return; // 內建邏輯處理完畢，提早 return 進入下一個
     }
 
-    const cmdDef = COMMAND_DICT.find(c => c.id === cmdId);
+    const cmdDef = OUTGAME_COMMANDS.find(c => c.id === cmdId);
     if (!cmdDef) {
-      console.warn(`⚠️ 警告: 找不到 ${cmdId} 的設定，它既不是內建積木，也不在 COMMAND_DICT 中！`);
+      console.warn(`⚠️ 警告: 找不到 ${cmdId} 的設定，它既不是內建積木，也不在 OUTGAME_COMMANDS 中！`);
       return;
     }
 

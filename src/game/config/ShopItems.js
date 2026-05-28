@@ -1,13 +1,5 @@
 // src/game/config/ShopItems.js
 
-// 🌟 1. 祭壇基礎能力鍛鍊 (對應原：FIXED_UPGRADES)
-export const FIXED_UPGRADES = [
-  { id: 'max_hp_up', name: '巨人之心', desc: '永久提升冒險者最大生命極限 (HP) 20 點', basePrice: 500, priceIncrement: 300, icon: '❤️', type: 'upgrade' },
-  { id: 'max_mp_up', name: '魔力源泉', desc: '永久提升詠唱最大魔力儲備 (MP) 10 點', basePrice: 600, priceIncrement: 350, icon: '🔮', type: 'upgrade' },
-  { id: 'max_ap_up', name: '風神護符', desc: '永久提升單回合最大行動耐力 (AP) 10 點', basePrice: 700, priceIncrement: 400, icon: '🦅', type: 'upgrade' },
-  { id: 'atk_up',    name: '戰神之刃', desc: '永久提升基礎破壞力 (ATK) 5 點', basePrice: 800, priceIncrement: 450, icon: '⚔️', type: 'upgrade' }
-];
-
 // 🌟 2. 流浪商行隨機商品池 (隨玩家等級解鎖)
 export const RANDOM_ITEM_POOL = [
   // --- 消耗品 (秘藥與奇物) ---

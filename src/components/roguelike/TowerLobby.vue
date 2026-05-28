@@ -34,14 +34,14 @@
           </div>
           
           <div class="w-56 h-2.5 bg-[#150C08] border-[1px] border-[#593922] shadow-[inset_0_2px_5px_rgba(0,0,0,1)] overflow-hidden relative p-[1px]">
-            <div class="h-full bg-gradient-to-r from-red-700 to-red-400 transition-all duration-1000 relative" :style="{ width: (xp / 1000 * 100) + '%' }">
+            <div class="h-full bg-gradient-to-r from-red-700 to-red-400 transition-all duration-1000 relative" :style="{ width: Math.min((xp / requiredXp) * 100, 100) + '%' }">
               <div class="absolute top-0 left-0 w-full h-[30%] bg-white/20"></div>
             </div>
           </div>
           
           <div class="text-[11px] text-[#A08060] font-mono font-bold mt-1 tracking-wider flex justify-between w-56 drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">
             <span>EXP 經驗值</span>
-            <span class="text-[#F5DEB3]">{{ xp }} / 1000</span>
+            <span class="text-[#F5DEB3]">{{ xp }} / {{ requiredXp }}</span>
           </div>
         </div>
       </div>
@@ -264,6 +264,9 @@ const avatarUrl = ref('');
 const actionMessage = ref('');
 const currentTitle = ref('見習冒險者');
 const unlockedAchievements= ref(['first_steps']);
+const requiredXp = computed(() => {
+  return 1000 + (playerLevel.value - 1) * 500;
+});
 
 const rawLobbyData = ref(null);
 const activeSave = ref(null);
@@ -351,7 +354,6 @@ const allAchievements = computed(() => {
     currentLevel: playerLevel.value,
     bestFloor: bestFloor.value,
     coins: coins.value,
-    // clearedLevelsCount 可以從 profile 資料庫撈取，若無則預設 0
     clearedLevelsCount: rawLobbyData.value?.clearedLevelsCount || 0 
   };
 
@@ -627,8 +629,6 @@ const useItem = async (item) => {
   if (item.id === 'relic_holy_maiden_prayer') {
     const idx = inventory.value.findIndex(i => i.id === item.id);
     if (idx !== -1) {
-      // 🌟 重點：扣除數量，但不使用 splice 刪除它！
-      // 把它留在陣列裡，讓戰鬥畫面能繼續讀取它的 expiresAt
       inventory.value[idx].quantity -= 1;
       inventory.value[idx].expiresAt = Date.now() + (15 * 60 * 1000);
       await updateInventory(inventory.value); 

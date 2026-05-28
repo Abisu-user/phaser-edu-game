@@ -27,8 +27,28 @@ export default class TeachingScene extends Phaser.Scene {
       return;
     }
 
-    const cfg = this.levelConfig;
+    // 🌟 智慧型多功能射擊指令
+    window.shoot = async (arg1, arg2) => {
+      this.usedCommands.add('shoot'); 
 
+      if (typeof arg1 === 'function') {
+        await this.executeProgrammableShoot(arg1); 
+      } 
+      else if (typeof arg1 === 'number') {
+        const dx = arg1;
+        const dy = typeof arg2 === 'number' ? arg2 : 0; 
+        await this.executeProgrammableShoot(dx, dy);
+      }
+      else {
+        let defDx = 1, defDy = 0;
+        if (this.lastFacing === 'moveLeft') { defDx = -1; defDy = 0; }
+        else if (this.lastFacing === 'moveUp') { defDx = 0; defDy = -1; }
+        else if (this.lastFacing === 'moveDown') { defDx = 0; defDy = 1; }
+        await this.executeProgrammableShoot(defDx, defDy);
+      }
+    };
+
+    const cfg = this.levelConfig;
     const cols = cfg.grid_size?.cols || 10;
     const rows = cfg.grid_size?.rows || 10;
     const maxGrid = Math.max(cols, rows);
@@ -95,17 +115,245 @@ export default class TeachingScene extends Phaser.Scene {
     this.enemy = this.add.text(this.enemyX, this.enemyY, cfg.enemy.emoji, emojiStyle).setOrigin(0.5);
     this.enemyLabel = this.add.text(this.enemyX, this.enemyY + this.labelOffsetY, cfg.enemy.label, { ...labelStyle, fill: '#ff6b6b' }).setOrigin(0.5);
 
-    // 🌟 修正：將訊息框放在正中央 (400, 400)，並將層級 Depth 設為超高，確保不會被遮擋！
-    this.messageBox = this.add.text(400, 400, '', {
-      fontSize: '22px', fill: '#ffffff', backgroundColor: '#1a1a2e',
-      padding: { x: 30, y: 20 }, stroke: '#ff6b6b', strokeThickness: 3, wordWrap: { width: 600 }, align: 'center',
-      shadow: { offsetX: 0, offsetY: 5, color: '#000000', blur: 10, fill: true }
-    }).setOrigin(0.5).setVisible(false).setDepth(1000);
+    this.messageBox = this.add.text(400, 780, '', {
+      fontSize: '20px', fill: '#ffffff', backgroundColor: 'rgba(50, 10, 20, 0.95)',
+      padding: { x: 30, y: 15 }, stroke: '#ff6b6b', strokeThickness: 2, 
+      wordWrap: { width: 600 }, align: 'center', shadow: { offsetX: 0, offsetY: 4, color: '#000000', blur: 8, fill: true }
+    }).setOrigin(0.5, 1).setVisible(false).setDepth(1000);
   }
 
-  resetLevel() {
+  async executeProgrammableShoot(arg1, arg2) {
+    if (this.isFailed || !this.player) return;
+
+    const startX = this.playerGridX;
+    const startY = this.playerGridY;
+    const targetX = startX * this.cellSize + this.cellSize / 2;
+    const targetY = startY * this.cellSize + this.cellSize / 2;
+    const arrow = this.add.text(targetX, targetY, '🏹', { fontSize: this.cellSize * 0.5 + 'px' }).setOrigin(0.5).setDepth(15);
+    
+    if (this.lastFacing === 'moveUp') arrow.angle = -90;
+    else if (this.lastFacing === 'moveDown') arrow.angle = 90;
+    else if (this.lastFacing === 'moveLeft') { arrow.angle = 0; arrow.setFlipX(true); }
+    else { arrow.angle = 0; arrow.setFlipX(false); }
+
+    const scene = this;
+    let path = []; 
+
+    if (typeof arg1 === 'function') {
+      class ProgrammableProjectile {
+        constructor(sx, sy, facing) {
+          this.gridX = sx;
+          this.gridY = sy;
+          this.facing = facing;
+          this.path = []; 
+          this.isDestroyed = false;
+          this.safetyCount = 0;
+        }
+
+        // 🌟 終極安全機制：只要箭矢死亡，強制拋出錯誤來中斷玩家的 while 迴圈！
+        checkSafety() {
+          this.safetyCount++;
+          if (this.safetyCount > 200) { 
+            throw new Error('INFINITE_LOOP_DETECTED'); 
+          }
+          if (this.isDestroyed) {
+            throw new Error('PROJECTILE_DESTROYED'); // 安靜地打斷迴圈
+          }
+        }
+
+        isWall() {
+          this.checkSafety();
+          let nx = this.gridX, ny = this.gridY;
+          if (this.facing === 'moveRight') nx++;
+          else if (this.facing === 'moveLeft') nx--;
+          else if (this.facing === 'moveUp') ny--;
+          else if (this.facing === 'moveDown') ny++;
+
+          const cols = scene.levelConfig?.grid_size?.cols || 10;
+          const rows = scene.levelConfig?.grid_size?.rows || 10;
+          if (nx < 0 || nx >= cols || ny < 0 || ny >= rows) return true;
+          return scene.isObstacle(nx, ny);
+        }
+
+        isEnemy() {
+          this.checkSafety();
+          let nx = this.gridX, ny = this.gridY;
+          if (this.facing === 'moveRight') nx++;
+          else if (this.facing === 'moveLeft') nx--;
+          else if (this.facing === 'moveUp') ny--;
+          else if (this.facing === 'moveDown') ny++;
+          return scene.enemyGridX === nx && scene.enemyGridY === ny;
+        }
+
+        _move(action, dx, dy) {
+          this.checkSafety();
+          this.facing = action;
+          let nx = this.gridX + dx;
+          let ny = this.gridY + dy;
+
+          const cols = scene.levelConfig?.grid_size?.cols || 10;
+          const rows = scene.levelConfig?.grid_size?.rows || 10;
+          
+          if (nx < 0 || nx >= cols || ny < 0 || ny >= rows || scene.isObstacle(nx, ny)) {
+            this.path.push({ action: 'explode', x: nx, y: ny });
+            this.isDestroyed = true;
+            throw new Error('PROJECTILE_DESTROYED'); // 撞牆瞬間中斷腳本！
+          }
+
+          this.gridX = nx;
+          this.gridY = ny;
+          this.path.push({ action, x: nx, y: ny });
+
+          if (scene.enemyGridX === nx && scene.enemyGridY === ny) {
+            this.path.push({ action: 'hitEnemy', x: nx, y: ny });
+            this.isDestroyed = true;
+            throw new Error('PROJECTILE_DESTROYED'); // 打中瞬間中斷腳本！
+          }
+        }
+
+        moveUp() { this._move('moveUp', 0, -1); }
+        moveDown() { this._move('moveDown', 0, 1); }
+        moveLeft() { this._move('moveLeft', -1, 0); }
+        moveRight() { this._move('moveRight', 1, 0); }
+      }
+
+      const p = new ProgrammableProjectile(startX, startY, this.lastFacing);
+      try {
+        await arg1(p); 
+      } catch (e) {
+        // 🌟 如果是我們設計的強制中斷，就不印出紅字錯誤，讓一切看起來很自然！
+        if (e.message !== 'PROJECTILE_DESTROYED') {
+          console.error("箭矢魔法執行錯誤:", e);
+        }
+      }
+      path = p.path; 
+
+      // 🌟 貼心補刀設計：如果學生的迴圈寫得太準確，讓箭矢停在怪物「面前一格」
+      // 引擎會自動幫他衝過去完成擊殺！
+      if (!p.isDestroyed) {
+        let nx = p.gridX, ny = p.gridY;
+        if (p.facing === 'moveRight') nx++;
+        else if (p.facing === 'moveLeft') nx--;
+        else if (p.facing === 'moveUp') ny--;
+        else if (p.facing === 'moveDown') ny++;
+        
+        if (scene.enemyGridX === nx && scene.enemyGridY === ny) {
+          path.push({ action: 'hitEnemy', x: nx, y: ny });
+        }
+      }
+    } 
+    else if (typeof arg1 === 'number') {
+      const dx = arg1;
+      const dy = typeof arg2 === 'number' ? arg2 : 0;
+      let curX = startX;
+      let curY = startY;
+      const maxRange = 5; 
+      const cols = this.levelConfig?.grid_size?.cols || 10;
+      const rows = this.levelConfig?.grid_size?.rows || 10;
+
+      for (let i = 0; i < maxRange; i++) {
+        curX += dx;
+        curY += dy;
+
+        if (curX < 0 || curX >= cols || curY < 0 || curY >= rows) {
+          path.push({ action: 'explode', x: curX, y: curY });
+          break;
+        }
+        if (this.isObstacle(curX, curY)) {
+          path.push({ action: 'explode', x: curX, y: curY });
+          break;
+        }
+        if (this.enemyGridX === curX && this.enemyGridY === curY) {
+          path.push({ action: 'hitEnemy', x: curX, y: curY });
+          break;
+        }
+        path.push({ action: 'fly', x: curX, y: curY, dx: dx, dy: dy });
+      }
+    }
+
+    return new Promise(async (resolve) => {
+      if (path.length === 0) {
+        arrow.destroy();
+        resolve();
+        return;
+      }
+
+      for (const step of path) {
+        const tx = step.x * this.cellSize + this.cellSize / 2;
+        const ty = step.y * this.cellSize + this.cellSize / 2;
+
+        await new Promise((stepResolve) => {
+          if (step.action === 'explode') {
+            arrow.setAlpha(0); 
+            const boom = this.add.text(arrow.x, arrow.y, '💥', { fontSize: '40px' }).setOrigin(0.5).setDepth(20);
+            this.tweens.add({
+              targets: boom, alpha: 0, duration: 300,
+              onComplete: () => { boom.destroy(); stepResolve(); }
+            });
+          } 
+          else if (step.action === 'hitEnemy') {
+            this.tweens.add({
+              targets: arrow, x: tx, y: ty, duration: 150,
+              onComplete: () => {
+                arrow.destroy();
+                if (this.enemy && this.enemy.alpha > 0) {
+                  const emitter = this.add.particles(this.enemy.x, this.enemy.y, 'magic_particle', {
+                    speed: { min: -200, max: 200 }, angle: { min: 0, max: 360 }, scale: { start: 0.5, end: 0 },
+                    blendMode: 'ADD', lifespan: 500, quantity: 30
+                  });
+                  emitter.explode();
+                  this.enemy.setTint(0xff0000);
+                  
+                  this.tweens.add({
+                    targets: [this.enemy, this.enemyLabel], x: '+=8', yoyo: true, repeat: 1, duration: 50,
+                    onComplete: () => { 
+                      this.enemy.setAlpha(0); 
+                      this.enemyLabel.setAlpha(0); 
+                      stepResolve(); 
+                    }
+                  });
+                } else {
+                  stepResolve();
+                }
+              }
+            });
+          } 
+          else {
+            arrow.setFlipX(false);
+            let finalDx = step.dx !== undefined ? step.dx : 1;
+            let finalDy = step.dy !== undefined ? step.dy : 0;
+
+            if (step.action === 'moveUp') { finalDx = 0; finalDy = -1; }
+            else if (step.action === 'moveDown') { finalDx = 0; finalDy = 1; }
+            else if (step.action === 'moveLeft') { finalDx = -1; finalDy = 0; }
+            else if (step.action === 'moveRight') { finalDx = 1; finalDy = 0; }
+            
+            arrow.angle = Phaser.Math.RadToDeg(Math.atan2(finalDy, finalDx));
+            
+            this.tweens.add({
+              targets: arrow, x: tx, y: ty, duration: 150, ease: 'Linear',
+              onComplete: () => stepResolve()
+            });
+          }
+        });
+      }
+
+      if (arrow && arrow.active) arrow.destroy();
+      resolve(); 
+    });
+  }
+
+  resetLevel(hideMessage = true) {
     this.tweens.killAll();
     this.time.removeAllEvents();
+    if (this.player) {
+      if (typeof this.player.play === 'function') {
+        this.player.play('hero-idle');
+      }
+      if (typeof this.player.setFlipX === 'function') {
+        this.player.setFlipX(false);
+      }
+    }
     
     this.playerData.hasKey = false;
     this.usedCommands.clear(); 
@@ -122,7 +370,9 @@ export default class TeachingScene extends Phaser.Scene {
       this.playerLabel.setPosition(this.startX, this.startY + this.labelOffsetY);
     }
 
-    if (this.messageBox) this.messageBox.setVisible(false);
+    if (hideMessage && this.messageBox) {
+      this.messageBox.setVisible(false);
+    }
 
     if (this.enemy) {
       this.enemy.setAlpha(1);
@@ -172,16 +422,20 @@ export default class TeachingScene extends Phaser.Scene {
 
   async addCommand(action) {
     this.usedCommands.add(action);
-    if (this.isFailed || !this.player) return;
+    
+    if (this.isFailed) {
+      throw new Error('LEVEL_FAILED');
+    }
+    if (!this.player) return;
 
     const forbidden = this.levelConfig?.restrictions?.forbidden || [];
     if (forbidden.includes(action)) {
       this.showResult(false, `🚫 這個指令在本關被禁用！`);
       this.isFailed = true;
-      return;
+      throw new Error('LEVEL_FAILED');
     }
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       let dx = 0, dy = 0;
       const cols = this.levelConfig?.grid_size?.cols || 10;
       const rows = this.levelConfig?.grid_size?.rows || 10;
@@ -204,14 +458,14 @@ export default class TeachingScene extends Phaser.Scene {
           if (this.isObstacle(midX, midY)) {
             this.showResult(false, '💥 衝刺途中撞到障礙物！');
             this.isFailed = true;
-            resolve(); return;
+            reject(new Error('LEVEL_FAILED')); return;
           }
         }
 
         if (nextX < 0 || nextX >= cols || nextY < 0 || nextY >= rows || this.isObstacle(nextX, nextY)) {
           this.showResult(false, this.levelConfig.failMessages?.hitObstacle || '💥 碰！撞到障礙物或牆壁了！');
           this.isFailed = true;
-          resolve(); return;
+          reject(new Error('LEVEL_FAILED')); return; 
         }
 
         this.playerGridX = nextX;
@@ -223,41 +477,55 @@ export default class TeachingScene extends Phaser.Scene {
           this.keyIcon.setAlpha(0); 
         }
 
-        if (this._checkMaxSteps()) { resolve(); return; }
+        if (this._checkMaxSteps()) { reject(new Error('LEVEL_FAILED')); return; }
 
         const targetX = nextX * this.cellSize + this.cellSize / 2;
         const targetY = nextY * this.cellSize + this.cellSize / 2;
         const duration = action === 'dash' ? 150 : 300;
 
+        if (typeof this.player.play === 'function') {
+          this.player.play('hero-walk', true);
+        }
+        if (typeof this.player.setFlipX === 'function') {
+          if (action === 'moveLeft') {
+            this.player.setFlipX(true);
+          } else if (action === 'moveRight') {
+            this.player.setFlipX(false);
+          }
+        }
+
         this.tweens.add({ targets: this.player, x: targetX, y: targetY, duration, ease: 'Power2' });
         this.tweens.add({
           targets: this.playerLabel, x: targetX, y: targetY + this.labelOffsetY, duration, ease: 'Power2',
-          onComplete: () => this.time.delayedCall(50, () => resolve())
+          onComplete: () => {
+            if (typeof this.player.play === 'function') {
+              this.player.play('hero-idle');
+            }
+            this.time.delayedCall(50, () => resolve());
+          }
         });
       }
       else if (action === 'attack') {
         const distance = Math.abs(this.playerGridX - this.enemyGridX) + Math.abs(this.playerGridY - this.enemyGridY);
         if (distance <= 1 && this.enemy.alpha > 0) {
-          const slash = this.add.text(this.enemy.x, this.enemy.y, '⚔️', { fontSize: '64px' }).setOrigin(0.5);
+          const emitter = this.add.particles(this.enemy.x, this.enemy.y, 'magic_particle', {
+              speed: { min: -200, max: 200 }, angle: { min: 0, max: 360 }, scale: { start: 0.5, end: 0 },
+              blendMode: 'ADD', lifespan: 500, quantity: 30
+          });
+          emitter.explode();
+          this.enemy.setTint(0xff0000);
           this.tweens.add({
-            targets: slash, scale: 1.5, alpha: 0, duration: 200,
+            targets: [this.enemy, this.enemyLabel], x: '+=8', yoyo: true, for: 2, duration: 50,
             onComplete: () => {
-              slash.destroy();
-              this.enemy.setTint(0xff0000);
-              this.tweens.add({
-                targets: [this.enemy, this.enemyLabel], x: '+=8', yoyo: true, for: 2, duration: 50,
-                onComplete: () => {
-                  this.enemy.setAlpha(0);
-                  this.enemyLabel.setAlpha(0);
-                  this.time.delayedCall(200, () => resolve());
-                }
-              });
+              this.enemy.setAlpha(0);
+              this.enemyLabel.setAlpha(0);
+              this.time.delayedCall(200, () => resolve());
             }
           });
         } else {
           this.showResult(false, this.levelConfig.failMessages?.tooFar || '❌ 攻擊失敗！距離太遠或目標不存在。');
           this.isFailed = true; 
-          resolve();
+          reject(new Error('LEVEL_FAILED')); return; 
         }
       }
       else if (action === 'wait') {
@@ -273,15 +541,11 @@ export default class TeachingScene extends Phaser.Scene {
         });
       }
       else {
-        console.warn('執行了未實作的指令:', action);
         resolve();
       }
     });
   }
 
-  // ==========================================
-  // 🌟 智慧勝利判定
-  // ==========================================
   checkVictory(rawCode = '') {
     if (this.isFailed) return false;
 
@@ -310,11 +574,21 @@ export default class TeachingScene extends Phaser.Scene {
     }
 
     if (reqCmds.length > 0) {
-      // 🌟 給予好讀的中文提示
-      const cmdLabels = { 'for': '迴圈 (for)', 'while': '條件迴圈 (while)', 'if': '判斷式 (if)' };
+      const cmdLabels = { 
+        'for_loop': '迴圈 (for)', 'while_loop': '條件迴圈 (while)', 
+        'if_else': '判斷式 (if)', 'function': '自訂函式 (function)'
+      };
+
       reqCmds.forEach(cmd => {
         if (!cmd || cmd.trim() === '') return;
-        const codeHasCommand = rawCode.includes(cmd) || this.usedCommands.has(cmd);
+        let codeHasCommand = false;
+        
+        if (cmd === 'for_loop') codeHasCommand = /\bfor\b/.test(rawCode);
+        else if (cmd === 'while_loop') codeHasCommand = /\bwhile\b/.test(rawCode);
+        else if (cmd === 'if_else') codeHasCommand = /\bif\b/.test(rawCode);
+        else if (cmd === 'function') codeHasCommand = /\bfunction\b/.test(rawCode);
+        else codeHasCommand = rawCode.includes(cmd) || this.usedCommands.has(cmd);
+
         if (!codeHasCommand) {
           isSuccess = false;
           failMsgs.push(`未使用「${cmdLabels[cmd] || cmd}」相關積木`);
@@ -338,24 +612,18 @@ export default class TeachingScene extends Phaser.Scene {
     if (!this.messageBox) return;
     this.messageBox.setText(text);
     
-    // 🌟 改變背景色與邊框來增強警示效果
     this.messageBox.setStyle({ 
       stroke: isSuccess ? '#00d4aa' : '#ff6b6b',
       backgroundColor: isSuccess ? 'rgba(0, 50, 30, 0.95)' : 'rgba(50, 10, 20, 0.95)'
     });
     this.messageBox.setVisible(true);
 
-    // 🌟 彈跳動畫，保證玩家一定會看到
     this.messageBox.setScale(0.8);
-    this.tweens.add({
-      targets: this.messageBox,
-      scale: 1,
-      duration: 300,
-      ease: 'Back.out'
-    });
+    this.tweens.add({ targets: this.messageBox, scale: 1, duration: 300, ease: 'Back.out' });
   }
 
   async checkSensor(sensorId) {
+    if (this.isFailed) { throw new Error('LEVEL_FAILED'); }
     await new Promise(resolve => this.time.delayedCall(200, resolve));
     switch (sensorId) {
       case 'isWall':

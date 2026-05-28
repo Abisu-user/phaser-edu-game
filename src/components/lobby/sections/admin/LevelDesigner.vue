@@ -100,19 +100,31 @@
               </div>
 
               <div>
-                <label class="block text-xs text-gray-400 mb-2">🎓 強制包含指令 (可複選)</label>
+               <label class="block text-xs text-gray-400 mb-2">🎓 強制包含指令 (可複選)</label>
                 <div class="grid grid-cols-2 gap-2 bg-[#0a0914] border border-indigo-900/50 rounded-lg p-3">
                   <label class="flex items-center gap-2 cursor-pointer hover:text-indigo-300 transition">
-                    <input type="checkbox" value="for" v-model="form.required_command" class="accent-indigo-500 w-4 h-4">
+                    <input type="checkbox" value="for_loop" v-model="form.required_command" class="accent-indigo-500 w-4 h-4">
                     <span class="text-sm font-bold">🔄 迴圈 (for)</span>
                   </label>
                   <label class="flex items-center gap-2 cursor-pointer hover:text-indigo-300 transition">
-                    <input type="checkbox" value="while" v-model="form.required_command" class="accent-indigo-500 w-4 h-4">
+                    <input type="checkbox" value="while_loop" v-model="form.required_command" class="accent-indigo-500 w-4 h-4">
                     <span class="text-sm font-bold">🔁 條件 (while)</span>
                   </label>
                   <label class="flex items-center gap-2 cursor-pointer hover:text-indigo-300 transition">
-                    <input type="checkbox" value="if" v-model="form.required_command" class="accent-indigo-500 w-4 h-4">
-                    <span class="text-sm font-bold">🤔 判斷 (if)</span>
+                    <input type="checkbox" value="if_else" v-model="form.required_command" class="accent-indigo-500 w-4 h-4">
+                    <span class="text-sm font-bold">🔀 判斷 (if)</span>
+                  </label>
+                  <label class="flex items-center gap-2 cursor-pointer hover:text-indigo-300 transition">
+                    <input type="checkbox" value="function" v-model="form.required_command" class="accent-indigo-500 w-4 h-4">
+                    <span class="text-sm font-bold">🔧 函式 (function)</span>
+                  </label>
+                  <label class="flex items-center gap-2 cursor-pointer hover:text-indigo-300 transition">
+                    <input type="checkbox" value="isWall" v-model="form.required_command" class="accent-indigo-500 w-4 h-4">
+                    <span class="text-sm font-bold">🧱 雷達 (isWall)</span>
+                  </label>
+                  <label class="flex items-center gap-2 cursor-pointer hover:text-indigo-300 transition">
+                    <input type="checkbox" value="isEnemy" v-model="form.required_command" class="accent-indigo-500 w-4 h-4">
+                    <span class="text-sm font-bold">🎯 雷達 (isEnemy)</span>
                   </label>
                 </div>
               </div>
@@ -302,7 +314,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { supabase } from '../../../../supabase'; 
-import { COMMAND_DICT } from '../../../../game/config/CommandList.js';
+import { OUTGAME_COMMANDS } from '../../../../game/config/CommandList.js';
 
 const emit = defineEmits(['preview']);
 
@@ -345,14 +357,14 @@ const groupedCommands = computed(() => {
   const usedIds = new Set();
 
   for (const [name, ids] of Object.entries(groups)) {
-    const commands = COMMAND_DICT.filter(cmd => ids.includes(cmd.id));
+    const commands = OUTGAME_COMMANDS.filter(cmd => ids.includes(cmd.id));
     if (commands.length > 0) {
       result.push({ name, commands });
       commands.forEach(c => usedIds.add(c.id));
     }
   }
 
-  const others = COMMAND_DICT.filter(cmd => !usedIds.has(cmd.id));
+  const others = OUTGAME_COMMANDS.filter(cmd => !usedIds.has(cmd.id));
   if (others.length > 0) {
     result.push({ name: '📦 其他', commands: others });
   }
@@ -536,6 +548,19 @@ const saveLevel = async (showAlert = true) => {
 
   try {
     const { data: { user } } = await supabase.auth.getUser();
+
+    if (!form.value.id) {
+      const { data: existing } = await supabase
+        .from('levels')
+        .select('id')
+        .eq('level_number', form.value.level_number)
+        .eq('teacher_id', user.id)
+        .maybeSingle();
+
+      if (existing?.id) {
+        form.value.id = existing.id;
+      }
+    }
 
     const payload = { 
       ...form.value, 

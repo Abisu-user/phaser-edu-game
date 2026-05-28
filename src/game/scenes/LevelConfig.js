@@ -8,9 +8,9 @@ export const levels = [
     player: { gridX: 2, gridY: 5, emoji: '🧙', label: '程式法師' },
     enemy:  { gridX: 6, gridY: 5, emoji: '👾', label: '弱小Bug' },
     obstacles: [{ x: 4, y: 5, type: 'rock' }],
-    goals: ['繞過石頭', '擊敗敵人'],
+    victoryCondition: ['kill_enemy'],
     availableCommands: ['moveUp', 'moveDown', 'moveLeft', 'moveRight', 'attack'],
-    restrictions: { maxSteps: 5 },
+    restrictions: { maxSteps: 7 }, // 修正步數，確保能繞過石頭
     failMessages: {
       hitObstacle: '💥 哎呀！撞到石頭了，請先往上或往下繞開它。',
       maxStepsExceeded: '👣 走太多步囉！請找出最直接的路線。'
@@ -31,9 +31,9 @@ export const levels = [
       { x: 4, y: 2, type: 'wall' },
       { x: 4, y: 3, type: 'wall' }
     ],
-    goals: ['繞過高牆', '抵達目標發動攻擊'],
+    victoryCondition: ['kill_enemy'],
     availableCommands: ['moveUp', 'moveDown', 'moveLeft', 'moveRight', 'attack'],
-    restrictions: { maxSteps: 8 },
+    restrictions: { maxSteps: 10 },
     failMessages: { hitObstacle: '💥 牆壁太高了跨不過去，必須從下面繞！' },
     hint: '這道牆很長，你需要先往下走好幾步才能繞過去。',
     xpReward: 120,
@@ -50,7 +50,7 @@ export const levels = [
       { x: 3, y: 1, type: 'rock' }, { x: 3, y: 2, type: 'rock' },
       { x: 4, y: 5, type: 'rock' }, { x: 4, y: 6, type: 'rock' }
     ],
-    goals: ['精準走出 Z 字型路線'],
+    victoryCondition: ['kill_enemy'],
     availableCommands: ['moveUp', 'moveDown', 'moveLeft', 'moveRight', 'attack'],
     restrictions: { maxSteps: 10 },
     failMessages: { maxStepsExceeded: '👣 步數耗盡！你沒有走在最短的 Z 字路線上。' },
@@ -58,18 +58,23 @@ export const levels = [
     xpReward: 150,
   },
   {
+    // 🌟 重新設計：1-4 只進不退 (無法穿牆，透過限制方向製造挑戰)
     id: 4,
-    title: '1-4 限制之域',
-    description: '這關你被施加了詛咒，無法向右轉！',
+    title: '1-4 只進不退',
+    description: '這關的魔法場地受到限制，你無法「向上」或「向左」走！',
     grid_size: { cols: 10, rows: 10 },
-    player: { gridX: 4, gridY: 4, emoji: '🧙', label: '程式法師' },
-    enemy:  { gridX: 6, gridY: 4, emoji: '🦇', label: '吸血蝙蝠' },
-    obstacles: [{ x: 5, y: 4, type: 'wall' }],
-    restrictions: { forbidden: ['moveRight'], maxSteps: 12 },
-    goals: ['在不能向右走的情況下抵達目標'],
-    availableCommands: ['moveUp', 'moveDown', 'moveLeft', 'attack'],
-    failMessages: { outOfBounds: '🚫 走錯方向了！小心不要走出地圖邊界。' },
-    hint: '不能向右走？那就往上或往下繞一大圈吧！',
+    player: { gridX: 2, gridY: 2, emoji: '🧙', label: '程式法師' },
+    enemy:  { gridX: 8, gridY: 8, emoji: '🦇', label: '吸血蝙蝠' },
+    obstacles: [
+      { x: 4, y: 2, type: 'rock' },
+      { x: 6, y: 4, type: 'rock' },
+      { x: 8, y: 6, type: 'rock' }
+    ],
+    restrictions: { forbidden: ['moveUp', 'moveLeft'], maxSteps: 12 },
+    victoryCondition: ['kill_enemy'],
+    availableCommands: ['moveDown', 'moveRight', 'attack'],
+    failMessages: { outOfBounds: '🚫 走錯方向了！小心不要撞到石頭或邊界。' },
+    hint: '既然只能向右和向下，遇到石頭時就必須提前轉彎走出階梯狀路線！',
     xpReward: 200,
   },
   {
@@ -85,7 +90,7 @@ export const levels = [
       { x: 4, y: 5, type: 'rock' },
       { x: 5, y: 4, type: 'rock' }
     ],
-    goals: ['跨越對角線', '避開斜向的防禦陣型'],
+    victoryCondition: ['kill_enemy'],
     availableCommands: ['moveUp', 'moveDown', 'moveLeft', 'moveRight', 'attack'],
     restrictions: { maxSteps: 14 },
     failMessages: { maxStepsExceeded: '👣 步數耗盡！請重新檢視路線是否繞了遠路。' },
@@ -93,7 +98,7 @@ export const levels = [
     xpReward: 300,
   },
 
-  // ================= 第二章：規律步道 (強制迴圈 + 積木限制) =================
+  // ================= 第二章：規律步道 (強制迴圈 + 🌟積木精準限制) =================
   {
     id: 6,
     title: '2-1 節能法師',
@@ -101,11 +106,9 @@ export const levels = [
     grid_size: { cols: 10, rows: 10 },
     player: { gridX: 1, gridY: 4, emoji: '🧙', label: '程式法師' },
     enemy:  { gridX: 8, gridY: 4, emoji: '👾', label: '迴圈怪' },
-    restrictions: {
-      maxBlocks: 4,
-      requiredCommands: ['for']
-    },
-    goals: ['使用 for() 迴圈'],
+    restrictions: { maxBlocks: 4 }, // for(2) + right(1) + attack(1) = 4
+    requiredCommand: ['for_loop'],
+    victoryCondition: ['kill_enemy'],
     availableCommands: ['moveRight', 'attack', 'for'],
     failMessages: {
       missingCommand: '❌ 你必須使用「for 迴圈」才能過關！',
@@ -113,7 +116,6 @@ export const levels = [
     },
     hint: '如果只用單步移動，積木數量會超過限制喔！請使用「迴圈」。',
     xpReward: 350,
-    successMessage: '✨ 魔法升級！你的程式碼變得簡潔有力了！',
   },
   {
     id: 7,
@@ -121,16 +123,16 @@ export const levels = [
     description: '迴圈不只能裝一個動作，試著放入組合技。',
     grid_size: { cols: 10, rows: 10 },
     player: { gridX: 1, gridY: 1, emoji: '🧙', label: '程式法師' },
-    enemy:  { gridX: 6, gridY: 6, emoji: '🐍', label: '劇毒蛇' },
+    enemy:  { gridX: 7, gridY: 6, emoji: '🐍', label: '劇毒蛇' },
     obstacles: [
       { x: 2, y: 1, type: 'rock' },
       { x: 3, y: 2, type: 'rock' },
       { x: 4, y: 3, type: 'rock' }
     ],
-    restrictions: { maxBlocks: 4, requiredCommands: ['for'] },
-    goals: ['將「向下」和「向右」包裝在同一個迴圈中'],
+    restrictions: { maxBlocks: 5 }, // for(2) + down(1) + right(1) + attack(1) = 5
+    requiredCommand: ['for_loop'],
+    victoryCondition: ['kill_enemy'],
     availableCommands: ['moveRight', 'moveDown', 'attack', 'for'],
-    failMessages: { hitObstacle: '💥 規律錯了！每次都應該是「下、右」的順序。' },
     hint: '觀察規律：每次都是「向下 1 步，向右 1 步」，把這兩個動作都放進 for 中！',
     xpReward: 400,
   },
@@ -141,10 +143,10 @@ export const levels = [
     grid_size: { cols: 10, rows: 10 },
     player: { gridX: 2, gridY: 2, emoji: '🧙', label: '程式法師' },
     enemy:  { gridX: 8, gridY: 7, emoji: '🐺', label: '荒野狼' },
-    restrictions: { maxBlocks: 7, requiredCommands: ['for'] },
-    goals: ['使用兩個連續的 for()'],
+    restrictions: { maxBlocks: 7 }, // for(2) + right(1) + for(2) + down(1) + attack(1) = 7
+    requiredCommand: ['for_loop'],
+    victoryCondition: ['kill_enemy'],
     availableCommands: ['moveRight', 'moveDown', 'attack', 'for'],
-    failMessages: { tooManyBlocks: '🧱 請利用兩個迴圈，先往右到底，再往下到底。' },
     hint: '先用一個迴圈走到最右邊，再用另一個迴圈走到最下面。',
     xpReward: 450,
   },
@@ -153,17 +155,17 @@ export const levels = [
     title: '2-4 碎石迷陣',
     description: '在障礙物中尋找重複的路徑。',
     grid_size: { cols: 10, rows: 10 },
-    player: { gridX: 1, gridY: 2, emoji: '🧙', label: '程式法師' },
+    player: { gridX: 0, gridY: 2, emoji: '🧙', label: '程式法師' },
     enemy:  { gridX: 7, gridY: 5, emoji: '🕷️', label: '巨型蜘蛛' },
     obstacles: [
       { x: 3, y: 2, type: 'rock' },
       { x: 5, y: 3, type: 'rock' },
       { x: 7, y: 4, type: 'rock' }
     ],
-    restrictions: { maxBlocks: 7, requiredCommands: ['for'] },
-    goals: ['結合迴圈與單步移動'],
+    restrictions: { maxBlocks: 6 }, // for(2) + right(2) + down(1) + attack(1) = 6
+    requiredCommand: ['for_loop'],
+    victoryCondition: ['kill_enemy'],
     availableCommands: ['moveUp', 'moveDown', 'moveRight', 'attack', 'for'],
-    failMessages: { hitObstacle: '💥 閃避的規律不夠精準，請仔細設定迴圈內的指令。' },
     hint: '迴圈可以包裝重複的閃避動作。',
     xpReward: 500,
   },
@@ -173,19 +175,22 @@ export const levels = [
     description: '第二章綜合測驗，極限積木挑戰。',
     grid_size: { cols: 10, rows: 10 },
     player: { gridX: 8, gridY: 8, emoji: '🧙', label: '程式法師' },
-    enemy:  { gridX: 1, gridY: 1, emoji: '👑', label: 'Bug國王' },
+    enemy:  { gridX: 1, gridY: 0, emoji: '👑', label: 'Bug國王' },
     obstacles: [
-      { x: 6, y: 6, type: 'rock' },
-      { x: 4, y: 4, type: 'rock' },
-      { x: 2, y: 2, type: 'rock' }
+      { x: 8, y: 7, type: 'rock' },
+      { x: 7, y: 6, type: 'rock' },
+      { x: 6, y: 5, type: 'rock' },
+      { x: 5, y: 4, type: 'rock' },
+      { x: 4, y: 3, type: 'rock' },
+      { x: 3, y: 2, type: 'rock' },
+      { x: 2, y: 1, type: 'rock' }
     ],
-    restrictions: { maxBlocks: 6, requiredCommands: ['for'] },
-    goals: ['用極少的積木跨越整張地圖'],
+    restrictions: { maxBlocks: 5 }, // for(2) + left(1) + up(1) + attack(1) = 5
+    requiredCommand: ['for_loop'],
+    victoryCondition: ['kill_enemy'],
     availableCommands: ['moveUp', 'moveLeft', 'attack', 'for'],
-    failMessages: { tooManyBlocks: '🧱 極限挑戰！找出左移與上移的完美循環。' },
     hint: '仔細計算從 (8,8) 到 (1,1) 需要重複幾次左移與上移的組合。',
     xpReward: 600,
-    successMessage: '🏆 迴圈魔法精通！你已經具備了優化程式碼長度的能力！',
   },
 
   // ================= 第三章：陷阱地底 (單純條件過渡 -> 複合條件) =================
@@ -197,17 +202,12 @@ export const levels = [
     player: { gridX: 2, gridY: 5, emoji: '🧙', label: '程式法師' },
     enemy:  { gridX: 6, gridY: 5, emoji: '🔥', label: '火元素' },
     obstacles: [{ x: 4, y: 5, type: 'lava' }],
-    restrictions: { requiredCommands: ['if', 'isWall'] },
-    goals: ['使用 if 判斷前方是否有障礙'],
-    // 修正：isObstacleAhead → isWall
+    restrictions: { maxBlocks: 10 }, // moveRight(2) + if(1) + isWall(1) + up(1) + right(2) + down(1) + attack(1) = 9
+    requiredCommand: ['if_else', 'isWall'],
+    victoryCondition: ['kill_enemy'],
     availableCommands: ['moveUp', 'moveDown', 'moveRight', 'attack', 'if', 'isWall'],
-    failMessages: {
-      hitObstacle: '🔥 你掉進岩漿了！請先用 if (isWall) 檢查前方。',
-      missingCommand: '❌ 運氣好沒用！你必須寫出 if 判斷式才能過關。'
-    },
     hint: '先用 if 檢查。如果前方有牆，就往上走避開它。',
     xpReward: 700,
-    successMessage: '✨ 智慧初開！你的程式碼現在有「眼睛」了！',
   },
   {
     id: 12,
@@ -217,10 +217,10 @@ export const levels = [
     player: { gridX: 2, gridY: 4, emoji: '🧙', label: '程式法師' },
     enemy:  { gridX: 7, gridY: 4, emoji: '🗿', label: '巨石怪' },
     obstacles: [{ x: 5, y: 4, type: 'wall' }],
-    restrictions: { requiredCommands: ['if', 'else', 'isWall'] },
-    goals: ['完整使用 if-else 分支邏輯'],
+    restrictions: { maxBlocks: 14 }, // if/else/isWall 算進去約 13 個積木
+    requiredCommand: ['if_else', 'isWall'],
+    victoryCondition: ['kill_enemy'],
     availableCommands: ['moveUp', 'moveDown', 'moveRight', 'attack', 'if', 'else', 'isWall'],
-    failMessages: { missingCommand: '❌ 必須使用 else 來處理「沒有障礙」的狀況。' },
     hint: 'if (前方有障礙) { 繞路 } else { 前進 }',
     xpReward: 750,
   },
@@ -231,14 +231,11 @@ export const levels = [
     grid_size: { cols: 10, rows: 10 },
     player: { gridX: 1, gridY: 5, emoji: '🧙', label: '程式法師' },
     enemy:  { gridX: 8, gridY: 5, emoji: '🧟', label: '殭屍Bug' },
-    obstacles: [
-      { x: 3, y: 5, type: 'rock' },
-      { x: 6, y: 5, type: 'rock' }
-    ],
-    restrictions: { maxBlocks: 15, requiredCommands: ['for', 'if', 'else'] },
-    goals: ['在 for 中放入 if-else'],
+    obstacles: [{ x: 3, y: 5, type: 'rock' }, { x: 6, y: 5, type: 'rock' }],
+    restrictions: { maxBlocks: 11 }, // for(2) + if(1) + isWall(1) + else(1) + 繞路(3) + 直走(1) + attack(1) = 10
+    requiredCommand: ['for_loop', 'if_else', 'isWall'],
+    victoryCondition: ['kill_enemy'],
     availableCommands: ['moveUp', 'moveDown', 'moveRight', 'attack', 'for', 'if', 'else', 'isWall'],
-    failMessages: { tooManyBlocks: '🧱 積木太多了！你只需要寫「一次」判斷邏輯，然後用 for 包起來。' },
     hint: '重複執行 7 次：{ 如果有障礙 -> 繞路，否則 -> 前進 }',
     xpReward: 800,
   },
@@ -247,17 +244,18 @@ export const levels = [
     title: '3-4 終極雷達',
     description: '面對未知的多重障礙。',
     grid_size: { cols: 10, rows: 10 },
-    player: { gridX: 1, gridY: 2, emoji: '🧙', label: '程式法師' },
-    enemy:  { gridX: 8, gridY: 2, emoji: '🌵', label: '變異植物' },
-    obstacles: [
-      { x: 2, y: 2, type: 'rock' },
-      { x: 4, y: 2, type: 'rock' },
-      { x: 6, y: 2, type: 'rock' }
-    ],
-    restrictions: { maxBlocks: 8, requiredCommands: ['for', 'if', 'else'] },
-    goals: ['寫出能連續避障的迴圈程式'],
+    player: { gridX: 0, gridY: 9, emoji: '🧙', label: '程式法師' },
+    enemy:  { gridX: 8, gridY: 0, emoji: '🌵', label: '變異植物' },
+    obstacles: [{ x: 9, y: 1, type: 'rock' }, { x: 9, y: 2, type: 'rock' }, 
+                { x: 2, y: 9, type: 'rock' }, { x: 2, y: 8, type: 'rock' },
+                { x: 8, y: 2, type: 'rock' }, { x: 8, y: 3, type: 'rock' },
+                { x: 7, y: 4, type: 'rock' },
+                { x: 4, y: 6, type: 'rock' }, { x: 4, y: 7, type: 'rock' },
+                { x: 5, y: 5, type: 'rock' } ,{ x: 5, y: 6, type: 'rock' }],
+    restrictions: { maxBlocks: 10 },
+    requiredCommand: ['for_loop', 'if_else', 'isWall'],
+    victoryCondition: ['kill_enemy'],
     availableCommands: ['moveUp', 'moveDown', 'moveRight', 'attack', 'for', 'if', 'else', 'isWall'],
-    failMessages: { hitObstacle: '💥 判斷錯誤！你的雷達沒能避開變異植物。' },
     hint: '你的迴圈必須完美處理「遇到障礙」和「暢通無阻」兩種情況。',
     xpReward: 900,
   },
@@ -267,61 +265,43 @@ export const levels = [
     description: '第三章綜合測驗，隨時會踩到陷阱。',
     grid_size: { cols: 10, rows: 10 },
     player: { gridX: 5, gridY: 8, emoji: '🧙', label: '程式法師' },
-    enemy:  { gridX: 5, gridY: 1, emoji: '🐉', label: '混沌毒龍' },
-    obstacles: [
-      { x: 5, y: 6, type: 'lava' },
-      { x: 4, y: 4, type: 'lava' },
-      { x: 5, y: 2, type: 'lava' }
-    ],
-    restrictions: { maxBlocks: 10, requiredCommands: ['for', 'if', 'else'] },
-    goals: ['綜合運用迴圈與判斷式', '在積木限制內擊敗魔王'],
+    enemy:  { gridX: 5, gridY: 0, emoji: '🐉', label: '混沌毒龍' },
+    obstacles: [{ x: 5, y: 6, type: 'lava' }, { x: 4, y: 4, type: 'lava' }, { x: 5, y: 2, type: 'lava' }],
+    restrictions: { maxBlocks: 11 },
+    requiredCommand: ['for_loop', 'if_else', 'isWall'],
+    victoryCondition: ['kill_enemy'],
     availableCommands: ['moveUp', 'moveLeft', 'moveRight', 'attack', 'for', 'if', 'else', 'isWall'],
-    failMessages: { tooManyBlocks: '🧱 邏輯太過複雜了！找出往上走與閃避的通用模式。' },
     xpReward: 1000,
-    successMessage: '🏆 邏輯判斷大師！你已經能寫出應對各種狀況的健壯程式了！',
   },
 
   // ================= 第四章：萬物自動 (先拆解 Function 與 While，再合併) =================
   {
     id: 16,
     title: '4-1 無盡追尋 (While迴圈)',
-    description: '地圖被迷霧壟罩，你不知道敵人有多遠，走到碰面為止。',
+    description: '地圖被迷霧壟罩，走到碰面為止。',
     grid_size: { cols: 10, rows: 10 },
     player: { gridX: 1, gridY: 3, emoji: '🧙', label: '程式法師' },
     enemy:  { gridX: 8, gridY: 3, emoji: '🎯', label: '標靶怪' },
-    restrictions: {
-      hideDistance: true,
-      requiredCommands: ['while', 'isEnemy'],
-      maxExecutionLoops: 50
-    },
-    goals: ['使用 while 迴圈直到遭遇敵人'],
-    // 修正：isEnemyNear → isEnemy
+    restrictions: { hideDistance: true, maxExecutionLoops: 50, maxBlocks: 4 }, // while(1) + isEnemy(1) + right(1) + attack(1) = 4
+    requiredCommand: ['while_loop', 'isEnemy'],
+    victoryCondition: ['kill_enemy'],
     availableCommands: ['moveRight', 'attack', 'while', 'isEnemy'],
-    failMessages: {
-      infiniteLoop: '⏳ 角色卡住了！你的 while 迴圈沒有終止條件，或者一直在原地不動。',
-      missingCommand: '❌ 距離未知，你不能用固定步數，必須使用 while！'
-    },
-    hint: 'while (!isEnemy) { 向右走; }',
+    hint: 'while (!isEnemy()) { 向右走; }',
     xpReward: 1200,
-    successMessage: '✨ 動態適應！while 迴圈讓你不必再辛苦算格子！',
   },
   {
     id: 17,
     title: '4-2 記憶法術 (Function 基礎)',
-    description: '閃避的動作太繁瑣了？我們把它打包成一個自訂指令！',
+    description: '閃避的動作太繁瑣了？把它打包成自訂指令！',
     grid_size: { cols: 10, rows: 10 },
-    player: { gridX: 1, gridY: 1, emoji: '🧙', label: '程式法師' },
+    player: { gridX: 2, gridY: 1, emoji: '🧙', label: '程式法師' },
     enemy:  { gridX: 8, gridY: 8, emoji: '👹', label: '雙角惡魔' },
-    obstacles: [
-      { x: 3, y: 3, type: 'rock' },
-      { x: 5, y: 5, type: 'rock' },
-      { x: 7, y: 7, type: 'rock' }
-    ],
-    restrictions: { requiredCommands: ['function'] },
-    goals: ['定義一個名為 dodge 的 function 並呼叫它'],
+    obstacles: [{ x: 3, y: 3, type: 'rock' }, { x: 5, y: 5, type: 'rock' }, { x: 7, y: 7, type: 'rock' }],
+    restrictions: { maxBlocks: 8 }, // function(1)+dodge內(2) + for(2)+呼叫(1) + attack(1) = 7
+    requiredCommand: ['function'],
+    victoryCondition: ['kill_enemy'],
     availableCommands: ['moveDown', 'moveRight', 'attack', 'function', 'for'],
-    failMessages: { missingCommand: '❌ 你必須創造一個自訂的 function 才能過關。' },
-    hint: '先定義 function dodge() { 下; 右; }，主程式裡就可以像一般指令一樣呼叫 dodge() 了！',
+    hint: '先定義 function dodge() { 下; 右; }，主程式裡就可以呼叫 dodge() 了！',
     xpReward: 1500,
   },
   {
@@ -332,12 +312,11 @@ export const levels = [
     player: { gridX: 1, gridY: 7, emoji: '🧙', label: '程式法師' },
     enemy:  { gridX: 8, gridY: 7, emoji: '🦅', label: '疾風巨鷹' },
     obstacles: [{ x: 4, y: 7, type: 'rock' }],
-    restrictions: { maxExecutionLoops: 50, requiredCommands: ['while', 'if', 'else'] },
-    goals: ['建立自動追蹤並避障的邏輯'],
-    // 修正：isEnemyNear → isEnemy, isObstacleAhead → isWall
+    restrictions: { maxExecutionLoops: 50, maxBlocks: 12 }, 
+    requiredCommand: ['while_loop', 'if_else', 'isEnemy', 'isWall'],
+    victoryCondition: ['kill_enemy'],
     availableCommands: ['moveUp', 'moveDown', 'moveRight', 'attack', 'while', 'if', 'else', 'isEnemy', 'isWall'],
-    failMessages: { infiniteLoop: '⏳ 卡住了！檢查你的 if-else 是否有成功繞過障礙物並回到原位？' },
-    hint: 'while (!isEnemy) { 如果前方有牆就繞路，否則前進 }',
+    hint: 'while (!isEnemy()) { 如果前方有牆就繞路，否則前進 }',
     xpReward: 1800,
   },
   {
@@ -346,21 +325,16 @@ export const levels = [
     description: '多重函式與主程式的協作。',
     grid_size: { cols: 10, rows: 10 },
     player: { gridX: 1, gridY: 8, emoji: '🧙', label: '程式法師' },
-    enemy:  { gridX: 8, gridY: 1, emoji: '🌋', label: '熔岩巨獸' },
-    obstacles: [
-      { x: 2, y: 7, type: 'rock' },
-      { x: 4, y: 5, type: 'rock' },
-      { x: 6, y: 3, type: 'rock' }
-    ],
-    restrictions: { maxExecutionLoops: 80, requiredCommands: ['while', 'function'] },
-    goals: ['定義函式並在 while 迴圈中呼叫'],
-    // 修正：isEnemyNear → isEnemy, isObstacleAhead → isWall
-    availableCommands: ['moveUp', 'moveRight', 'attack', 'while', 'if', 'function', 'isEnemy', 'isWall'],
-    failMessages: { infiniteLoop: '⏳ 你的大軍在某處停滯不前了，檢查迴圈內的條件是否涵蓋了所有情況。' },
-    hint: '把「閃避」寫成獨立的 function，這就是架構師的思維。',
+    enemy:  { gridX: 9, gridY: 1, emoji: '🌋', label: '熔岩巨獸' },
+    obstacles: [{ x: 2, y: 6, type: 'rock' }, { x: 4, y: 5, type: 'rock' }, { x: 6, y: 3, type: 'rock' }],
+    restrictions: { maxExecutionLoops: 80, maxBlocks: 12 },
+    requiredCommand: ['while_loop', 'function', 'isEnemy', 'isWall'],
+    victoryCondition: ['kill_enemy'],
+    availableCommands: ['moveUp', 'moveRight', 'attack', 'while', 'if', 'else', 'function', 'isEnemy', 'isWall'],
+    hint: '把「閃避或斜走」寫成獨立的 function，這就是架構師的思維。',
     xpReward: 2000,
   },
-  {
+ {
     id: 20,
     title: '4-5 傳奇自動化 (Final Boss)',
     description: '寫出一個能適應任何地形並自動過關的終極 AI。',
@@ -368,26 +342,109 @@ export const levels = [
     player: { gridX: 1, gridY: 4, emoji: '🧙', label: '程式法師' },
     enemy:  { gridX: 8, gridY: 4, emoji: '👑', label: '深淵史萊姆魔王' },
     obstacles: [
-      { x: 3, y: 4, type: 'rock' },
-      { x: 4, y: 3, type: 'rock' },
-      { x: 4, y: 5, type: 'rock' },
-      { x: 6, y: 4, type: 'rock' }
+      { x: 3, y: 4, type: 'rock' }, { x: 3, y: 5, type: 'rock' }, 
+      { x: 6, y: 4, type: 'rock' }, { x: 6, y: 5, type: 'rock' }
     ],
-    restrictions: {
-      hideDistance: true,
-      maxBlocks: 12,
-      maxExecutionLoops: 100,
-      requiredCommands: ['while', 'if', 'function']
-    },
-    goals: ['結合 function (模組化)、while (自動化) 與 if (判斷)'],
-    // 修正：isEnemyNear → isEnemy, isObstacleAhead → isWall
+    restrictions: { hideDistance: true, maxBlocks: 14, maxExecutionLoops: 100 },
+    requiredCommand: ['while_loop', 'if_else', 'function', 'isEnemy', 'isWall'],
+    victoryCondition: ['kill_enemy'],
     availableCommands: ['moveUp', 'moveDown', 'moveRight', 'moveLeft', 'attack', 'while', 'if', 'else', 'function', 'isEnemy', 'isWall'],
-    failMessages: {
-      tooManyBlocks: '🧱 程式碼太長了！請用 function 把避障邏輯抽離出來。',
-      infiniteLoop: '⏳ 魔王在笑你！你的 AI 在某個角落卡死無限迴圈了。'
-    },
     hint: '先定義好閃避的 function 工具，然後用一個乾淨的 while 迴圈迎戰吧！',
     xpReward: 3000,
     successMessage: '🏆 傳奇誕生！你已經完全掌握了程式邏輯，成為魔法程式之神！',
+  },
+  // ================= 🌟 第五章：遠程奧義 (遠程射擊與彈道規劃) =================
+  {
+    id: 21,
+    title: '5-1 奧術飛彈',
+    description: '解鎖遠程攻擊 shoot(X, Y)！請站在原地施展 shoot(1,0) 將怪物狙擊！',
+    grid_size: { cols: 10, rows: 10 },
+    player: { gridX: 2, gridY: 5, emoji: '🧙', label: '程式法師' },
+    enemy:  { gridX: 7, gridY: 5, emoji: '🦇', label: '遠程吸血蝠' },
+    obstacles: [],
+    restrictions: { maxBlocks: 1 }, // 只需要一塊 shoot 積木
+    requiredCommand: ['shoot'],
+    victoryCondition: ['kill_enemy'],
+    availableCommands: ['shoot'], // 這關封印移動，強制學習遠程
+    failMessages: {
+      missingCommand: '❌ 這關不能走過去！你必須使用「shoot」積木在遠處狙擊目標！'
+    },
+    hint: '開火路線完全敞通！直接在程式中填入一個 「shoot」 積木，飛彈就會自動追蹤直線上的怪物！',
+    xpReward: 3200,
+    successMessage: '🏹 轟！遠程魔法威力強大，你甚至不需要挪動腳步！'
+  },
+  {
+    id: 22,
+    title: '5-2 調整彈道',
+    description: '利用 shoot(X, Y) 的彈道特性，調整位置讓飛彈能夠擊中敵人！',
+    grid_size: { cols: 10, rows: 10 },
+    player: { gridX: 2, gridY: 2, emoji: '🧙', label: '程式法師' },
+    enemy:  { gridX: 7, gridY: 7, emoji: '👹', label: '躲藏的小鬼' },
+    obstacles: [],
+    restrictions: { maxBlocks: 1 },
+    requiredCommand: ['shoot'],
+    victoryCondition: ['kill_enemy'],
+    availableCommands: ['shoot'],
+    failMessages: {
+      hitObstacle: '💥 飛彈在半路撞上高牆爆炸了！看來必須移動到跟怪物同一列（row 6）才能打中牠。'
+    },
+    hint: '怪物在第 6 列 (Y=6)，你現在在第 2 列 (Y=2)。先向下移動 4 步，開闊後再使用 shoot！',
+    xpReward: 3500,
+    successMessage: '🎯 聰明的決策！移動並拉出完美的狙擊視線！'
+  },
+  {
+    id: 23,
+    title: '5-3 火力壓制 (迴圈狙擊)',
+    description: '積木能量受到極度限制！利用 for 迴圈編寫出「前進一格、開火一發」的精準組合。',
+    grid_size: { cols: 10, rows: 10 },
+    player: { gridX: 0, gridY: 4, emoji: '🧙', label: '程式法師' },
+    enemy:  { gridX: 9, gridY: 4, emoji: '💎', label: '遠古結晶怪' },
+    restrictions: { maxBlocks: 6 },
+    requiredCommand: ['for_loop', 'shoot', 'function'],
+    victoryCondition: ['kill_enemy'],
+    availableCommands: ['moveRight', 'shoot', 'for', 'function'],
+    failMessages: {
+      tooManyBlocks: '🧱 積木數量超標了！請善用 for 迴圈來包裝重複的「向右」和「射擊」動作。'
+    },
+    hint: 'ˋ預設彈道為5格，利用function+for迴圈的組合，增加狙擊射程，讓飛彈一路追蹤到敵人！',
+    xpReward: 4000,
+    successMessage: '🔁 太流暢了！這就是迴圈配上射擊的移動重火力壓制！'
+  },
+  {
+    id: 24,
+    title: '5-4 盲區雷達獵手',
+    description: '走廊上可能隨機布滿高牆！結合 if-else 與 isWall 雷達，有障礙就繞路，開闊處就開火！',
+    grid_size: { cols: 10, rows: 10 },
+    player: { gridX: 1, gridY: 5, emoji: '🧙', label: '程式法師' },
+    enemy:  { gridX: 8, gridY: 5, emoji: '🦂', label: '迷宮巨蠍' },
+    obstacles: [
+      { x: 4, y: 5, type: 'rock' } // 擋在走廊中間
+    ],
+    restrictions: { maxBlocks: 12 },
+    requiredCommand: ['for_loop', 'if_else', 'isWall', 'shoot', 'function'],
+    victoryCondition: ['kill_enemy'],
+    availableCommands: ['moveUp', 'moveDown', 'moveRight', 'shoot', 'for', 'if', 'else', 'isWall','function'],
+    hint: '在 5 次的迴圈內：如果 isWall() 前方有石頭，就走 moveUp 繞開；否則（else）就向右並大膽 shoot()！',
+    xpReward: 4500,
+    successMessage: '🧠 完美運作！你的雷達能夠在沒有威脅時立刻實施精準打擊！'
+  },
+  {
+    id: 25,
+    title: '5-5 終焉狙擊狂潮 (Final Boss)',
+    description: '終極自動化考核！編寫一段能夠無限掃描戰場、靈活走位避開高牆，直到用神速射擊摧毀魔王的終極代碼。',
+    grid_size: { cols: 10, rows: 10 },
+    player: { gridX: 1, gridY: 2, emoji: '🧙', label: '程式法師' },
+    enemy:  { gridX: 8, gridY: 6, emoji: '🔱', label: '深淵滅世者' },
+    obstacles: [
+      { x: 3, y: 2, type: 'rock' }, { x: 3, y: 3, type: 'rock' },
+      { x: 7, y: 4, type: 'rock' }, { x: 7, y: 5, type: 'rock' },
+    ],
+    restrictions: { maxExecutionLoops: 120, maxBlocks: 14 },
+    requiredCommand: ['while_loop', 'if_else', 'isWall', 'shoot', 'function'],
+    victoryCondition: ['kill_enemy'],
+    availableCommands: ['moveUp', 'moveDown', 'moveRight', 'shoot', 'while', 'if', 'else', 'isWall', 'isEnemy', 'function'],
+    hint: '寫一個 while 迴圈，如果前面是牆就往下或往右繞開；如果在開闊地形且偵測到路線與 Boss 平行，就給牠致命一擊！',
+    xpReward: 6000,
+    successMessage: '🏆 【傳奇狙擊之神】誕生！你寫出的程式代碼已經具備高等 AI 的自動狙擊規劃邏輯，完美通關！'
   }
 ];

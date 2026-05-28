@@ -34,7 +34,47 @@
 
       <div v-else class="flex-1 min-w-0 min-h-0 flex flex-col bg-[#1e1e3f] border-r" style="border-color:#333355;">
         <div class="flex-1 relative w-full p-4 flex items-center justify-center min-h-0">
-          <div id="game-container" class="w-full h-full flex items-center justify-center"></div>
+          
+          <div v-if="levelConfig.title" class="absolute top-6 left-6 z-10 flex flex-col gap-3 pointer-events-none">
+            
+            <div class="bg-[#0a0e27]/85 backdrop-blur-md border border-white/10 p-3.5 rounded-xl shadow-lg transition-all duration-300">
+              <h3 class="font-bold text-sm mb-2 flex items-center gap-1.5 drop-shadow-md transition-colors"
+                  :class="isLevelCleared ? 'text-[#00d4aa]' : 'text-[#ffbb33]'">
+                <span class="text-base">🎯</span> 通關目標
+              </h3>
+              <ul class="text-xs space-y-2 pl-1 font-medium tracking-wide">
+                <li v-for="(cond, i) in parsedVictoryConditions" :key="'vc-'+i" 
+                    class="flex items-center gap-2 transition-all duration-500"
+                    :class="cond.isCompleted ? 'text-[#00d4aa] scale-105' : 'text-white/80'">
+                  <span v-if="cond.isCompleted" class="animate-bounce">✅</span>
+                  <span v-else class="w-1.5 h-1.5 rounded-full bg-[#ffbb33] shadow-[0_0_5px_#ffbb33]"></span>
+                  <span :class="{'line-through opacity-70': cond.isCompleted}">{{ cond.text }}</span>
+                </li>
+              </ul>
+            </div>
+
+            <div v-if="parsedRequiredCommands && parsedRequiredCommands.length > 0" 
+                 class="bg-[#2a0808]/85 backdrop-blur-md border border-[#ff6b6b]/30 p-3.5 rounded-xl shadow-lg transition-all duration-300"
+                 :class="{'border-[#00d4aa]/50 bg-[#0a1f18]/85': parsedRequiredCommands.every(r => r.isCompleted)}">
+              <h3 class="font-bold text-sm mb-2 flex items-center gap-1.5 drop-shadow-md transition-colors"
+                  :class="parsedRequiredCommands.every(r => r.isCompleted) ? 'text-[#00d4aa]' : 'text-[#ff6b6b]'">
+                <span class="text-base">{{ parsedRequiredCommands.every(r => r.isCompleted) ? '✅' : '⚠️' }}</span> 額外條件
+              </h3>
+              <ul class="text-xs space-y-2 pl-1 font-medium tracking-wide">
+                <li v-for="(req, i) in parsedRequiredCommands" :key="'req-'+i" 
+                    class="flex items-center gap-2 transition-all duration-500"
+                    :class="req.isCompleted ? 'text-[#00d4aa] scale-105' : 'text-white/80'">
+                  <span v-if="req.isCompleted" class="animate-bounce">✅</span>
+                  <span v-else class="w-1.5 h-1.5 rounded-full bg-[#ff6b6b] shadow-[0_0_5px_#ff6b6b]"></span>
+                  <span :class="{'line-through opacity-70': req.isCompleted}">{{ req.text }}</span>
+                </li>
+              </ul>
+            </div>
+
+          </div>
+
+          <div id="game-container" class="w-full h-full flex items-center justify-center rounded-xl overflow-hidden shadow-2xl"></div>
+          
         </div>
       </div>
 
@@ -72,7 +112,7 @@
 </template>
 
 <script setup>
-import { onMounted, onUnmounted, ref, watch, nextTick } from 'vue';
+import { onMounted, onUnmounted, ref, watch, nextTick, computed } from 'vue';
 import { supabase } from '../../supabase.js';
 import { BADGE_LIST } from '../../game/config/badges.js';
 import { levels as staticLevels } from '../../game/scenes/LevelConfig.js'; 
@@ -104,14 +144,89 @@ const enterTime = ref(0);
 const levelConfig = ref({});
 const isLastLevel = ref(false);
 
+// 🌟 用來追蹤「語法限制」是否達成的陣列
+const achievedCommands = ref([]);
+
 let game = null;
 
-const executeCode = async (code, blockCount = 0) => {
+// 🌟 解析通關目標為帶有狀態的物件
+const parsedVictoryConditions = computed(() => {
+  let conds = levelConfig.value?.victoryCondition;
+  if (!conds || conds.length === 0) conds = ['kill_enemy'];
+  
+  return conds.map(cond => {
+    let text = '';
+    switch(cond) {
+      case 'kill_enemy': text = '擊敗敵人 👾'; break;
+      case 'reach_goal': text = '抵達終點門 🚪'; break;
+      case 'get_key': text = '取得鑰匙 🗝️'; break;
+      default: text = '完成挑戰';
+    }
+    return {
+      id: cond,
+      text: text,
+      isCompleted: isLevelCleared.value // 通關時自動打勾
+    };
+  });
+});
+
+// 🌟 解析限制條件為帶有狀態的物件
+const parsedRequiredCommands = computed(() => {
+  if (!levelConfig.value?.requiredCommand) return [];
+  
+  const normalizedCommands = levelConfig.value.requiredCommand.map(cmd => {
+    if (cmd === 'for') return 'for_loop';
+    if (cmd === 'while') return 'while_loop';
+    if (cmd === 'if') return 'if_else';
+    return cmd;
+  });
+
+  const uniqueCommands = [...new Set(normalizedCommands)];
+  
+  return uniqueCommands.map(cmd => {
+    let text = '';
+    switch(cmd) {
+      case 'for_loop': text = '必須使用 for 迴圈 🔁'; break;
+      case 'while_loop': text = '必須使用 while 迴圈 🔁'; break;
+      case 'if_else': text = '必須使用 if 判斷式 🔀'; break;
+      case 'function': text = '必須使用函式 (function) 🔧'; break;
+      case 'isWall': text = '必須使用 isWall() 雷達 🧱'; break;
+      case 'isEnemy': text = '必須使用 isEnemy() 雷達 🎯'; break;
+      case 'variable': text = '必須使用自訂變數 📦'; break;
+      default: text = `必須使用 ${cmd} 積木`;
+    }
+    return {
+      id: cmd,
+      text: text,
+      isCompleted: achievedCommands.value.includes(cmd) 
+    };
+  });
+});
+
+const executeCode = async (code, blockCount = 0, rawUserCode = '') => {
+  const checkCode = rawUserCode || code; 
+  
   const maxBlocks = levelConfig.value?.restrictions?.maxBlocks;
   if (maxBlocks && blockCount > maxBlocks) {
-    alert(`⚠️ 魔法能量不足！這關最多只能使用 ${maxBlocks} 個積木，但你使用了 ${blockCount} 個。請嘗試使用迴圈來優化！`);
+    alert(`⚠️ 魔法能量不足！這關最多只能使用 ${maxBlocks} 個積木，但你使用了 ${blockCount} 個。\n請嘗試使用迴圈來優化！`);
     return;
   }
+
+  // 👉 動態掃描使用者的程式碼，看是否有達成條件 (全面升級版)
+  const currentAchieved = [];
+  const reqCmds = levelConfig.value?.requiredCommand || [];
+  
+  if (reqCmds.includes('for_loop') && /\bfor\b/.test(checkCode)) currentAchieved.push('for_loop');
+  if (reqCmds.includes('while_loop') && /\bwhile\b/.test(checkCode)) currentAchieved.push('while_loop');
+  if (reqCmds.includes('if_else') && /\bif\b/.test(checkCode)) currentAchieved.push('if_else');
+  if (reqCmds.includes('function') && /\bfunction\b/.test(checkCode)) currentAchieved.push('function');
+  if (reqCmds.includes('isWall') && /\bisWall\b/.test(checkCode)) currentAchieved.push('isWall');
+  if (reqCmds.includes('isEnemy') && /\bisEnemy\b/.test(checkCode)) currentAchieved.push('isEnemy');
+  if (reqCmds.includes('variable') && /\b(let|const|var)\b/.test(checkCode)) currentAchieved.push('variable');
+  if (reqCmds.includes('shoot') && /\bshoot\b/.test(checkCode)) currentAchieved.push('shoot');
+  
+  achievedCommands.value = currentAchieved; // 更新畫面打勾狀態
+  isLevelCleared.value = false; // 重新執行時，先重置通關狀態
 
   if (!game) return;
   const phaserScene = game.scene.getScene('TeachingScene');
@@ -130,19 +245,25 @@ const executeCode = async (code, blockCount = 0) => {
           })();
         `;
         const run = new Function('scene', 'rawCode', asyncCode);
-        const isSuccess = await run(phaserScene, code); 
+        const isSuccess = await run(phaserScene, checkCode); 
 
         if (!isSuccess) {
            hp.value = Math.max(0, hp.value - 1);
+           phaserScene.resetLevel(false);
         }
 
       } catch (error) {
-        console.error("執行過程中出現魔法錯誤:", error);
-        alert("執行失敗！請檢查積木是否有拼錯。");
+        if (error?.message === 'LEVEL_FAILED') {
+           hp.value = Math.max(0, hp.value - 1);
+           phaserScene.resetLevel(false); 
+        } else {
+           console.error("執行過程中出現魔法錯誤:", error);
+           alert("執行失敗！請檢查積木是否有拼錯。");
+        }
       } finally {
-        isExecuting.value = false;
+        isExecuting.value = false; 
       }
-  }, 100); 
+  }, 100);
 };
 
 const onLevelWin = () => {
@@ -167,7 +288,7 @@ const handleWin = () => {
 
   showWinModal.value = true;
 
-  // 🌟 2. 背景資料庫結算 (Fire & Forget)：讓它在背後自己慢慢跑，不阻礙玩家視窗跳出
+  // 背景資料庫結算
   (async () => {
       const leaveTime = Date.now();
       const timeSpentSeconds = Math.floor((leaveTime - enterTime.value) / 1000);
@@ -200,6 +321,7 @@ const handleWin = () => {
 
 const handleNextLevel = () => {
   isLevelCleared.value = false;
+  achievedCommands.value = []; // 進入下一關時，重置勾選狀態
   emit('next-level');
 };
 
@@ -213,6 +335,8 @@ const handleRestart = () => {
   showFailModal.value = false;
   hp.value = levelConfig.value.hearts || 3; 
   enterTime.value = Date.now(); 
+  achievedCommands.value = []; // 重新開始時，重置勾選狀態
+  isLevelCleared.value = false;
   if (game) {
     const scene = game.scene.getScene('TeachingScene');
     if (scene) scene.resetLevel();
@@ -226,6 +350,8 @@ const loadLevelData = async () => {
   if (props.courseId === 'python') {
     const localLevel = staticLevels.find(l => l.id === Number(props.levelId));
     if(localLevel) levelConfig.value = localLevel;
+    const currentIndex = staticLevels.findIndex(l => l.id === Number(props.levelId));
+    isLastLevel.value = (currentIndex === staticLevels.length - 1);
   } else if (props.courseId === 'javascript') {
     const { data, error } = await supabase.from('levels').select('*').eq('level_number', Number(props.levelId)).single();
     if (!error && data) {
@@ -270,6 +396,14 @@ const loadLevelData = async () => {
       if (!Array.isArray(rCmd)) {
         rCmd = rCmd ? [rCmd] : [];
       }
+
+      rCmd = rCmd.map(cmd => {
+      if (cmd === 'for') return 'for_loop';
+      if (cmd === 'while') return 'while_loop';
+      if (cmd === 'if') return 'if_else';
+      return cmd;
+      });
+      rCmd = [...new Set(rCmd)]; // 過濾掉重複的元素
 
       let cmds = ['moveRight', 'attack'];
       try { cmds = typeof data.available_commands === 'string' ? JSON.parse(data.available_commands) : (data.available_commands || cmds); } catch(e){}

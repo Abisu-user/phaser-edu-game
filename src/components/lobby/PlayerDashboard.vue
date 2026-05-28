@@ -23,6 +23,7 @@
           v-model:currentSection="currentSection"
           v-model:activeAdminTab="activeAdminTab"
           v-model:activeTeacherTab="activeTeacherTab"
+          v-model:activeClassTab="activeClassTab"
           @toggle="isSidebarCollapsed = !isSidebarCollapsed"
           @clear-unread="hasUnreadMessages = false"
         />
@@ -114,7 +115,11 @@
               @exit="handleExitEndlessMode" 
           />
 
-          <ClassSection v-show="currentSection === 'class'" />
+          <div v-show="currentSection === 'class'">
+            <ClassSection v-if="activeClassTab === 'home'" />
+            <ClassPolls v-if="activeClassTab === 'polls'" />
+            <ClassSurveys v-if="activeClassTab === 'surveys'" />
+          </div>
 
           <FriendsSection v-show="currentSection === 'friends'" />
 
@@ -224,7 +229,7 @@
       class="absolute inset-0 z-50 bg-[#0a0e27]"
       :courseId="currentCourseId"
       :levelId="selectedLevelId"
-      @back="handleBackToLobby"         
+      @back="handleBackToLobby"        
       @next-level="handleGoToNextLevel" 
     />
 
@@ -300,13 +305,16 @@ import GameLevel from '../level/GameLevel.vue';
 import ClassSection from './sections/ClassSection.vue';
 import EndlessLevel from '../roguelike/EndlessLevel.vue';
 import LeaderboardSection from './sections/LeaderboardSection.vue';
+import LevelDesigner from './sections/admin/LevelDesigner.vue';
+import ClassPolls from './sections/ClassPolls.vue';
+import ClassSurveys from './sections/ClassSurveys.vue';
 
 // --- 狀態管理區 ---
 const currentView = ref('lobby'); // 'lobby' 或 'game'
 const currentCourseId = ref('');
 const selectedLevelId = ref(1);
 const levelsList = ref([]);
-const globalNotification = ref(null); // 補上遺漏的全域通知
+const globalNotification = ref(null); 
 const showEndlessMode = ref(false);
 const router = useRouter();
 
@@ -315,7 +323,6 @@ const courseProgress = ref({ python: 0, javascript: 0 });
 const currentLevel = ref(1);
 const currentId = ref('');
 const currentXP = ref(0);
-const xpPerLevel = ref(1000);
 const currentTotalXP = ref(0);
 const isSidebarCollapsed = ref(false);
 const currentSection = ref('lobby'); 
@@ -345,6 +352,10 @@ const bossKills = ref(0);
 const totalDeaths = ref(0);
 const passiveCount = ref(0);
 const isLogoutModalOpen = ref(false);
+const activeClassTab = ref('home');
+const xpPerLevel = computed(() => {
+  return 1000 + (currentLevel.value - 1) * 500;
+});
 
 const emit = defineEmits(['enter-game', 'logout']);
 
@@ -393,16 +404,14 @@ const handleEquipTitle = async (newTitle) => {
   }
 };
 
-// 🌟 處理徽章展示/取消展示
 const handleSavePinnedBadges = async (newPinnedArray) => {
-  pinnedBadges.value = newPinnedArray; // 更新本地端畫面
+  pinnedBadges.value = newPinnedArray; 
 
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       await supabase.from('profiles').update({ pinned_badges: newPinnedArray }).eq('id', user.id);
       
-      // 顯示成功提示
       toastNotifications.value.push({
         id: Date.now(),
         senderName: '系統提示',
@@ -442,27 +451,22 @@ const xpPercent = computed(() => {
   return Math.min(Math.floor((currentXP.value / xpPerLevel.value) * 100), 100);
 });
 
-
-// 🌟 開啟關卡選單並載入資料
 const openLevelSelector = async (course) => {
   currentCourseId.value = course.id;
   selectedCourse.value = course;
   
-  // 1. 強制向資料庫抓取最新的過關進度，確保資料絕對同步
-  await fetchCourseProgress(); 
+  levelsList.value = []; 
+  isLevelModalOpen.value = true; 
 
-  // 2. 取得該課程目前「已通關的最高關卡」，若資料庫沒紀錄就是 0
   const maxCompletedLevel = courseProgress.value[course.id] || 0;
-  
-  // 3. 允許挑戰的最高關卡 = 已通關最高關卡 + 1
   const highestUnlocked = maxCompletedLevel + 1;
 
   if (course.id === 'python') {
     levelsList.value = staticLevels.map(l => ({
       level_number: l.id,
       title: l.title,
-      is_completed: l.id <= maxCompletedLevel, // 小於等於最高通關紀錄，打勾
-      is_locked: l.id > highestUnlocked        // 大於 (最高紀錄+1) 的全部上鎖
+      is_completed: l.id <= maxCompletedLevel,
+      is_locked: l.id > highestUnlocked        
     }));
   } else if (course.id === 'javascript') {
     const { data, error } = await supabase
@@ -474,7 +478,6 @@ const openLevelSelector = async (course) => {
       levelsList.value = data.map((l) => ({
         level_number: l.level_number,
         title: l.title,
-        // 注意：這裡改用資料庫真實的 level_number 來比對，而不是 index
         is_completed: l.level_number <= maxCompletedLevel, 
         is_locked: l.level_number > highestUnlocked
       }));
@@ -482,15 +485,12 @@ const openLevelSelector = async (course) => {
       console.error('獲取資料庫關卡失敗:', error);
     }
   }
-  isLevelModalOpen.value = true;
 };
 
-// 🌟 點擊關卡：正式進入遊戲
 const handleLevelSelect = (levelId) => {
   isLevelModalOpen.value = false;     
   selectedLevelId.value = levelId;    
-  currentView.value = 'game'; // 正確切換到遊戲畫面
-  console.log(`[🚀 系統] 切換至遊戲模式 - 課程: ${currentCourseId.value}, 關卡: ${levelId}`);
+  currentView.value = 'game'; 
 };
 
 const triggerLevelUp = () => isLevelUpModalOpen.value = true;
@@ -502,21 +502,27 @@ const addExperience = async (gainAmount) => {
 
   let newLevel = currentLevel.value;
   let newXP = currentXP.value;
+  let levelsGained = 0;
 
-  const levelsGained = Math.floor(newXP / xpPerLevel.value);
+  const getReqExp = (lvl) => 1000 + (lvl - 1) * 500;
+
+  while (newXP >= getReqExp(newLevel)) {
+    newXP -= getReqExp(newLevel);
+    newLevel++;                
+    levelsGained++;               
+  }
+
   if (levelsGained > 0) {
-    newLevel += levelsGained;
-    newXP = newXP % xpPerLevel.value; 
     currentLevel.value = newLevel;
     currentXP.value = newXP;
-    
-    // 🌟 [關鍵修改] 塔外升級也要給予屬性點
-    stat_points.value += (levelsGained * 5);
+
+    stat_points.value += (levelsGained * 2);
     
     isLevelUpModalOpen.value = true;
     setTimeout(() => { isLevelUpModalOpen.value = false; }, 5000);
   }
 
+  // 寫入資料庫
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
@@ -524,7 +530,7 @@ const addExperience = async (gainAmount) => {
         xp: newXP,
         level: newLevel,
         total_exp: currentTotalXP.value,
-        stat_points: stat_points.value // 🌟 確保塔外升級的點數有寫進資料庫
+        stat_points: stat_points.value 
       }).eq('id', user.id);
     }
   } catch (err) {
@@ -534,24 +540,21 @@ const addExperience = async (gainAmount) => {
 
 const handleBackToLobby = async () => {
   currentView.value = 'lobby';
-  await fetchCourseProgress(); // 重新計算過關數 (解鎖下一關)
-  await fetchLobbyData();      // 重新取得最新 XP 和等級
+  await fetchCourseProgress(); 
+  await fetchLobbyData();      
 };
 
 const handleGoToNextLevel = async () => {
-  // 1. 同步最新狀態
   await fetchCourseProgress();
   await fetchLobbyData();
   
-  // 2. 切換到下一關 (改變 selectedLevelId 會自動重啟 GameLevel 組件)
   selectedLevelId.value = Number(selectedLevelId.value) + 1;
-  console.log(`[🚀 系統] 前往下一關 - 課程: ${currentCourseId.value}, 關卡: ${selectedLevelId.value}`);
 };
 
 const handlePreview = (levelNumber) => {
-  currentCourseId.value = 'javascript'; // 強制設定為資料庫課程
-  selectedLevelId.value = levelNumber;  // 設定要預覽的關卡編號
-  currentView.value = 'game';           // 🔥 切換到遊戲畫面！
+  currentCourseId.value = 'javascript'; 
+  selectedLevelId.value = levelNumber;  
+  currentView.value = 'game';           
 };
 
 // --- 成就與每日任務 ---
@@ -574,7 +577,6 @@ const initDailyQuests = () => {
 };
 
 const badges = computed(() => {
- 
   const playerStats = { 
     clearedLevelsCount: clearedLevelsCount.value, 
     currentTotalXP: currentTotalXP.value, 
@@ -602,21 +604,27 @@ const claimQuest = async (questId) => {
   localStorage.setItem('code_quest_daily', JSON.stringify({ date: today, quests: dailyQuests.value }));
 };
 
-// --- 抓取與更新使用者資料 ---
-const fetchLobbyData = async () => {
+// --- 🌟 資料抓取效能優化區 ---
+
+// 優化：接受可選的 prefetchedUser 參數，避免重複呼叫 getUser()
+const fetchLobbyData = async (prefetchedUser = null) => {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = prefetchedUser || (await supabase.auth.getUser()).data.user;
     if (!user) return;
 
     playerEmail.value = user.email;
     playerJoinDate.value = user.created_at;
 
-    const { count } = await supabase.from('user_progress').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
-    clearedLevelsCount.value = count || 0;
+    // 🌟 效能大躍進：將原本 3 次分開等的請求，改為 Promise.all 平行載入
+    const [progressRes, profileRes, towerRes] = await Promise.all([
+      supabase.from('user_progress').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
+      supabase.from('profiles').select('id, xp, level, username, avatar_url, role, total_exp, last_login_at, consecutive_days, stat_points, current_title, pinned_badges, total_kills, boss_kills, total_deaths, passive_count').eq('id', user.id).single(),
+      supabase.from('tower_lobby').select('max_hp, max_atk, best_floor, coins').eq('user_id', user.id).maybeSingle()
+    ]);
 
-    const { data: profile } = await supabase.from('profiles')
-    .select('id, xp, level, username, avatar_url, role, total_exp, last_login_at, consecutive_days, stat_points, current_title, pinned_badges, total_kills, boss_kills, total_deaths, passive_count')
-    .eq('id', user.id).single();
+    clearedLevelsCount.value = progressRes.count || 0;
+    const profile = profileRes.data;
+    const towerCheck = towerRes.data;
 
     if (profile) {
       currentId.value = profile.id || '';
@@ -632,9 +640,8 @@ const fetchLobbyData = async () => {
       bossKills.value = profile.boss_kills || 0;
       totalDeaths.value = profile.total_deaths || 0;
       passiveCount.value = profile.passive_count || 0;
+      
       let shouldUpdateDB = false;
-
-      const { data: towerCheck } = await supabase.from('tower_lobby').select('max_hp, max_atk, best_floor, coins').eq('user_id', user.id).maybeSingle();
 
       if (towerCheck) {
         bestFloor.value = towerCheck.best_floor || 0;
@@ -642,7 +649,6 @@ const fetchLobbyData = async () => {
       }
 
       let currentPoints = profile.stat_points;
-      
       const hasNeverUpgraded = !towerCheck || (towerCheck.max_hp === 100 && towerCheck.max_atk === 10);
 
       if ((currentPoints === 0 || currentPoints === null) && profile.level > 1 && hasNeverUpgraded) {
@@ -668,12 +674,11 @@ const fetchLobbyData = async () => {
 
       consecutiveDays.value = currentStreak;
 
-      // 如果有連續登入變更，或是觸發了補償機制，就寫回資料庫
       if (shouldUpdateDB) {
         await supabase.from('profiles').update({ 
           last_login_at: new Date().toISOString(), 
           consecutive_days: currentStreak,
-          stat_points: currentPoints // 🌟 順便把補償的點數寫入
+          stat_points: currentPoints 
         }).eq('id', user.id);
       }
     }
@@ -682,9 +687,11 @@ const fetchLobbyData = async () => {
   }
 };
 
-const fetchCourseProgress = async () => {
-  const { data: { user } } = await supabase.auth.getUser();
+// 優化：接受可選的 prefetchedUser 參數
+const fetchCourseProgress = async (prefetchedUser = null) => {
+  const user = prefetchedUser || (await supabase.auth.getUser()).data.user;
   if (!user) return;
+  
   const { data, error } = await supabase.from('user_progress').select('course_id, level_id').eq('user_id', user.id);
 
   if (data && !error) {
@@ -706,7 +713,6 @@ const refreshUserData = async () => {
 let lastCheckTime = 0;
 const handleUserInteraction = () => {
   const now = Date.now();
-  // 🌟 優化效能：將後台連線冷卻時間改為 60 秒，避免狂點畫面導致 Supabase 崩潰
   if (now - lastCheckTime > 60000) {
     lastCheckTime = now;
     refreshUserData();
@@ -716,16 +722,24 @@ const handleUserInteraction = () => {
 const handleVisibilityChange = () => { if (document.visibilityState === 'visible') refreshUserData(); };
 
 // --- 監聽與生命週期 ---
-onMounted(() => {
-  fetchCourseProgress();
-  fetchLobbyData();
+onMounted(async () => {
+  // 🌟 效能大躍進：整個登入流程只呼叫一次 getUser
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (user) {
+    // 🌟 平行發送抓取大廳資料與課程進度，省去瀑布流等待時間！
+    await Promise.all([
+      fetchLobbyData(user),
+      fetchCourseProgress(user)
+    ]);
+  }
+
   initDailyQuests();
   sendHeartbeat();
   heartbeatInterval = setInterval(sendHeartbeat, 60 * 1000);
   document.addEventListener('visibilitychange', handleVisibilityChange);
   window.addEventListener('click', handleUserInteraction);
 
-  // 監聽維護模式
   maintenanceSubscription = supabase.channel('custom-maintenance-channel')
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'system_settings' }, (payload) => {
         if (payload.new?.is_maintenance === true && playerRole.value !== 'admin') {
@@ -734,7 +748,6 @@ onMounted(() => {
     }).subscribe();
 });
 
-// 🌟 修復記憶體流失：合併到 Watch 來確保有了 UserID 再進行訂閱
 watch(() => currentId.value, (newId) => {
   if (newId) {
     globalMessageSubscription = supabase.channel('global-messages')

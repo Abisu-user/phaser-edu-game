@@ -1,3 +1,6 @@
+// ==========================================
+// ⚔️ 局內指令 (關卡內專用：包含戰鬥、AP/MP消耗、解鎖條件)
+// ==========================================
 export const COMMAND_DICT = [
   // === 🟢 基礎指令 (無須解鎖) ===
   { id: 'moveUp', label: '⬆️ 向上走 (moveUp)', type: 'action', ap: 1, desc: '引導冒險者向北方移動一個步伐。', example: 'moveUp();' },
@@ -5,13 +8,11 @@ export const COMMAND_DICT = [
   { id: 'moveLeft', label: '⬅️ 向左走 (moveLeft)', type: 'action', ap: 1, desc: '引導冒險者向西方移動一個步伐。', example: 'moveLeft();' },
   { id: 'moveRight', label: '➡️ 向右走 (moveRight)', type: 'action', ap: 1, desc: '引導冒險者向東方移動一個步伐。', example: 'moveRight();' },
   { id: 'wait', label: '⏳ 等待 (wait)', type: 'action', ap: 0, desc: '原地進入屏息守備，不消耗行動耐力。', example: 'wait();' },
-  { id: 'take', label: '🤏 撿起 (take)', type: 'action', ap: 1, desc: '拾取地上的戰利品或遠古遺物。', example: 'take();' },
   { id: 'open', label: '🚪 打開 (open)', type: 'action', ap: 1, desc: '解開機關並開啟前方的地下城閘門。', example: 'open();' },
-  { id: 'attack', label: '⚔️ 揮劍 (attack)', type: 'action', ap: 1, desc: '施展近戰劈砍，對相鄰的魔物造成物理傷害。', example: 'attack();' },
-  { id: 'shoot', label: '🏹 射擊 (shoot)', type: 'action', ap: 1, desc: '射出魔法箭矢，具備較長射程與穩定的穿透傷害。', example: 'shoot();' },
+  { id: 'attack', label: '⚔️ 魔法 (attack)', type: 'action', ap: 1, desc: '施展魔法，對相鄰的魔物造成魔法傷害。', example: 'attack();' },
+  { id: 'shoot', label: '🏹 射擊 (shoot)', type: 'action', ap: 1, desc: '射出魔法箭矢，具備較長射程攻擊手段。', example: 'shoot();' },
   { id: 'isWall', label: '🧱 前方有牆壁 (isWall)', type: 'sensor', ap: 0, desc: '感知前方是否存在無法通行的地下城石壁。', example: 'isWall(0, 1);' },
   { id: 'isEnemy', label: '👾 遇到敵人 (isEnemy)', type: 'sensor', ap: 0, desc: '感知前方是否存在具備敵意的魔物氣息。', example: 'isEnemy(1, 0);' },
-  { id: 'isGoal', label: '🏁 抵達終點 (isGoal)', type: 'sensor', ap: 0, desc: '確認當前位置是否為通往深淵下層的入口。', example: 'isGoal(0, 0);' },
   { id: 'if', label: '🤔 如果 (if)', type: 'logic', ap: 0, desc: '法術的因果律分支判定。', example: 'if (isEnemy(0, 1)) {\n  attack();\n}' },
   { id: 'else', label: '🔄 否則 (else)', type: 'logic', ap: 0, desc: '與 if 配合使用的命運轉折區塊。', example: 'else {\n  moveUp();\n}' },
   { id: 'for', label: '🔁 重複 (for)', type: 'logic', ap: 0, desc: '設定固定的迴圈次數來反覆詠唱法術。', example: 'for(let i=0; i<4; i++) {\n  moveRight();\n}' },
@@ -30,6 +31,26 @@ export const COMMAND_DICT = [
   { id: 'pull', label: '🌀 引力漩渦 (pull)', type: 'action', ap: 1, reqModule: 'module_pull', desc: '施展引力魔法，將遠方的魔物強制牽扯至身前。', example: 'pull();' },
   { id: 'hack_wall', label: '⛏️ 崩解石壁 (hack_wall)', type: 'action', ap: 1, reqModule: 'module_hack', desc: '施展崩解術，將擋路的地下城石壁化為齏粉。', example: 'hack_wall();' },
   { id: 'heal', label: '💖 聖療 (heal)', type: 'action', mp: 1, reqModule: 'module_heal', desc: '消耗魔力引導聖光，治癒冒險者的肉體創傷。', example: 'heal();' },
-  { id: 'hasKey', label: '👁️ 有鑰匙 (hasKey)', type: 'sensor', ap: 0, reqModule: 'module_radar', desc: '以真視之眼感知行囊中是否持有地下城首領的鑰匙。', example: 'if (hasKey()) {\n  open();\n}' },
-  { id: 'lowHp', label: '🩸 血量過低 (lowHp)', type: 'sensor', ap: 0, reqModule: 'module_radar', desc: '感知生命流失，當 HP 低於 30% 時觸發真理條件。', example: 'if (lowHp()) {\n  heal();\n}' }
+];
+
+
+// ==========================================
+// 🗺️ 局外指令 (大廳/大地圖專用：無 AP/MP、無戰鬥技能)
+// ==========================================
+export const OUTGAME_COMMANDS = [
+  // 基礎移動與互動
+  { id: 'moveUp', label: '⬆️ 向上走 (moveUp)', type: 'action', desc: '向北方移動一個步伐。' },
+  { id: 'moveDown', label: '⬇️ 向下走 (moveDown)', type: 'action', desc: '向南方移動一個步伐。' },
+  { id: 'moveLeft', label: '⬅️ 向左走 (moveLeft)', type: 'action', desc: '向西方移動一個步伐。' },
+  { id: 'moveRight', label: '➡️ 向右走 (moveRight)', type: 'action', desc: '向東方移動一個步伐。' },
+  { id: 'attack', label: '⚔️ 魔法 (attack)', type: 'action', desc: '施展魔法，對相鄰的魔物造成魔法傷害。'},
+  { id: 'shoot', label: '🏹 射擊 (shoot)', type: 'action', desc: '射出魔法箭矢，具備較長射程攻擊手段。'},
+  { id: 'isWall', label: '🧱 前方有牆壁 (isWall)', type: 'sensor', desc: '感知前方是否有障礙物擋道。' },
+  { id: 'isEnemy', label: '👾 遇到敵人 (isEnemy)', type: 'sensor', desc: '感知前方是否存在具備敵意的魔物氣息。' },
+  { id: 'if', label: '🤔 如果 (if)', type: 'logic', desc: '簡單的條件判斷。' },
+  { id: 'else', label: '🔄 否則 (else)', type: 'logic', desc: '條件不成立時的轉折。' },
+  { id: 'for', label: '🔁 重複 (for)', type: 'logic', desc: '設定固定的次數來重複移動。' },
+  { id: 'while', label: '🌀 當 (while)', type: 'logic', desc: '只要條件成立就持續執行。' },
+  { id: 'function', label: '📦 函式 (function)', type: 'logic', desc: '將移動步驟打包備用。' },
+  { id: 'break', label: '🛑 中斷 (break)', type: 'logic', desc: '強制截斷當前的法術迴圈。'},
 ];

@@ -28,52 +28,7 @@
               {{ successMessage }}
             </div>
           </transition>
-
-          <section>
-            <div class="flex items-center gap-3 mb-5 border-b-2 border-[#593922] pb-3">
-              <span class="text-[#DAA520] text-2xl drop-shadow-[0_2px_2px_rgba(0,0,0,1)]">⚒️</span>
-              <h3 class="font-black text-[#F5DEB3] tracking-widest text-xl drop-shadow-[0_2px_2px_rgba(0,0,0,1)]">
-                基礎能力鍛鍊 
-                <span class="text-sm text-[#8C6239] font-bold ml-4">所需奉獻金將隨階級提升</span>
-              </h3>
-            </div>
-            
-            <div class="grid grid-cols-4 gap-6">
-              <div 
-                v-for="item in dynamicFixedUpgrades" 
-                :key="item.id"
-                class="bg-[#1C110C] border-2 border-[#593922] hover:border-[#DAA520] rounded-sm p-6 flex flex-col gap-4 transition-all duration-300 group relative overflow-hidden shadow-[inset_0_0_20px_rgba(0,0,0,0.8)]"
-              >
-                <div class="absolute top-3 right-3 text-xs font-black px-2.5 py-1 rounded-sm bg-[#8B0000] text-[#FFD700] border border-[#593922] shadow-[1px_1px_0_rgba(0,0,0,0.8)]">
-                  Lv.{{ item.currentLevel }}
-                </div>
-
-                <div class="text-[3.5rem] text-center mt-6 mb-3 group-hover:scale-110 transition-transform group-hover:drop-shadow-[0_0_15px_rgba(218,165,32,0.4)]">{{ item.icon }}</div>
-                
-                <div class="flex flex-col flex-1 items-center text-center">
-                  <h3 class="text-xl font-black text-[#F5DEB3] group-hover:text-[#FFD700] drop-shadow-[0_2px_2px_rgba(0,0,0,1)]">{{ item.name }}</h3>
-                  <p class="text-sm text-[#A08060] mt-2 font-bold leading-relaxed">{{ item.desc }}</p>
-                  <p class="text-sm text-[#DAA520] font-black mt-3 bg-[#0F0805] border border-[#3A2318] shadow-[inset_0_2px_5px_rgba(0,0,0,1)] px-3 py-1.5 w-full">目前能力: {{ item.currentStat }}</p>
-                </div>
-
-                <div class="mt-auto pt-4 border-t-2 border-[#3A2318] flex items-center justify-between">
-                  <div class="flex items-center gap-2">
-                    <span class="text-sm drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">🪙</span>
-                    <span class="text-xl font-bold drop-shadow-[0_1px_1px_rgba(0,0,0,1)]" :class="coins >= item.price ? 'text-[#FFD700]' : 'text-rose-700'">{{ item.price }}</span>
-                  </div>
-                  <button 
-                    @click="buyItem(item)"
-                    :disabled="coins < item.price"
-                    class="px-5 py-2 rounded-sm text-sm font-black tracking-widest transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_5px_10px_rgba(0,0,0,0.6)] border-2"
-                    :class="coins >= item.price 
-                      ? 'bg-[#8B0000] hover:bg-[#A52A2A] text-[#FFD700] border-[#DAA520] border-b-[4px] hover:border-b-[2px] hover:translate-y-[2px] active:border-b-[2px] active:translate-y-[2px]' 
-                      : 'bg-[#3E2723] text-[#8C6239] border-[#2A1810] border-b-[2px] translate-y-[2px]'"
-                  >奉獻</button>
-                </div>
-              </div>
-            </div>
-          </section>
-
+          
           <section>
             <div class="flex items-center justify-between mb-5 border-b-2 border-[#593922] pb-3">
               <div class="flex items-center gap-3">
@@ -146,7 +101,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 // 🌟 匯入你剛剛建立的設定檔
-import { FIXED_UPGRADES, RANDOM_ITEM_POOL } from '../../game/config/ShopItems.js';
+import { RANDOM_ITEM_POOL } from '../../game/config/ShopItems.js';
 
 const props = defineProps({
   coins: { type: Number, required: true, default: 0 },
@@ -159,35 +114,6 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'purchase']);
 const successMessage = ref('');
-
-// 🌟 1. 動態計算固定強化的價格與階級
-const dynamicFixedUpgrades = computed(() => {
-  return FIXED_UPGRADES.map(item => {
-    let currentStat = 0;
-    let currentLevel = 0;
-
-    if (item.id === 'max_hp_up') {
-      currentStat = props.maxHp;
-      currentLevel = Math.max(0, Math.floor((props.maxHp - 100) / 20));
-    } else if (item.id === 'max_mp_up') {
-      currentStat = props.maxMp;
-      currentLevel = Math.max(0, Math.floor((props.maxMp - 50) / 10));
-    } else if (item.id === 'max_ap_up') {
-      currentStat = props.maxAp;
-      currentLevel = Math.max(0, Math.floor((props.maxAp - 30) / 10)); // 基礎30，每升級加10
-    } else if (item.id === 'atk_up') {
-      currentStat = props.maxAtk;
-      currentLevel = Math.max(0, Math.floor((props.maxAtk - 10) / 5));
-    }
-
-    return {
-      ...item,
-      currentStat,
-      currentLevel,
-      price: item.basePrice + (currentLevel * item.priceIncrement) // 越買越貴公式
-    };
-  });
-});
 
 // 🌟 2. 黑市隨機商品池
 const randomItems = ref([]);

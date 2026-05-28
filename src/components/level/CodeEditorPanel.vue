@@ -69,16 +69,6 @@
       </div>
     </div>
 
-    <div class="px-4 py-3 border-t flex-shrink-0" style="border-color:#333355;">
-      <p class="text-xs font-semibold mb-2" style="color:#00d4aa;">🎯 目標：</p>
-      <div class="space-y-2">
-        <div v-for="(goal, index) in levelConfig.goals" :key="index" class="flex items-start gap-2">
-          <div class="w-4 h-4 rounded flex-shrink-0 mt-0.5 flex items-center justify-center text-xs" style="background:#00d4aa;color:#0f0e17;">✓</div>
-          <p class="text-xs" style="color:#a0a0b8;">{{ goal }}</p>
-        </div>
-      </div>
-    </div>
-
     <div class="px-4 py-4 border-t flex flex-col gap-2 flex-shrink-0" style="border-color:#333355;">
       <button @click="handleExecute" :disabled="isExecuting" class="w-full py-3 rounded-lg font-bold text-sm transition-transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed" style="background:linear-gradient(135deg,#ffbb33,#ff8800);color:#0f0e17; box-shadow: 0 0 15px rgba(255,187,51,0.3);"> 
         {{ isExecuting ? '⏳ 執行中...' : '⚡ 執行程式碼' }} 
@@ -90,7 +80,7 @@
 
 <script setup>
 import { ref, computed, nextTick } from 'vue';
-import { COMMAND_DICT } from '../../game/config/CommandList.js'; 
+import { OUTGAME_COMMANDS } from '../../game/config/CommandList.js'; 
 
 const props = defineProps({
   levelConfig: { type: Object, required: true },
@@ -110,7 +100,7 @@ const suggestPos = ref({ top: 0, left: 0 });
 const typingWordLength = ref(0);
 
 // ===============================================
-// 1. 動態從 COMMAND_DICT 產生按鈕與提示
+// 1. 動態從 OUTGAME_COMMANDS 產生按鈕與提示
 // ===============================================
 
 // [新增] 手動定義內建的邏輯按鈕
@@ -121,8 +111,8 @@ const BUILTIN_LOGIC = [
   { id: 'function', label: '🔧 函式 (function)', type: 'logic' }
 ];
 
-// 將原本 COMMAND_DICT 中非邏輯的指令 (與 for)，加上內建邏輯合併
-const baseCommands = COMMAND_DICT.filter(cmd => cmd.type !== 'logic' || cmd.id === 'for');
+// 將原本 OUTGAME_COMMANDS 中非邏輯的指令 (與 for)，加上內建邏輯合併
+const baseCommands = OUTGAME_COMMANDS.filter(cmd => cmd.type !== 'logic' || cmd.id === 'for');
 const combinedCommands = [...baseCommands, ...BUILTIN_LOGIC];
 
 // 動態產生的按鈕清單
@@ -151,7 +141,7 @@ const ALL_BLOCKS = combinedCommands.map(cmd => {
 
 // 自動補全提示字串 (Snippets)
 const availableSnippets = [
-  ...COMMAND_DICT.filter(cmd => cmd.type === 'action').map(cmd => `${cmd.id}();`),
+  ...OUTGAME_COMMANDS.filter(cmd => cmd.type === 'action').map(cmd => `${cmd.id}();`),
   'for(3, () => {\n  \n});',
   'if (isWall()) {\n  \n}', 
   'while (!isGoal()) {\n  \n}',
@@ -267,35 +257,68 @@ const handleKeydown = (e) => {
 // ===============================================
 const handleExecute = () => {
   let codeToRun = userCode.value;
+  const originalCode = userCode.value; 
   
-  // 1. 轉換 for 迴圈 (將 for(3, () => {...}) 轉為標準 for 迴圈)
   codeToRun = codeToRun.replace(/for\s*\(\s*(\d+)\s*,\s*\(\s*\)\s*=>\s*\{([\s\S]*?)\}\s*\);?/g, "for(let i=0; i<$1; i++) { $2 }");
   
-  // 2. 自動遍歷 COMMAND_DICT，替換所有動作與感應器 (不需再手動一條一條加)
-  COMMAND_DICT.forEach(cmd => {
+  codeToRun = codeToRun.replace(/\(\s*\)\s*=>/g, "async () =>");
+
+  codeToRun = codeToRun.replace(/\bshoot\s*\(([^)]+)\);?/g, "await window.shoot($1);");
+
+  // 2. 處理自訂函式
+  const customFuncs = [];
+  const funcRegex = /function\s+([a-zA-Z0-9_]+)\s*\(/g;
+  let match;
+  while ((match = funcRegex.exec(codeToRun)) !== null) {
+    customFuncs.push(match[1]);
+  }
+  
+  customFuncs.forEach(funcName => {
+    // 🌟 終極修復：精準辨識「宣告」與「呼叫」
+    // 如果前面帶有 function，代表是宣告，就原封不動；否則就是呼叫，加上 await
+    const callRegex = new RegExp(`(\\bfunction\\s+)?\\b(${funcName})\\s*\\(`, 'g');
+    codeToRun = codeToRun.replace(callRegex, (m, isDef, name) => {
+      if (isDef) return m; 
+      return `await ${name}(`;
+    });
+  });
+  
+  // 🎯 將普通的 function 升級為 async function
+  codeToRun = codeToRun.replace(/function\s+([a-zA-Z0-9_]+)\s*\(/g, "async function $1(");
+
+  // 3. 自動替換所有內建動作與感應器指令
+  OUTGAME_COMMANDS.forEach(cmd => {
     if (cmd.type === 'action') {
-      // 將 moveRight(); 替換成 await scene.addCommand('moveRight');
-      const regex = new RegExp(`\\b${cmd.id}\\(\\);?`, 'g');
+      const regex = new RegExp(`(?<!\\.)\\b${cmd.id}\\s*\\(\\);?`, 'g');
       codeToRun = codeToRun.replace(regex, `await scene.addCommand('${cmd.id}');`);
     } else if (cmd.type === 'sensor') {
-      // 將 isWall() 替換成 (await scene.checkSensor('isWall'))
-      const regex = new RegExp(`\\b${cmd.id}\\(\\)`, 'g');
+      const regex = new RegExp(`(?<!\\.)\\b${cmd.id}\\s*\\(\\)`, 'g');
       codeToRun = codeToRun.replace(regex, `(await scene.checkSensor('${cmd.id}'))`);
     }
   });
 
-  // 3. 計算有效行數 (當作是「積木數量」來檢查關卡限制)
+  // 4. 防作弊積木數量計算 (精準計算，無視換行)
   let blockCount = 0;
-  const lines = userCode.value.split('\n');
-  for (let line of lines) {
-    // 忽略空白行與註解
-    if (line.trim() !== '' && !line.trim().startsWith('//')) {
-      blockCount++;
-    }
+  const cleanCode = originalCode.replace(/\/\/.*$/gm, ''); 
+  
+  const singleBlocks = [
+    'moveRight', 'moveLeft', 'moveUp', 'moveDown', 'dash',
+    'attack', 'heal', 'magic', 'shoot', 'bomb', 'take', 'open', 'wait',
+    'if', 'else', 'while', 'function', 'isWall', 'isEnemy'
+  ];
+  
+  singleBlocks.forEach(kw => {
+    const regex = new RegExp(`\\b${kw}\\b`, 'g');
+    const matches = cleanCode.match(regex);
+    if (matches) blockCount += matches.length;
+  });
+
+  const forMatches = cleanCode.match(/\bfor\b/g);
+  if (forMatches) {
+    blockCount += (forMatches.length * 2);
   }
 
-  // 將編譯過後的程式碼與行數，發送給 GameLevel.vue 執行
-  emit('execute', codeToRun, blockCount);
+  emit('execute', codeToRun, blockCount, originalCode);
 };
 
 const handleClear = () => {

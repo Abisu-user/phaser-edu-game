@@ -415,7 +415,7 @@ const checkMaintenance = async (userRole) => {
   return true;
 };
 
-// ── 發送註冊驗證碼 (階段 1) 🌟 ─────────────────────────
+// ── 發送註冊驗證碼  🌟 ─────────────────────────
 const handleRegister = async () => {
   if (isLoading.value || !isFormValid.value) return;
   errorMessage.value = '';
@@ -446,7 +446,7 @@ const handleRegister = async () => {
   }
 };
 
-// ── 驗證 OTP 並建立資料 (階段 2) 🌟 ────────────────────
+// ── 驗證 OTP 並建立資料 🌟 ────────────────────
 const handleVerifyOtp = async () => {
   if (isLoading.value || otpCode.value.length !== 8) return;
   errorMessage.value = '';
@@ -454,7 +454,6 @@ const handleVerifyOtp = async () => {
 
   isLoading.value = true;
   try {
-    // 1. 呼叫 Supabase 驗證 OTP API
     const { data, error } = await supabase.auth.verifyOtp({
       email: registerForm.email,
       token: otpCode.value,
@@ -463,27 +462,18 @@ const handleVerifyOtp = async () => {
 
     if (error) throw error;
 
-    // 2. 驗證成功後，系統會自動登入，此時我們建立玩家 Profile 紀錄
     if (data.user) {
-      // 先檢查 profile 是否已經存在 (預防重複寫入)
-      const { data: existingProfile } = await supabase
+      const { error: profileError } = await supabase
         .from('profiles')
-        .select('id')
-        .eq('id', data.user.id)
-        .single();
-
-      if (!existingProfile) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert([{ 
-            id: data.user.id, 
-            username: registerForm.username, 
-            level: 1, 
-            xp: 0 
-          }]);
-          
-        if (profileError) throw profileError;
-      }
+        .upsert({
+          id: data.user.id,
+          username: registerForm.username,
+          email: registerForm.email,
+          level: 1,
+          xp: 0
+        }, { onConflict: 'id' });
+        
+      if (profileError) throw profileError;
     }
 
     showSuccess('✓ 帳號建立成功！正在為您進入遊戲...');
