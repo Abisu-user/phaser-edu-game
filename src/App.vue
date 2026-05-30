@@ -1,4 +1,5 @@
 <template>
+  <SpeedInsights />
   <router-view v-slot="{ Component }">
     <component 
       :is="Component" 
@@ -19,6 +20,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { SpeedInsights } from '@vercel/speed-insights/vue';
 import { supabase } from './supabase.js';
 import './style.css'; 
 import { levels } from './game/scenes/LevelConfig.js'; 
