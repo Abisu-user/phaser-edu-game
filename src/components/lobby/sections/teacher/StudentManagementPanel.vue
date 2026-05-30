@@ -16,9 +16,7 @@
               <span class="text-[#a0a0b8] text-xs uppercase tracking-wider mb-1">目前管理班級</span>
               <div v-if="!isEditingName" class="flex items-center gap-2">
                 <span class="text-white font-bold text-lg">{{ teacherInfo.class_name }}</span>
-                <button @click="startEditName" class="text-[#a0a0b8] hover:text-[#00d4aa] transition-colors" title="修改班級名稱">
-                  ✏️
-                </button>
+                <button @click="startEditName" class="text-[#a0a0b8] hover:text-[#00d4aa] transition-colors" title="修改班級名稱">✏️</button>
               </div>
               <div v-else class="flex items-center gap-2">
                 <input 
@@ -40,11 +38,7 @@
                 <code class="bg-[#1a1a3a] border border-[#444488] px-3 py-0.5 rounded text-[#ffbb33] font-mono font-bold text-lg">
                   {{ teacherInfo.class_code }}
                 </code>
-                <button 
-                  @click="copyClassCode"
-                  class="p-1.5 hover:bg-[#333366] rounded-lg transition-colors text-[#a0a0b8] hover:text-white"
-                  title="複製代碼"
-                >
+                <button @click="copyClassCode" class="p-1.5 hover:bg-[#333366] rounded-lg transition-colors text-[#a0a0b8] hover:text-white" title="複製代碼">
                   <span class="text-sm">📋</span>
                 </button>
               </div>
@@ -52,16 +46,10 @@
           </div>
 
           <div class="flex items-center gap-4">
-            <button 
-              @click="handleDisbandClass" 
-              class="px-4 py-1.5 bg-[#ff3366]/10 text-[#ff3366] hover:bg-[#ff3366] hover:text-white rounded-lg border border-[#ff3366]/30 transition-all text-sm font-bold"
-            >
+            <button @click="handleDisbandClass" class="px-4 py-1.5 bg-[#ff3366]/10 text-[#ff3366] hover:bg-[#ff3366] hover:text-white rounded-lg border border-[#ff3366]/30 transition-all text-sm font-bold">
               解散班級
             </button>
-            <button 
-              @click="fetchStudents" 
-              class="text-xs text-[#a0a0b8] hover:text-[#ffbb33] underline underline-offset-4"
-            >
+            <button @click="fetchStudents" class="text-xs text-[#a0a0b8] hover:text-[#ffbb33] underline underline-offset-4">
               更新名單
             </button>
           </div>
@@ -115,15 +103,20 @@
             <tr v-if="!isLoading && filteredStudents.length === 0">
               <td colspan="5" class="p-8 text-center text-[#a0a0b8]"><div class="text-4xl mb-2">👻</div>找不到符合條件的學生</td>
             </tr>
-            <tr v-for="student in filteredStudents" :key="student.id" class="hover:bg-white/5 transition-colors" :class="{'opacity-50': student.status === 'banned'}">
+            <tr v-for="student in filteredStudents" :key="student.id" class="hover:bg-white/5 transition-colors group" :class="{'opacity-50': student.status === 'banned', 'bg-[#a78bfa]/5': student.is_assistant}">
               <td class="p-4">
                 <div class="flex items-center gap-3">
-                  <div class="w-8 h-8 rounded-full bg-[#16162a] border border-[#00d4aa]/50 flex items-center justify-center overflow-hidden shrink-0">
+                  <div class="w-8 h-8 rounded-full bg-[#16162a] border border-[#00d4aa]/50 flex items-center justify-center overflow-hidden shrink-0" :class="{'border-[#a78bfa]': student.is_assistant}">
                     <img v-if="student.avatar_url" :src="student.avatar_url" class="w-full h-full object-cover">
                     <span v-else class="text-sm">👤</span>
                   </div>
                   <div>
-                    <div class="font-bold text-white">{{ student.username || '未命名' }}</div>
+                    <div class="font-bold text-white flex items-center gap-2">
+                      {{ student.username || '未命名' }}
+                      <span v-if="student.is_assistant" class="bg-[#a78bfa]/20 text-[#a78bfa] border border-[#a78bfa]/30 text-[9px] px-1.5 py-0.5 rounded font-black tracking-widest flex items-center gap-1 shadow-sm">
+                        👑 助理
+                      </span>
+                    </div>
                     <div v-if="student.status === 'banned'" class="text-[10px] text-red-400 font-bold bg-red-500/10 px-1.5 py-0.5 rounded inline-block mt-0.5">已停權</div>
                   </div>
                 </div>
@@ -139,9 +132,28 @@
               </td>
               <td class="p-4 text-sm text-[#a0a0b8]">{{ formatTime(student.created_at) }}</td>
               <td class="p-4 text-center">
-                <button @click="viewStudentDetails(student)" class="px-3 py-1.5 bg-[#333366] hover:bg-[#ffbb33] hover:text-[#0a0e27] text-white rounded text-xs font-bold transition-colors">
-                  查看詳情
-                </button>
+                <div class="flex justify-center items-center gap-2">
+                  <button 
+                    v-if="student.is_assistant" 
+                    @click="removeAssistant(student.id)" 
+                    class="px-3 py-1.5 bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500 hover:text-white rounded text-xs font-bold transition-colors whitespace-nowrap"
+                    title="解除他的助理職務"
+                  >
+                    卸任
+                  </button>
+                  <button 
+                    v-else 
+                    @click="setAssistant(student.id)" 
+                    class="px-3 py-1.5 bg-[#a78bfa]/10 text-[#a78bfa] border border-[#a78bfa]/30 hover:bg-[#a78bfa] hover:text-[#16162a] rounded text-xs font-bold transition-colors whitespace-nowrap opacity-0 group-hover:opacity-100 focus:opacity-100"
+                    title="賦予他發布問卷與投票的權限"
+                  >
+                    👑 設為助理
+                  </button>
+
+                  <button @click="viewStudentDetails(student)" class="px-3 py-1.5 bg-[#333366] hover:bg-[#ffbb33] hover:text-[#0a0e27] text-white rounded text-xs font-bold transition-colors whitespace-nowrap">
+                    查看詳情
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -150,7 +162,6 @@
     </div>
 
     <div v-else-if="currentView === 'detail' && selectedStudent" class="animate-slide-in p-6 relative h-full flex flex-col">
-      
       <div v-if="isDetailsLoading" class="absolute inset-0 bg-[#16162a]/60 backdrop-blur-sm z-10 flex flex-col items-center justify-center text-[#00d4aa]">
         <div class="w-8 h-8 border-4 border-[#00d4aa]/30 border-t-[#00d4aa] rounded-full animate-spin mb-2"></div>
         <div class="text-sm font-bold tracking-widest animate-pulse">同步學生進度中...</div>
@@ -164,14 +175,15 @@
       </div>
 
       <div class="bg-[#0a0e27] rounded-2xl p-6 border border-[#333366] mb-6 flex flex-wrap gap-6 items-center" :class="{'border-red-500/50 bg-red-500/5': selectedStudent.status === 'banned'}">
-        <div class="w-20 h-20 rounded-full bg-[#16162a] border-4 flex items-center justify-center overflow-hidden shrink-0 shadow-lg" :class="selectedStudent.status === 'banned' ? 'border-red-500/50' : 'border-[#00d4aa]/30'">
+        <div class="w-20 h-20 rounded-full bg-[#16162a] border-4 flex items-center justify-center overflow-hidden shrink-0 shadow-lg" :class="selectedStudent.status === 'banned' ? 'border-red-500/50' : (selectedStudent.is_assistant ? 'border-[#a78bfa]/50' : 'border-[#00d4aa]/30')">
           <img v-if="selectedStudent.avatar_url" :src="selectedStudent.avatar_url" class="w-full h-full object-cover">
           <span v-else class="text-4xl">👤</span>
         </div>
         <div class="flex-1 min-w-[200px]">
           <div class="flex items-center gap-2 mb-1">
             <h3 class="text-2xl font-bold text-white">{{ selectedStudent.username || '未命名' }}</h3>
-            <span v-if="selectedStudent.status === 'banned'" class="px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded">停權中</span>
+            <span v-if="selectedStudent.is_assistant" class="px-2 py-0.5 bg-[#a78bfa]/20 border border-[#a78bfa]/30 text-[#a78bfa] text-[10px] font-black rounded tracking-widest">👑 助理</span>
+            <span v-if="selectedStudent.status === 'banned'" class="px-2 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded">停權中</span>
           </div>
           <p class="text-sm text-[#a0a0b8] mb-3">帳號建立於：{{ formatTime(selectedStudent.created_at) }}</p>
           <span class="px-3 py-1 bg-[#ffbb33]/20 text-[#ffbb33] rounded-lg text-sm font-bold border border-[#ffbb33]/30">當前等級 Lv. {{ selectedStudent.level || 1 }}</span>
@@ -317,7 +329,6 @@ const hasActiveClass = computed(() => {
          teacherInfo.value.class_name.trim() !== '';
 });
 
-// 效能優化：額外去 user_progress 撈取學生的通關數量
 const formatStudentsWithProgress = async (students) => {
   if (!students || students.length === 0) return [];
   
@@ -364,16 +375,13 @@ const fetchStudents = async () => {
     if (hasActiveClass.value) {
       const { data: students, error: studentsError } = await supabase
         .from('profiles')
-        .select('*')
+        .select('*, is_assistant')
         .eq('role', 'student')
-        // 🌟 關鍵修復：改用 class_code 進行綁定與匹配，不再依賴名稱
         .eq('class_code', profile.class_code); 
 
       if (studentsError) throw studentsError;
       
       studentsData.value = await formatStudentsWithProgress(students);
-
-      // 🌟 關鍵修復：即時監聽也改看 class_code
       setupRealtime(profile.class_code);
     } else {
       studentsData.value = [];
@@ -425,7 +433,6 @@ const setupRealtime = (classCode) => {
       'postgres_changes',
       { event: '*', schema: 'public', table: 'profiles', filter: `class_code=eq.${classCode}` },
       (payload) => {
-        console.log('偵測到學生名單有變更，自動更新畫面！', payload);
         fetchStudentsOnly(); 
       }
     )
@@ -436,7 +443,7 @@ const fetchStudentsOnly = async () => {
   if (!hasActiveClass.value) return;
   const { data: students } = await supabase
     .from('profiles')
-    .select('*')
+    .select('*, is_assistant')
     .eq('role', 'student')
     .eq('class_code', teacherInfo.value.class_code);
     
@@ -448,7 +455,6 @@ const handleDisbandClass = async () => {
   if (!isConfirm) return;
 
   try {
-    // 🌟 關鍵修復：呼叫資料庫 RPC 強制清空全班
     const { error: bulkError } = await supabase.rpc('disband_class_by_code', {
       p_class_code: teacherInfo.value.class_code
     });
@@ -479,8 +485,6 @@ const saveClassName = async () => {
 
   try {
     const newName = editClassNameInput.value.trim();
-
-    // 🌟 關鍵修復：呼叫資料庫 RPC 強制更改全班名稱
     const { error } = await supabase.rpc('update_class_name_by_code', { 
       p_class_code: teacherInfo.value.class_code, 
       p_new_name: newName 
@@ -498,7 +502,6 @@ const saveClassName = async () => {
 
 const copyClassCode = () => {
   if (!teacherInfo.value.class_code || teacherInfo.value.class_code === '未產生代碼') return;
-  
   navigator.clipboard.writeText(teacherInfo.value.class_code);
   alert('代碼已複製到剪貼簿！');
 };
@@ -603,6 +606,58 @@ const handleToggleBan = async () => {
   }
 };
 
+const setAssistant = async (studentId) => {
+  const currentAssistants = studentsData.value.filter(s => s.is_assistant);
+  if (currentAssistants.length >= 2) {
+    alert('⚠️ 班級助理最多只能設定兩位喔！請先卸任其他助理。');
+    return;
+  }
+
+  if (!confirm('確定要將這位學生設為班級助理嗎？\n他將獲得「發佈問卷」與「發佈投票」的權限！')) return;
+  
+  try {
+    const { data, error } = await supabase.from('profiles')
+      .update({ is_assistant: true })
+      .eq('id', studentId)
+      .select();
+
+    if (error) {
+      console.error('Supabase 更新錯誤:', error);
+      throw new Error(error.message);
+    }
+    
+    if (!data || data.length === 0) {
+      throw new Error("更新了 0 筆資料！這通常是被 Supabase RLS (Row Level Security) 擋下了。老師帳號預設可能沒有權限直接修改學生的資料列。");
+    }
+
+    alert('👑 設定成功！該學生已成為班級助理。');
+    await fetchStudentsOnly(); 
+  } catch (err) {
+    console.error('設定失敗詳細原因:', err);
+    alert('設定失敗 ❌\n原因: ' + (err.message || '請打開 F12 Console 檢查錯誤。'));
+  }
+};
+
+const removeAssistant = async (studentId) => {
+  if (!confirm('確定要解除他的助理職務嗎？他將失去問卷與投票的管理權限。')) return;
+  
+  try {
+    const { data, error } = await supabase.from('profiles')
+      .update({ is_assistant: false })
+      .eq('id', studentId)
+      .select();
+
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) throw new Error("被 RLS 擋下，無法修改資料。");
+
+    alert('✅ 已解除助理職務。');
+    await fetchStudentsOnly(); 
+  } catch (err) {
+    console.error('解除失敗詳細原因:', err);
+    alert('解除失敗 ❌\n原因: ' + (err.message || '請稍後再試。'));
+  }
+};
+
 const formatTime = (dateString) => {
   if (!dateString) return '未記錄';
   const date = new Date(dateString);
@@ -628,18 +683,13 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.animate-fade-in {
-  animation: fadeIn 0.2s ease-out;
-}
-.animate-slide-in {
-  animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-@keyframes slideIn {
-  from { opacity: 0; transform: translateX(20px); }
-  to { opacity: 1; transform: translateX(0); }
-}
+.animate-fade-in { animation: fadeIn 0.2s ease-out; }
+.animate-slide-in { animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+
+.custom-scrollbar::-webkit-scrollbar { width: 6px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; border-radius: 10px; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(51, 51, 102, 0.8); border-radius: 10px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(66, 153, 225, 0.8); }
 </style>

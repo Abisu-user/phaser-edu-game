@@ -94,7 +94,7 @@
     :currentLevel="currentLevel"
     :currentXP="currentXP"
     :xpPerLevel="xpPerLevel"
-    :xpReward="levelConfig?.xpReward || 100"
+    :xpReward="actualXpGained"
     :stars="hp"  
     :maxStars="levelConfig?.hearts || 3" 
     :isPreviewMode="isPreviewMode"
@@ -143,6 +143,10 @@ const currentTotalXP = ref(0);
 const enterTime = ref(0);
 const levelConfig = ref({});
 const isLastLevel = ref(false);
+
+// 🌟 新增：用來記錄是不是「首次通關」以及「實際獲得經驗值」
+const isFirstTimeClear = ref(true);
+const actualXpGained = ref(0);
 
 // 🌟 用來追蹤「語法限制」是否達成的陣列
 const achievedCommands = ref([]);
@@ -276,14 +280,19 @@ const handleWin = () => {
     showWinModal.value = true;
     return; 
   }
-  const xpReward = levelConfig.value?.xpReward || 200; 
-  currentXP.value += xpReward;
-  currentTotalXP.value += xpReward;
 
-  if (currentXP.value >= xpPerLevel.value) {
-    currentLevel.value += Math.floor(currentXP.value / xpPerLevel.value);
-    currentXP.value = currentXP.value % xpPerLevel.value;
-    localStorage.setItem('justLeveledUp', 'true'); 
+  // 🌟 首通經驗值判定機制：只有第一次打贏才給錢
+  actualXpGained.value = isFirstTimeClear.value ? (levelConfig.value?.xpReward || 200) : 0;
+
+  if (isFirstTimeClear.value) {
+    currentXP.value += actualXpGained.value;
+    currentTotalXP.value += actualXpGained.value;
+
+    if (currentXP.value >= xpPerLevel.value) {
+      currentLevel.value += Math.floor(currentXP.value / xpPerLevel.value);
+      currentXP.value = currentXP.value % xpPerLevel.value;
+      localStorage.setItem('justLeveledUp', 'true'); 
+    }
   }
 
   showWinModal.value = true;
@@ -298,16 +307,20 @@ const handleWin = () => {
       const safeCourseId = props.courseId || 'python';
       const levelId = levelConfig.value?.id || Number(props.levelId) || 0; 
 
-      const { data: existingProgress } = await supabase.from('user_progress').select('id').eq('user_id', user.id).eq('course_id', safeCourseId).eq('level_id', levelId).maybeSingle(); 
-
-      if (existingProgress) {
-        await supabase.from('user_progress').update({ stars: hp.value, time_spent_seconds: timeSpentSeconds }).eq('id', existingProgress.id);
+      if (!isFirstTimeClear.value) {
+        // 如果已經通關過，只更新星星和花費時間
+        const { data: existingProgress } = await supabase.from('user_progress').select('id, stars').eq('user_id', user.id).eq('course_id', safeCourseId).eq('level_id', levelId).maybeSingle();
+        if (existingProgress) {
+          const newStars = Math.max(existingProgress.stars || 0, hp.value);
+          await supabase.from('user_progress').update({ stars: newStars, time_spent_seconds: timeSpentSeconds }).eq('id', existingProgress.id);
+        }
       } else {
+        // 首次通關：寫入通關紀錄並加經驗值
         await supabase.from('user_progress').insert({ user_id: user.id, course_id: safeCourseId, level_id: levelId, stars: hp.value, time_spent_seconds: timeSpentSeconds });
+        await supabase.from('profiles').update({ xp: currentXP.value, level: currentLevel.value, total_exp: currentTotalXP.value }).eq('id', user.id);
       }
-
-      await supabase.from('profiles').update({ xp: currentXP.value, level: currentLevel.value, total_exp: currentTotalXP.value }).eq('id', user.id);
         
+      // 檢查徽章
       const { count: clearedCount } = await supabase.from('user_progress').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
       const currentStats = { clearedLevelsCount: clearedCount || 0, currentTotalXP: currentTotalXP.value, currentLevel: currentLevel.value };
 
@@ -449,12 +462,20 @@ onMounted(async () => {
 
   const { data: { user } } = await supabase.auth.getUser();
   if (user) {
-    const { data: profile } = await supabase.from('profiles').select('xp, level, total_exp').eq('id', user.id).single();
-    if (profile) {
-      currentLevel.value = profile.level || 1;
-      currentXP.value = profile.xp || 0;
-      currentTotalXP.value = profile.total_exp || 0;
+    // 🌟 在載入關卡前，先去資料庫確認這是不是第一次通關 (解決 XP 農場 Bug)
+    const [profileRes, progressRes] = await Promise.all([
+      supabase.from('profiles').select('xp, level, total_exp').eq('id', user.id).single(),
+      supabase.from('user_progress').select('id').eq('user_id', user.id).eq('course_id', props.courseId).eq('level_id', Number(props.levelId)).maybeSingle()
+    ]);
+
+    if (profileRes.data) {
+      currentLevel.value = profileRes.data.level || 1;
+      currentXP.value = profileRes.data.xp || 0;
+      currentTotalXP.value = profileRes.data.total_exp || 0;
     }
+
+    // 如果資料庫已經有這一關的進度紀錄，就代表他已經打贏過了
+    isFirstTimeClear.value = !progressRes.data; 
   }
   
   await loadLevelData();

@@ -29,7 +29,11 @@
       <div v-if="!isPreviewMode" class="bg-black/30 rounded-2xl p-5 mb-8 border border-white/5 relative z-10">
         <div class="flex justify-between items-center mb-4">
           <span class="text-[#a0a0b8] text-sm font-bold tracking-wider uppercase">本次獲得</span>
-          <span class="text-[#00d4aa] font-bold text-xl drop-shadow-[0_0_8px_rgba(0,212,170,0.5)]">+{{ xpReward }} XP</span>
+          <span class="font-bold text-xl drop-shadow-[0_0_8px_rgba(0,212,170,0.5)]"
+                :class="xpReward > 0 ? 'text-[#00d4aa]' : 'text-[#666688]'">
+            +{{ xpReward }} XP
+            <span v-if="xpReward === 0" class="text-xs ml-1 font-normal opacity-80">(已通關)</span>
+          </span>
         </div>
         
         <div class="h-px bg-white/10 w-full mb-4"></div>
@@ -56,16 +60,18 @@
       </div>
       
       <div class="flex gap-4 relative z-10">
-        <button @click="$emit('home')" class="flex-1 py-3.5 rounded-xl font-bold text-[#a0a0b8] bg-black/20 border border-white/10 hover:bg-white/5 hover:text-white transition-colors text-sm">
+        <button @click="handleHomeClick" :disabled="isNavigating" class="flex-1 py-3.5 rounded-xl font-bold text-[#a0a0b8] bg-black/20 border border-white/10 hover:bg-white/5 hover:text-white transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed">
           {{ isPreviewMode ? '🔙 結束測試' : '回到大廳' }}
         </button>
         
-        <button v-if="!isPreviewMode && !isLastLevel" @click="$emit('next')" class="flex-1 py-3.5 rounded-xl font-bold text-[#0a0e27] bg-gradient-to-r from-[#00d4aa] to-[#00b894] hover:shadow-[0_0_20px_rgba(0,212,170,0.4)] transition-all hover:-translate-y-1 text-sm">
-          下一關 🚀
+        <button v-if="!isPreviewMode && !isLastLevel" @click="handleNextClick" :disabled="isNavigating" class="flex-1 py-3.5 rounded-xl font-bold text-[#0a0e27] bg-gradient-to-r from-[#00d4aa] to-[#00b894] hover:shadow-[0_0_20px_rgba(0,212,170,0.4)] transition-all hover:-translate-y-1 text-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 flex justify-center items-center gap-2">
+          <span v-if="isNavigating" class="w-4 h-4 border-2 border-[#0a0e27]/30 border-t-[#0a0e27] rounded-full animate-spin"></span>
+          {{ isNavigating ? '載入中...' : '下一關 🚀' }}
         </button>
 
-        <button v-if="!isPreviewMode && isLastLevel" @click="$emit('home')" class="flex-1 py-3.5 rounded-xl font-bold text-[#0a0e27] bg-gradient-to-r from-[#ffbb33] to-[#ffaa00] hover:shadow-[0_0_20px_rgba(255,187,51,0.4)] transition-all hover:-translate-y-1 text-sm">
-          🎉 完成課程
+        <button v-if="!isPreviewMode && isLastLevel" @click="handleHomeClick" :disabled="isNavigating" class="flex-1 py-3.5 rounded-xl font-bold text-[#0a0e27] bg-gradient-to-r from-[#ffbb33] to-[#ffaa00] hover:shadow-[0_0_20px_rgba(255,187,51,0.4)] transition-all hover:-translate-y-1 text-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 flex justify-center items-center gap-2">
+          <span v-if="isNavigating" class="w-4 h-4 border-2 border-[#0a0e27]/30 border-t-[#0a0e27] rounded-full animate-spin"></span>
+          {{ isNavigating ? '結束中...' : '🎉 完成課程' }}
         </button>
       </div>
     </div>
@@ -73,6 +79,8 @@
 </template>
 
 <script setup>
+import { ref } from 'vue'; // 引入 ref
+
 defineProps({
   currentLevel: { type: Number, default: 1 },
   currentXP: { type: Number, default: 0 },
@@ -83,7 +91,22 @@ defineProps({
   isLastLevel: { type: Boolean, default: false }
 });
 
-defineEmits(['next', 'home']);
+const emit = defineEmits(['next', 'home']);
+
+// 🌟 防連點狀態鎖
+const isNavigating = ref(false);
+
+const handleNextClick = () => {
+  if (isNavigating.value) return;
+  isNavigating.value = true;
+  emit('next');
+};
+
+const handleHomeClick = () => {
+  if (isNavigating.value) return;
+  isNavigating.value = true;
+  emit('home');
+};
 </script>
 
 <style scoped>

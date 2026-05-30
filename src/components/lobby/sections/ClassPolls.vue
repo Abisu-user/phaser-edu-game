@@ -1,5 +1,5 @@
 <template>
-    <div class="animate-fade-in bg-[#16162a] border border-[#333366] rounded-3xl p-6 md:p-8 relative overflow-hidden shadow-2xl h-[calc(100vh-120px)] flex flex-col transition-all duration-300">
+  <div class="animate-fade-in bg-[#16162a] border border-[#333366] rounded-3xl p-6 md:p-8 relative overflow-hidden shadow-2xl h-[calc(100vh-120px)] flex flex-col transition-all duration-300">
     
     <div class="flex flex-col sm:flex-row justify-between items-center bg-[#0a0e27] p-5 rounded-2xl border border-[#a78bfa]/30 shadow-[0_0_20px_rgba(167,139,250,0.15)] mb-6 shrink-0 relative overflow-hidden">
       <div class="absolute -right-6 -top-10 text-8xl opacity-5 pointer-events-none">📊</div>
@@ -32,64 +32,114 @@
           進行中的投票
         </h3>
         
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <div v-for="poll in activePolls" :key="poll.id" class="bg-[#16162a] p-5 rounded-xl border border-[#a78bfa]/40 shadow-[0_0_15px_rgba(167,139,250,0.1)] relative overflow-hidden flex flex-col">
-            <div v-if="poll.hasVoted" class="absolute top-0 right-0 bg-[#a78bfa] text-[#16162a] text-[10px] font-black px-3 py-1 rounded-bl-lg shadow-md">已完成</div>
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+          <div v-for="poll in activePolls" :key="poll.id" class="bg-[#16162a] p-6 rounded-xl border border-[#a78bfa]/40 shadow-[0_0_15px_rgba(167,139,250,0.1)] relative overflow-hidden flex flex-col">
             
-            <h4 class="text-white font-bold mb-5 pr-10 leading-relaxed text-lg">{{ poll.title }}</h4>
+            <div v-if="poll.hasVoted" class="absolute top-0 right-0 bg-[#a78bfa] text-[#16162a] text-[10px] font-black px-4 py-1 rounded-bl-lg shadow-md z-10">已完成</div>
             
-            <div class="space-y-3 flex-1">
-              <label v-for="opt in poll.options" :key="opt.id" 
-                    class="flex items-center gap-3 p-3.5 rounded-lg bg-[#0a0e27] border transition-all duration-200"
-                    :class="poll.selectedOption === opt.id ? 'border-[#a78bfa] bg-[#a78bfa]/15 shadow-[0_0_10px_rgba(167,139,250,0.2)]' : 'border-[#333366] hover:border-[#a78bfa]/50 cursor-pointer'">
-                <input type="radio" :name="'poll-'+poll.id" :value="opt.id" v-model="poll.selectedOption" 
-                      class="w-4 h-4 accent-[#a78bfa]" :disabled="poll.hasVoted">
-                <span class="text-sm font-medium" :class="poll.selectedOption === opt.id ? 'text-white' : 'text-[#a0a0b8]'">{{ opt.text }}</span>
-              </label>
+            <div class="mb-5 z-10">
+              <h4 class="text-white font-bold pr-12 leading-relaxed text-xl mb-3">{{ poll.title }}</h4>
+              <div class="flex flex-wrap gap-2">
+                <span v-if="poll.settings?.expReward" class="text-[10px] bg-yellow-500/10 text-yellow-500 px-2 py-0.5 rounded border border-yellow-500/20 shadow-sm">✨ +{{ poll.settings.expReward }} EXP</span>
+                <span class="text-[10px] bg-[#a78bfa]/10 text-[#a78bfa] px-2 py-0.5 rounded border border-[#a78bfa]/20">
+                  {{ poll.settings?.isMultipleChoice ? `多選 (最多 ${poll.settings.maxChoices} 項)` : '單選' }}
+                </span>
+                <span v-if="poll.settings?.isAnonymous" class="text-[10px] bg-[#666688]/20 text-[#a0a0b8] px-2 py-0.5 rounded border border-[#666688]/30">🕵️ 匿名投票</span>
+                <span v-if="poll.settings?.deadline" class="text-[10px] bg-[#ff3366]/10 text-[#ff3366] px-2 py-0.5 rounded border border-[#ff3366]/20">⏳ 限時進行中</span>
+              </div>
             </div>
             
-            <button @click="submitVote(poll)" 
-                    :disabled="!poll.selectedOption || poll.hasVoted" 
-                    class="mt-5 w-full py-3 rounded-lg font-bold transition-all text-sm tracking-wider"
-                    :class="poll.hasVoted ? 'bg-[#333366] text-[#888]' : 'bg-[#a78bfa] hover:bg-[#9061f9] text-[#16162a] shadow-[0_4px_15px_rgba(167,139,250,0.4)] active:translate-y-1 active:shadow-none'">
-              {{ poll.hasVoted ? '✅ 您已投過票' : '送出選擇' }}
-            </button>
+            <div v-if="!poll.hasVoted" class="space-y-3 flex-1">
+              <label v-for="opt in poll.options" :key="opt.id" 
+                    class="flex items-center gap-3 p-4 rounded-xl bg-[#0a0e27]/80 border transition-all duration-200 cursor-pointer group"
+                    :class="(poll.settings.isMultipleChoice ? poll.selectedOptions.includes(opt.id) : poll.selectedOption === opt.id) ? 'border-[#a78bfa] bg-[#a78bfa]/10 shadow-[0_0_10px_rgba(167,139,250,0.15)]' : 'border-[#333366] hover:border-[#a78bfa]/50'">
+                
+                <input v-if="poll.settings.isMultipleChoice" type="checkbox" :value="opt.id" v-model="poll.selectedOptions" 
+                      class="w-5 h-5 accent-[#a78bfa] rounded cursor-pointer" 
+                      :disabled="poll.selectedOptions.length >= poll.settings.maxChoices && !poll.selectedOptions.includes(opt.id)">
+                <input v-else type="radio" :name="'poll-'+poll.id" :value="opt.id" v-model="poll.selectedOption" 
+                      class="w-5 h-5 accent-[#a78bfa] cursor-pointer">
+                
+                <span class="text-[15px] font-medium transition-colors" :class="(poll.settings.isMultipleChoice ? poll.selectedOptions.includes(opt.id) : poll.selectedOption === opt.id) ? 'text-white' : 'text-[#a0a0b8] group-hover:text-white'">{{ opt.text }}</span>
+                
+                <span v-if="poll.settings.visibility === 'instant'" class="ml-auto text-xs text-[#666688] font-bold">{{ opt.votes }} 票</span>
+              </label>
+
+              <button @click="submitVote(poll)" 
+                      :disabled="(poll.settings.isMultipleChoice ? poll.selectedOptions.length === 0 : !poll.selectedOption)" 
+                      class="mt-6 w-full py-3 rounded-xl font-bold transition-all text-[15px] tracking-wider bg-[#a78bfa] hover:bg-[#9061f9] text-[#16162a] shadow-[0_4px_15px_rgba(167,139,250,0.4)] active:translate-y-1 active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed disabled:active:translate-y-0 disabled:shadow-none">
+                送出選票
+              </button>
+            </div>
+
+            <div v-else class="flex-1 flex flex-col justify-center">
+              
+              <div v-if="poll.settings.visibility === 'hidden'" class="flex flex-col items-center justify-center py-8 text-[#666688] bg-[#0a0e27]/50 rounded-xl border border-[#333366] border-dashed">
+                <span class="text-3xl mb-2">🔒</span>
+                <p class="text-sm font-bold">投票結果隱藏中</p>
+                <p class="text-xs mt-1">結算後將由老師公開</p>
+              </div>
+
+              <div v-else class="space-y-3 w-full">
+                <div v-for="opt in poll.options" :key="opt.id" class="relative overflow-hidden p-3.5 rounded-lg bg-[#0a0e27] border border-[#333366] flex justify-between items-center z-10">
+                  <div class="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-[#a78bfa]/20 to-[#818cf8]/20 -z-10 transition-all duration-1000" :style="{ width: `${poll.totalVotes > 0 ? (opt.votes / poll.totalVotes) * 100 : 0}%` }"></div>
+                  
+                  <span class="text-sm font-medium flex items-center gap-2" :class="(poll.settings.isMultipleChoice ? poll.myVotes.includes(opt.id) : poll.myVote === opt.id) ? 'text-white' : 'text-[#a0a0b8]'">
+                    <span v-if="poll.settings.isMultipleChoice ? poll.myVotes.includes(opt.id) : poll.myVote === opt.id" title="你的選擇" class="text-[#a78bfa] drop-shadow-md">★</span>
+                    {{ opt.text }}
+                  </span>
+                  
+                  <div class="flex items-center gap-3">
+                    <span class="text-[11px] text-[#888] font-bold">{{ poll.totalVotes > 0 ? Math.round((opt.votes / poll.totalVotes) * 100) : 0 }}%</span>
+                    <span class="text-[11px] font-bold bg-[#16162a] border border-[#333366] text-[#a78bfa] px-2 py-1 rounded-md">{{ opt.votes }} 票</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
           </div>
           
-          <div v-if="activePolls.length === 0" class="col-span-full flex flex-col items-center justify-center text-[#a0a0b8] py-12 border-2 border-dashed border-[#333366] rounded-xl bg-[#0a0e27]/50">
-            <span class="text-4xl mb-3 opacity-50">🎉</span>
-            <p>目前沒有進行中的投票</p>
+          <div v-if="activePolls.length === 0" class="col-span-full flex flex-col items-center justify-center text-[#a0a0b8] py-16 border-2 border-dashed border-[#333366] rounded-xl bg-[#0a0e27]/50">
+            <span class="text-5xl mb-4 opacity-50">🎉</span>
+            <p class="text-lg">目前沒有進行中的投票</p>
           </div>
         </div>
       </div>
       
-      <div class="opacity-80 hover:opacity-100 transition-opacity duration-300">
+      <div class="opacity-80 hover:opacity-100 transition-opacity duration-300 pt-4">
         <h3 class="text-[#a0a0b8] font-bold mb-4 flex items-center gap-2 border-b border-[#333366] pb-2">
           <span>🛑</span> 已截止的投票
         </h3>
         
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
           <div v-for="poll in endedPolls" :key="poll.id" class="bg-[#0a0e27] p-6 rounded-xl border border-[#333366]">
-            <h4 class="text-white font-bold mb-5 leading-relaxed">{{ poll.title }}</h4>
             
-            <div class="space-y-3">
+            <div class="mb-4 flex flex-col gap-2">
+              <h4 class="text-white font-bold leading-relaxed text-lg">{{ poll.title }}</h4>
+              <div class="flex gap-2">
+                <span class="text-[9px] bg-[#333366] text-[#a0a0b8] px-2 py-0.5 rounded">{{ poll.settings?.isMultipleChoice ? '多選' : '單選' }}</span>
+                <span v-if="poll.settings?.isAnonymous" class="text-[9px] bg-[#333366] text-[#a0a0b8] px-2 py-0.5 rounded">匿名</span>
+              </div>
+            </div>
+            
+            <div class="space-y-2.5">
               <div v-for="opt in poll.options" :key="opt.id" class="relative overflow-hidden p-3 rounded-lg bg-[#16162a] border border-[#333366] flex justify-between items-center z-10">
-                <div class="absolute left-0 top-0 bottom-0 bg-[#a78bfa]/10 -z-10 transition-all duration-1000" :style="{ width: `${(opt.votes / poll.totalVotes) * 100}%` }"></div>
+                <div class="absolute left-0 top-0 bottom-0 bg-[#a78bfa]/15 -z-10 transition-all duration-1000" :style="{ width: `${poll.totalVotes > 0 ? (opt.votes / poll.totalVotes) * 100 : 0}%` }"></div>
                 
-                <span class="text-sm font-medium flex items-center gap-2" :class="poll.myVote === opt.id ? 'text-[#a78bfa]' : 'text-[#a0a0b8]'">
-                  <span v-if="poll.myVote === opt.id" title="你的選擇">★</span>
+                <span class="text-sm font-medium flex items-center gap-2" :class="(poll.settings.isMultipleChoice ? poll.myVotes.includes(opt.id) : poll.myVote === opt.id) ? 'text-[#a78bfa]' : 'text-[#a0a0b8]'">
+                  <span v-if="poll.settings.isMultipleChoice ? poll.myVotes.includes(opt.id) : poll.myVote === opt.id" title="你的選擇">★</span>
                   {{ opt.text }}
                 </span>
                 
                 <div class="flex items-center gap-2">
-                  <span class="text-[10px] text-[#666688]">{{ Math.round((opt.votes / poll.totalVotes) * 100) }}%</span>
+                  <span class="text-[10px] text-[#666688] font-bold">{{ poll.totalVotes > 0 ? Math.round((opt.votes / poll.totalVotes) * 100) : 0 }}%</span>
                   <span class="text-xs font-bold bg-[#333366] text-white px-2 py-1 rounded">{{ opt.votes }} 票</span>
                 </div>
               </div>
             </div>
             
-            <div class="mt-4 text-[11px] text-[#666688] text-right">
-              總投票數: {{ poll.totalVotes }} 人
+            <div class="mt-4 text-[11px] text-[#666688] text-right font-bold">
+              總計: {{ poll.totalVotes }} 票
             </div>
           </div>
         </div>
@@ -101,13 +151,14 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import { supabase } from '../../../supabase'; // 請確認你的 Supabase 引入路徑
+import { supabase } from '../../../supabase'; // 請確認 Supabase 路徑
 
 const myProfile = ref({ id: '', class_code: '' });
 const activePolls = ref([]);
 const endedPolls = ref([]);
 const isLoading = ref(true);
 
+// 初始化資料
 const initStudentPolls = async () => {
   isLoading.value = true;
   const { data: { user } } = await supabase.auth.getUser();
@@ -121,6 +172,7 @@ const initStudentPolls = async () => {
   isLoading.value = false;
 };
 
+// 載入投票與選票資料
 const loadPolls = async () => {
   const code = myProfile.value.class_code;
   if (!code) return;
@@ -135,40 +187,50 @@ const loadPolls = async () => {
 
   if (!pollsData) return;
 
-  const endedPollIds = pollsData.filter(p => p.status === 'ended').map(p => p.id);
-  let endedVotesData = [];
-  if (endedPollIds.length > 0) {
-    const { data: vData } = await supabase.from('poll_votes').select('poll_id, option_id').in('poll_id', endedPollIds);
-    if (vData) endedVotesData = vData;
+  // 抓取所有票數 (為了計算即時進度條與截止結果)
+  const allPollIds = pollsData.map(p => p.id);
+  let allVotesData = [];
+  if (allPollIds.length > 0) {
+    const { data: vData } = await supabase.from('poll_votes').select('poll_id, option_id').in('poll_id', allPollIds);
+    if (vData) allVotesData = vData;
   }
 
-  // 📝 3. 準備裝填分類好的資料
   const activeTemp = [];
   const endedTemp = [];
 
   pollsData.forEach(poll => {
-    const myVoteRecord = myVotes?.find(v => v.poll_id === poll.id);
+    // 💡 匿名防呆處理：檢查 LocalStorage 判斷是否投過匿名票
+    const localVoted = localStorage.getItem(`voted_anon_poll_${poll.id}`);
+    const myVoteRecords = myVotes?.filter(v => v.poll_id === poll.id) || [];
     
+    // 注入預設 settings 防止報錯
+    const settings = poll.settings || { expReward: 0, isAnonymous: false, isMultipleChoice: false, maxChoices: 1, visibility: 'instant' };
+
     const pollObj = {
       id: poll.id,
       title: poll.title,
       status: poll.status,
       options: poll.poll_options || [],
-      hasVoted: !!myVoteRecord,
-      selectedOption: myVoteRecord ? myVoteRecord.option_id : null,
-      myVote: myVoteRecord ? myVoteRecord.option_id : null
+      settings: settings,
+      hasVoted: myVoteRecords.length > 0 || !!localVoted,
+      
+      // 狀態儲存 (同時支援單選/多選)
+      selectedOption: myVoteRecords.length > 0 ? myVoteRecords[0].option_id : null,
+      selectedOptions: myVoteRecords.map(v => v.option_id),
+      myVote: myVoteRecords.length > 0 ? myVoteRecords[0].option_id : null,
+      myVotes: myVoteRecords.map(v => v.option_id)
     };
+
+    // 計算選項得票數與總數
+    const pollVotes = allVotesData.filter(v => v.poll_id === poll.id);
+    pollObj.totalVotes = pollVotes.length; // 以「總票數」為分母
+    pollObj.options.forEach(opt => {
+      opt.votes = pollVotes.filter(v => v.option_id === opt.id).length;
+    });
 
     if (poll.status === 'active') {
       activeTemp.push(pollObj);
     } else if (poll.status === 'ended') {
-      // 統計已截止的票數與比例
-      const pollVotes = endedVotesData.filter(v => v.poll_id === poll.id);
-      pollObj.totalVotes = pollVotes.length;
-      
-      pollObj.options.forEach(opt => {
-        opt.votes = pollVotes.filter(v => v.option_id === opt.id).length;
-      });
       endedTemp.push(pollObj);
     }
   });
@@ -177,21 +239,53 @@ const loadPolls = async () => {
   endedPolls.value = endedTemp;
 };
 
-// 送出投票
+// 🚀 送出投票邏輯 (🌟 加入發放經驗值的功能！)
 const submitVote = async (poll) => {
-  if (!poll.selectedOption) return;
-  
-  const { error } = await supabase.from('poll_votes').insert({
-    poll_id: poll.id,
-    option_id: poll.selectedOption,
-    user_id: myProfile.value.id
-  });
+  let inserts = [];
+  const isAnon = poll.settings?.isAnonymous;
+  // 💡 如果是匿名，user_id 存為 null (確保票數的後端關聯是斷開的，達成絕對匿名)
+  const userIdToStore = isAnon ? null : myProfile.value.id;
+
+  if (poll.settings.isMultipleChoice) {
+    if (!poll.selectedOptions || poll.selectedOptions.length === 0) return;
+    inserts = poll.selectedOptions.map(optId => ({
+      poll_id: poll.id, option_id: optId, user_id: userIdToStore
+    }));
+  } else {
+    if (!poll.selectedOption) return;
+    inserts = [{ poll_id: poll.id, option_id: poll.selectedOption, user_id: userIdToStore }];
+  }
+
+  const { error } = await supabase.from('poll_votes').insert(inserts);
 
   if (error) {
-    alert('投票失敗，您可能已經投過票囉！');
+    alert('投票失敗！請確認網路狀態。');
   } else {
-    alert('🎉 投票成功！感謝您的參與！');
-    await loadPolls(); // 實時刷新計票與狀態
+    // 💡 如果是匿名，將投票紀錄存入本地瀏覽器防重複
+    if (isAnon) {
+      localStorage.setItem(`voted_anon_poll_${poll.id}`, 'true');
+    }
+
+    // ==========================================
+    // 🌟 發放經驗值邏輯
+    // ==========================================
+    let expMessage = '';
+    if (poll.settings?.expReward > 0) {
+      // 呼叫我們剛剛在 Supabase 建立的 RPC
+      const { error: expError } = await supabase.rpc('add_student_exp', {
+        p_user_id: myProfile.value.id, // 即使這張選票是匿名的，系統還是知道是「你」按下了送出，照樣給獎勵！
+        p_exp_amount: poll.settings.expReward
+      });
+      
+      if (!expError) {
+        expMessage = `\n✨ 恭喜獲得 ${poll.settings.expReward} 點 EXP！`;
+      } else {
+        console.error('發放經驗值失敗:', expError);
+      }
+    }
+
+    alert(`🎉 投票成功！${expMessage}`);
+    await loadPolls(); // 實時刷新畫面與狀態
   }
 };
 

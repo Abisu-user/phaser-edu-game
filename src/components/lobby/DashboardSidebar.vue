@@ -98,37 +98,6 @@
 
         </div>
       </div>
-
-      <div class="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent my-4 mx-2"></div>
-      
-      <div class="space-y-1">
-        <div 
-          class="group flex items-center rounded-xl cursor-pointer transition-all duration-300"
-          :class="[
-            currentSection === 'settings' ? 'bg-[#00d4aa]/10 text-[#00d4aa] border border-[#00d4aa]/30' : 'text-[#a0a0b8] border border-transparent hover:bg-white/5 hover:text-white hover:border-white/10',
-            isCollapsed ? 'p-3 justify-center' : 'px-4 py-3 gap-4'
-          ]"
-          @click="selectItem('settings')"
-          :title="isCollapsed ? '設定' : ''"
-        >
-          <div class="text-xl group-hover:rotate-90 transition-transform duration-500">⚙️</div>
-          <div v-if="!isCollapsed" class="font-medium tracking-wide whitespace-nowrap">設定</div>
-        </div>
-        
-        <div 
-          class="group flex items-center rounded-xl cursor-pointer transition-all duration-300"
-          :class="[
-            currentSection === 'help' ? 'bg-[#00d4aa]/10 text-[#00d4aa] border border-[#00d4aa]/30' : 'text-[#a0a0b8] border border-transparent hover:bg-white/5 hover:text-white hover:border-white/10',
-            isCollapsed ? 'p-3 justify-center' : 'px-4 py-3 gap-4'
-          ]"
-          @click="selectItem('help')"
-          :title="isCollapsed ? '幫助' : ''"
-        >
-          <div class="text-xl group-hover:scale-110 transition-transform duration-300">❓</div>
-          <div v-if="!isCollapsed" class="font-medium tracking-wide whitespace-nowrap">幫助</div>
-        </div>
-      </div>
-
     </div>
 
     <div class="p-4 border-t border-white/5 bg-gradient-to-b from-transparent to-black/40 shrink-0">
@@ -160,7 +129,7 @@
 
 <script setup>
 import { supabase } from '../../supabase'; 
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import ConfirmModal from '../common/ConfirmModal.vue';
 
 const props = defineProps({
@@ -189,39 +158,64 @@ const emit = defineEmits([
 const isLogoutModalOpen = ref(false);
 const isClassDropdownOpen = ref(false);
 
-// 基礎大廳選單
-const lobbyItems = [
-  { id: 'lobby', label: '大廳首頁', icon: '🏠' },
-  { id: 'courses', label: '課程', icon: '📚' },
-  { id: 'class', label: '班級', icon: '🏫' },
-  { id: 'friends', label: '好友', icon: '👥' },
-  { id: 'achievements', label: '成就', icon: '🎖️' },
-  { id: 'leaderboard', label: '全服排行榜', icon: '🏆' },
-  { id: 'profile', label: '個人檔案', icon: '👤' }
-];
+// 🌟 新增：追蹤班級狀態以及「是否為助理」
+const hasClass = ref(false); 
+const isAssistant = ref(false);
+let profileChannel = null;
+
+onMounted(async () => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  // 1. 初始化：抓取 class_code 和 is_assistant
+  const { data } = await supabase.from('profiles').select('class_code, is_assistant').eq('id', user.id).single();
+  hasClass.value = !!(data && data.class_code);
+  isAssistant.value = !!(data && data.is_assistant);
+
+  // 2. 即時監聽：確保老師拔除或設定權限時，側邊欄會瞬間更新
+  profileChannel = supabase.channel('sidebar_profile_updates')
+    .on('postgres_changes', { 
+      event: 'UPDATE', 
+      schema: 'public', 
+      table: 'profiles', 
+      filter: `id=eq.${user.id}` 
+    }, (payload) => {
+      if (payload.new) {
+        hasClass.value = !!payload.new.class_code;
+        isAssistant.value = !!payload.new.is_assistant;
+      }
+    }).subscribe();
+});
+
+onUnmounted(() => {
+  if (profileChannel) supabase.removeChannel(profileChannel);
+});
 
 // 🔥 動態產生分組選單結構
 const sectionedMenus = computed(() => {
-  // 1. 建立基礎的選單陣列
   const baseItems = [
     { id: 'lobby', label: '大廳首頁', icon: '🏠' },
     { id: 'courses', label: '課程', icon: '📚' }
   ];
 
   if (props.playerRole === 'student') {
+    const classSubItems = [
+      { id: 'class-home', label: '班級首頁', icon: '🏠' }
+    ];
+
+    if (hasClass.value) {
+      classSubItems.push({ id: 'class-polls', label: '投票系統', icon: '📊' });
+      classSubItems.push({ id: 'class-surveys', label: '問卷系統', icon: '📝' });
+    }
+
     baseItems.push({ 
       id: 'class', 
       label: '班級', 
       icon: '🏫',
-      subItems: [
-        { id: 'class-home', label: '班級首頁', icon: '🏠' },
-        { id: 'class-polls', label: '投票系統', icon: '📊' },
-        { id: 'class-surveys', label: '問卷系統', icon: '📝' }
-      ]
+      subItems: classSubItems
     });
   }
 
-  // 將剩下的通用選項補上
   baseItems.push(
     { id: 'friends', label: '好友', icon: '👥' },
     { id: 'achievements', label: '成就', icon: '🎖️' },
@@ -232,6 +226,16 @@ const sectionedMenus = computed(() => {
   const menus = [
     { header: 'Lobby Section', items: baseItems }
   ];
+
+  // 🌟 新增：如果學生是「班級助理」，推入專屬的互動管理功能
+  if (props.playerRole === 'student' && isAssistant.value) {
+    menus.push({
+      header: 'Class Assistant',
+      items: [
+        { id: 'teacher-interactions', icon: '✨', label: '互動管理 (助理)' }
+      ]
+    });
+  }
 
   if (props.playerRole === 'admin') {
     menus.push({
@@ -289,13 +293,10 @@ const selectItem = (itemId) => {
 };
 
 const isActive = (itemId) => {
-  // 🌟 班級狀態判斷
   if (itemId === 'class') return props.currentSection === 'class';
   if (itemId.startsWith('class-')) {
     return props.currentSection === 'class' && props.activeClassTab === itemId.replace('class-', '');
   }
-
-  // 既有的狀態判斷
   if (itemId.startsWith('admin-')) {
     return props.currentSection === 'admin' && props.activeAdminTab === itemId.replace('admin-', '');
   }

@@ -87,23 +87,50 @@
             </div>
           </div>
 
-          <div class="bg-[#0a0e27]/80 border border-[#00d4aa]/40 rounded-xl p-5 shadow-lg">
-            <h3 class="text-[#00d4aa] font-bold mb-4 flex items-center gap-2 border-b border-[#00d4aa]/20 pb-2">
-              <span>👨‍🏫</span> 指導老師
-            </h3>
-            
-            <div class="flex flex-wrap gap-4">
-              <div v-for="teacher in teachers" :key="teacher.id" class="flex items-center gap-4 bg-[#16162a] p-3 pr-8 rounded-xl border border-[#00d4aa]/20 shadow-[0_4px_10px_rgba(0,0,0,0.2)]">
-                <img v-if="teacher.avatar_url" :src="teacher.avatar_url" alt="avatar" class="w-12 h-12 rounded-full object-cover shadow-[0_0_10px_rgba(0,212,170,0.3)] border-2 border-[#00d4aa]/50" />
-                <div v-else class="w-12 h-12 rounded-full bg-[#00d4aa]/20 flex items-center justify-center text-[#00d4aa] text-lg font-bold shadow-[0_0_10px_rgba(0,212,170,0.3)] border-2 border-[#00d4aa]/50">
-                  {{ teacher.username ? teacher.username.charAt(0).toUpperCase() : '師' }}
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div class="bg-[#0a0e27]/80 border border-[#00d4aa]/40 rounded-xl p-5 shadow-lg flex flex-col">
+              <h3 class="text-[#00d4aa] font-bold mb-4 flex items-center gap-2 border-b border-[#00d4aa]/20 pb-2">
+                <span>👨‍🏫</span> 指導老師
+              </h3>
+              <div class="flex-1 flex flex-col justify-center">
+                <div v-for="teacher in teachers" :key="teacher.id" class="flex items-center gap-4 bg-[#16162a] p-3 pr-8 rounded-xl border border-[#00d4aa]/20 shadow-[0_4px_10px_rgba(0,0,0,0.2)]">
+                  <img v-if="teacher.avatar_url" :src="teacher.avatar_url" alt="avatar" class="w-12 h-12 rounded-full object-cover shadow-[0_0_10px_rgba(0,212,170,0.3)] border-2 border-[#00d4aa]/50" />
+                  <div v-else class="w-12 h-12 rounded-full bg-[#00d4aa]/20 flex items-center justify-center text-[#00d4aa] text-lg font-bold shadow-[0_0_10px_rgba(0,212,170,0.3)] border-2 border-[#00d4aa]/50">
+                    {{ teacher.username ? teacher.username.charAt(0).toUpperCase() : '師' }}
+                  </div>
+                  <div>
+                    <div class="text-white font-bold text-base">{{ teacher.username || '未命名老師' }}</div>
+                    <div class="text-[11px] text-[#00d4aa] tracking-widest mt-0.5">班級管理員</div>
+                  </div>
                 </div>
-                <div>
-                  <div class="text-white font-bold text-base">{{ teacher.username || '未命名老師' }}</div>
-                  <div class="text-[11px] text-[#00d4aa] tracking-widest mt-0.5">班級管理員</div>
-                </div>
+                <div v-if="teachers.length === 0" class="text-[#a0a0b8] text-sm italic text-center py-2">尚無老師資料</div>
               </div>
-              <div v-if="teachers.length === 0" class="text-[#a0a0b8] text-sm italic py-2">尚無老師資料</div>
+            </div>
+
+            <div class="bg-[#0a0e27]/80 border border-[#a78bfa]/40 rounded-xl p-5 shadow-lg flex flex-col relative overflow-hidden group">
+              <div class="absolute -right-4 -top-4 text-7xl opacity-5 group-hover:scale-110 transition-transform pointer-events-none">👑</div>
+              <h3 class="text-[#a78bfa] font-bold mb-4 flex items-center gap-2 border-b border-[#a78bfa]/20 pb-2 z-10">
+                <span>👑</span> 班級助理
+              </h3>
+              
+              <div class="flex-1 flex flex-col justify-center z-10 gap-3">
+                <template v-if="classAssistants.length > 0">
+                  <div v-for="assistant in classAssistants" :key="assistant.id" class="flex items-center gap-4 bg-[#16162a] p-3 pr-8 rounded-xl border border-[#a78bfa]/20 shadow-[0_4px_10px_rgba(0,0,0,0.2)]">
+                    <img v-if="assistant.avatar_url" :src="assistant.avatar_url" alt="avatar" class="w-12 h-12 rounded-full object-cover shadow-[0_0_10px_rgba(167,139,250,0.3)] border-2 border-[#a78bfa]/50" />
+                    <div v-else class="w-12 h-12 rounded-full bg-[#a78bfa]/20 flex items-center justify-center text-[#a78bfa] text-lg font-bold shadow-[0_0_10px_rgba(167,139,250,0.3)] border-2 border-[#a78bfa]/50">
+                      {{ assistant.username ? assistant.username.charAt(0).toUpperCase() : '助' }}
+                    </div>
+                    <div>
+                      <div class="text-white font-bold text-base flex items-center gap-2">
+                        {{ assistant.username || '未命名學生' }}
+                        <span v-if="assistant.id === myUserId" class="text-[9px] bg-[#ffbb33] text-[#16162a] px-1.5 py-0.5 rounded-sm font-bold uppercase tracking-wider">我</span>
+                      </div>
+                      <div class="text-[11px] text-[#a78bfa] tracking-widest mt-0.5">協助管理 / 發布問卷投票</div>
+                    </div>
+                  </div>
+                </template>
+                <div v-else class="text-[#a0a0b8] text-sm italic text-center py-2">目前班級尚未指派助理</div>
+              </div>
             </div>
           </div>
 
@@ -126,6 +153,7 @@
                 <div class="flex-1 min-w-0">
                   <div class="text-white text-sm font-medium flex items-center gap-2 truncate">
                     <span class="truncate">{{ student.username || '未命名學生' }}</span>
+                    <span v-if="student.is_assistant" class="shrink-0 text-[9px] bg-[#a78bfa] text-[#16162a] px-1.5 py-0.5 rounded-sm font-bold tracking-wider">👑 助理</span>
                     <span v-if="student.id === myUserId" class="shrink-0 text-[9px] bg-[#ffbb33] text-[#16162a] px-1.5 py-0.5 rounded-sm font-bold uppercase tracking-wider">我</span>
                   </div>
                   <div class="text-[10px] text-[#a0a0b8] mt-0.5">學生</div>
@@ -159,7 +187,6 @@ const isLoadingMembers = ref(false);
 const announcements = ref([]);
 let realtimeChannel = null;
 
-// === 首頁公告資料 ===
 const fetchAnnouncements = async (classCode) => {
   const { data } = await supabase.from('announcements')
     .select('*')
@@ -169,16 +196,17 @@ const fetchAnnouncements = async (classCode) => {
   if (data) announcements.value = data;
 };
 
-// === 權限計算與成員過濾 ===
 const teachers = computed(() => classMembers.value.filter(m => m.role && m.role.toLowerCase() === 'teacher'));
 const students = computed(() => classMembers.value.filter(m => m.role && m.role.toLowerCase() === 'student'));
 const isUnassigned = computed(() => !currentClassCode.value);
 
-// === 資料庫互動邏輯 ===
+// 🌟 尋找班級助理陣列 (支援多位)
+const classAssistants = computed(() => students.value.filter(s => s.is_assistant === true));
+
 const fetchClassMembers = async (classCode) => {
   isLoadingMembers.value = true;
   try {
-    const { data, error } = await supabase.from('profiles').select('id, username, role, avatar_url').eq('class_code', classCode);
+    const { data, error } = await supabase.from('profiles').select('id, username, role, avatar_url, is_assistant').eq('class_code', classCode);
     if (error) throw error;
     classMembers.value = data || [];
   } catch (error) {
@@ -189,7 +217,7 @@ const fetchClassMembers = async (classCode) => {
 };
 
 const fetchClassMembersSilently = async (classCode) => {
-  const { data } = await supabase.from('profiles').select('id, username, role, avatar_url').eq('class_code', classCode);
+  const { data } = await supabase.from('profiles').select('id, username, role, avatar_url, is_assistant').eq('class_code', classCode);
   if (data) classMembers.value = data;
 };
 
@@ -242,7 +270,7 @@ const handleLeaveClass = async () => {
   const isConfirm = window.confirm('確定要退出目前的班級嗎？退出後您將從老師的名單中移除。');
   if (!isConfirm) return;
   try {
-    const { error: updateError } = await supabase.from('profiles').update({ class_name: null, class_code: null }).eq('id', myUserId.value);
+    const { error: updateError } = await supabase.from('profiles').update({ class_name: null, class_code: null, is_assistant: false }).eq('id', myUserId.value);
     if (updateError) throw updateError;
     currentClassName.value = null; currentClassCode.value = null; classMembers.value = [];
     if (realtimeChannel) supabase.removeChannel(realtimeChannel);

@@ -163,10 +163,10 @@
             :currentTab="activeAdminTab" 
           />
 
-          <TeacherSection
-            v-if="playerRole === 'teacher'"
-            v-show="currentSection === 'teacher'"
+          <TeacherSection 
+            v-if="currentSection === 'teacher'" 
             :currentTab="activeTeacherTab"
+            :playerRole="playerRole"
           />
 
         </div>
@@ -375,6 +375,8 @@ const executeLogout = async () => {
 let globalMessageSubscription = null;
 let heartbeatInterval = null;
 let maintenanceSubscription = null;
+// 🌟 新增：全域經驗值即時監聽器
+let globalProfileChannel = null;
 
 // --- 邏輯函數區 ---
 const handleNameUpdate = (newName) => playerName.value = newName; 
@@ -606,7 +608,6 @@ const claimQuest = async (questId) => {
 
 // --- 🌟 資料抓取效能優化區 ---
 
-// 優化：接受可選的 prefetchedUser 參數，避免重複呼叫 getUser()
 const fetchLobbyData = async (prefetchedUser = null) => {
   try {
     const user = prefetchedUser || (await supabase.auth.getUser()).data.user;
@@ -615,7 +616,6 @@ const fetchLobbyData = async (prefetchedUser = null) => {
     playerEmail.value = user.email;
     playerJoinDate.value = user.created_at;
 
-    // 🌟 效能大躍進：將原本 3 次分開等的請求，改為 Promise.all 平行載入
     const [progressRes, profileRes, towerRes] = await Promise.all([
       supabase.from('user_progress').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
       supabase.from('profiles').select('id, xp, level, username, avatar_url, role, total_exp, last_login_at, consecutive_days, stat_points, current_title, pinned_badges, total_kills, boss_kills, total_deaths, passive_count').eq('id', user.id).single(),
@@ -687,7 +687,6 @@ const fetchLobbyData = async (prefetchedUser = null) => {
   }
 };
 
-// 優化：接受可選的 prefetchedUser 參數
 const fetchCourseProgress = async (prefetchedUser = null) => {
   const user = prefetchedUser || (await supabase.auth.getUser()).data.user;
   if (!user) return;
@@ -723,11 +722,9 @@ const handleVisibilityChange = () => { if (document.visibilityState === 'visible
 
 // --- 監聽與生命週期 ---
 onMounted(async () => {
-  // 🌟 效能大躍進：整個登入流程只呼叫一次 getUser
   const { data: { user } } = await supabase.auth.getUser();
   
   if (user) {
-    // 🌟 平行發送抓取大廳資料與課程進度，省去瀑布流等待時間！
     await Promise.all([
       fetchLobbyData(user),
       fetchCourseProgress(user)
@@ -750,6 +747,7 @@ onMounted(async () => {
 
 watch(() => currentId.value, (newId) => {
   if (newId) {
+    // 1. 監聽私訊
     globalMessageSubscription = supabase.channel('global-messages')
       .on('postgres_changes', { 
         event: 'INSERT', schema: 'public', table: 'direct_messages',
@@ -765,6 +763,33 @@ watch(() => currentId.value, (newId) => {
           }
         }
       }).subscribe();
+
+    // ==========================================
+    // 🌟 2. 全域經驗值與狀態即時同步監聽器
+    // ==========================================
+    globalProfileChannel = supabase.channel('global_profile_updates')
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'profiles', 
+        filter: `id=eq.${newId}` 
+      }, (payload) => {
+        if (payload.new) {
+          console.log('⚡ 偵測到資料庫更新，即時同步 UI！', payload.new);
+          
+          // 如果偵測到等級變高了，就觸發升級動畫彈出視窗
+          if (payload.new.level > currentLevel.value) {
+            isLevelUpModalOpen.value = true;
+            setTimeout(() => { isLevelUpModalOpen.value = false; }, 5000);
+          }
+
+          // 將資料庫傳來的最新數值，無縫替換掉前端的變數
+          currentXP.value = payload.new.xp || 0;
+          currentTotalXP.value = payload.new.total_exp || 0;
+          currentLevel.value = payload.new.level || 1;
+          stat_points.value = payload.new.stat_points || 0;
+        }
+      }).subscribe();
   }
 }, { immediate: true });
 
@@ -772,6 +797,8 @@ onUnmounted(() => {
   if (heartbeatInterval) clearInterval(heartbeatInterval);
   if (globalMessageSubscription) supabase.removeChannel(globalMessageSubscription);
   if (maintenanceSubscription) supabase.removeChannel(maintenanceSubscription);
+  // 記得關閉監聽器，避免浪費資源
+  if (globalProfileChannel) supabase.removeChannel(globalProfileChannel);
   document.removeEventListener('visibilitychange', handleVisibilityChange);
   window.removeEventListener('click', handleUserInteraction);
 });

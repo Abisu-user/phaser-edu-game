@@ -62,39 +62,55 @@
 
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        <div class="lg:col-span-2 bg-[#0a0e27] border border-[#333366] p-6 rounded-xl flex flex-col">
-          <h3 class="text-white font-bold mb-6 flex items-center gap-2">
+        <div class="lg:col-span-2 bg-[#0a0e27] border border-[#333366] p-6 rounded-xl flex flex-col relative overflow-hidden">
+          <h3 class="text-white font-bold mb-4 flex items-center gap-2 shrink-0">
             <span>📊</span> 各關卡通關人數統計
+            <span class="text-xs text-[#666688] font-normal ml-2">(可使用滑鼠滾輪左右滑動)</span>
           </h3>
           
-          <div v-if="stats.totalStudents === 0" class="flex-1 flex items-center justify-center text-[#a0a0b8]">尚無學生資料</div>
+          <div v-if="stats.totalStudents === 0" class="flex-1 flex items-center justify-center text-[#a0a0b8] min-h-[200px]">尚無學生資料</div>
           
-          <div v-else class="flex-1 flex items-end justify-between gap-2 h-48 mt-auto pt-6 border-b border-[#333366] relative">
-            <div class="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20">
+          <div v-else class="relative w-full mt-2">
+            <div class="absolute top-6 left-0 right-0 h-[160px] flex flex-col justify-between pointer-events-none opacity-20 z-0">
               <div class="border-t border-[#666688] w-full"></div>
               <div class="border-t border-[#666688] w-full"></div>
               <div class="border-t border-[#666688] w-full"></div>
               <div class="border-t border-[#666688] w-full"></div>
             </div>
 
-            <div v-for="bar in levelStats" :key="bar.level" class="flex flex-col items-center flex-1 group z-10">
-              <div class="opacity-0 group-hover:opacity-100 transition-opacity bg-[#16162a] border border-[#00d4aa] text-white text-xs py-1 px-2 rounded mb-2 whitespace-nowrap absolute -mt-10 pointer-events-none shadow-lg">
-                {{ bar.count }} 人通關
+            <div 
+              ref="chartContainer"
+              class="w-full overflow-x-auto overflow-y-hidden custom-scrollbar-x flex items-end gap-3 z-10 relative scroll-smooth px-2 pb-5 pt-6"
+              @wheel.prevent="handleHorizontalScroll"
+            >
+              <div v-for="bar in levelStats" :key="bar.level" class="flex flex-col items-center shrink-0 w-11 group">
+                
+                <div class="w-full h-[160px] relative flex items-end justify-center border-b-2 border-[#333366]">
+                  
+                  <div class="w-full bg-gradient-to-t from-[#00d4aa]/20 to-[#00d4aa] rounded-t-sm transition-all duration-700 ease-out relative group-hover:brightness-125"
+                       :style="`height: ${bar.percentage}%`">
+                       
+                      <div class="absolute left-1/2 -translate-x-1/2 -top-7 text-sm font-black drop-shadow-md transition-colors"
+                           :class="bar.count > 0 ? 'text-[#00d4aa]' : 'text-[#666688]'">
+                        {{ bar.count }}
+                      </div>
+                  </div>
+                </div>
+                
+                <div class="text-[#a0a0b8] text-xs font-bold mt-3 text-center">
+                  L{{ bar.level }}
+                </div>
               </div>
-              <div class="w-full max-w-[40px] bg-gradient-to-t from-[#00d4aa]/20 to-[#00d4aa] rounded-t-sm transition-all duration-700 ease-out relative group-hover:brightness-125"
-                   :style="`height: ${bar.percentage}%`">
-              </div>
-              <div class="text-[#a0a0b8] text-xs mt-3 truncate w-full text-center">L{{ bar.level }}</div>
             </div>
           </div>
         </div>
 
         <div class="bg-[#0a0e27] border border-[#333366] p-6 rounded-xl flex flex-col">
-          <h3 class="text-white font-bold mb-4 flex items-center gap-2">
+          <h3 class="text-white font-bold mb-4 flex items-center gap-2 shrink-0">
             <span>⚡</span> 最近活動紀錄
           </h3>
           
-          <div class="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-4">
+          <div class="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-4 max-h-[260px]">
             <div v-if="recentActivities.length === 0" class="text-center text-[#a0a0b8] py-8">
               尚未有任何通關紀錄
             </div>
@@ -127,10 +143,11 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import { supabase } from '../../../../supabase.js';
+import { supabase } from '../../../../supabase.js'; 
 
 const isLoading = ref(true);
 const hasClass = ref(false);
+const chartContainer = ref(null);
 
 const stats = ref({
   totalStudents: 0,
@@ -141,6 +158,13 @@ const stats = ref({
 
 const levelStats = ref([]);
 const recentActivities = ref([]);
+
+// 🌟 新增：水平滾動事件轉換 (將垂直滾輪轉換為水平滾動)
+const handleHorizontalScroll = (event) => {
+  if (chartContainer.value) {
+    chartContainer.value.scrollLeft += event.deltaY;
+  }
+};
 
 const fetchDashboardData = async () => {
   isLoading.value = true;
@@ -188,17 +212,16 @@ const fetchDashboardData = async () => {
 
     const progData = progress || [];
 
-    // 🌟 統一在這裡進行「去重複」(同一個學生同一關只算一次)
+    // 去重複：同一個學生同一關只算一次
     const uniqueClears = progData.filter((obj, index, self) =>
       index === self.findIndex((t) => (t.user_id === obj.user_id && t.level_id === obj.level_id))
     );
 
-    // 計算平均進度 (假設總共 30 關)
-    const TOTAL_LEVELS = 30;
+    // 計算平均進度 (總共 25 關)
+    const TOTAL_LEVELS = 25; 
     const validClearsCount = uniqueClears.length;
     stats.value.avgProgress = Math.min(Math.round((validClearsCount / (students.length * TOTAL_LEVELS)) * 100), 100);
 
-    // 計算近期活躍人數 (7 天內有通關紀錄的獨立使用者)
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     const activeUserIds = new Set(
@@ -206,24 +229,23 @@ const fetchDashboardData = async () => {
     );
     stats.value.activeStudents = activeUserIds.size;
 
-    // 4. 處理圖表資料 (統計前 10 關的通關人數)
+    // 4. 處理圖表資料 (生成 25 關的資料)
     const levelCounts = {};
-    // 直接使用上方已經去重好的 uniqueClears 來統計各關卡人數
     uniqueClears.forEach(p => {
       levelCounts[p.level_id] = (levelCounts[p.level_id] || 0) + 1;
     });
 
-    const DISPLAY_LEVELS = 10; // 圖表顯示前 10 關
-    levelStats.value = Array.from({ length: DISPLAY_LEVELS }, (_, i) => {
+    levelStats.value = Array.from({ length: TOTAL_LEVELS }, (_, i) => {
       const count = levelCounts[i + 1] || 0;
       return {
         level: i + 1,
         count: count,
-        percentage: count === 0 ? 5 : Math.max((count / students.length) * 100, 5)
+        // 🌟 給予最小的底座高度(2%)，讓沒人通關時也能看出柱子的位置
+        percentage: count === 0 ? 2 : Math.max((count / students.length) * 100, 4) 
       };
     });
 
-    // 5. 處理最近活動紀錄 (取前 6 筆)
+    // 5. 處理最近活動紀錄
     const userMap = {};
     students.forEach(s => {
       userMap[s.id] = { name: s.username || '未命名', avatar: s.avatar_url };
@@ -247,11 +269,10 @@ const fetchDashboardData = async () => {
 
 const resetStats = () => {
   stats.value = { totalStudents: 0, activeStudents: 0, avgProgress: 0, totalHours: 0 };
-  levelStats.value = Array.from({ length: 10 }, (_, i) => ({ level: i + 1, count: 0, percentage: 5 }));
+  levelStats.value = Array.from({ length: 25 }, (_, i) => ({ level: i + 1, count: 0, percentage: 2 }));
   recentActivities.value = [];
 };
 
-// 計算「幾分鐘前 / 幾小時前」的輔助函式
 const formatTimeAgo = (date) => {
   const seconds = Math.floor((new Date() - date) / 1000);
   let interval = seconds / 86400;
@@ -277,7 +298,7 @@ onMounted(() => {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* 自訂捲軸 */
+/* 原始垂直捲軸 */
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;
 }
@@ -290,5 +311,22 @@ onMounted(() => {
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 212, 170, 0.5);
+}
+
+/* 🌟 新增：圖表的水平自訂捲軸 */
+.custom-scrollbar-x::-webkit-scrollbar {
+  height: 8px;
+}
+.custom-scrollbar-x::-webkit-scrollbar-track {
+  background: rgba(10, 14, 39, 0.5);
+  border-radius: 10px;
+  margin: 0 10px;
+}
+.custom-scrollbar-x::-webkit-scrollbar-thumb {
+  background: rgba(0, 212, 170, 0.5);
+  border-radius: 10px;
+}
+.custom-scrollbar-x::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 212, 170, 0.9);
 }
 </style>
