@@ -295,7 +295,6 @@ import LobbySection from './sections/LobbySection.vue';
 import CoursesSection from './sections/CoursesSection.vue';
 import AchievementsSection from './sections/AchievementsSection.vue';
 import ProfileSection from './sections/ProfileSection.vue';
-import HelpSection from './sections/HelpSection.vue';
 import AdminSection from './sections/AdminSection.vue';
 import TeacherSection from './sections/TeacherSection.vue';
 import FriendsSection from './sections/FriendsSection.vue';
