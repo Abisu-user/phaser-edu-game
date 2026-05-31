@@ -323,11 +323,6 @@ export const levels = [
     id: 17,
     title: '4-2 記憶法術 (Function 基礎)',
     description: '閃避的動作太繁瑣了？把它打包成自訂指令！',
-    // 🌟 新增：Function 教學
-    tutorial: {
-      message: '閃避的動作太繁瑣了！我來教你如何使用「function (函式)」自創法術，把一整套動作打包起來呼叫！',
-      newCommand: 'function'
-    },
     grid_size: { cols: 10, rows: 10 },
     player: { gridX: 2, gridY: 1, emoji: '🧙', label: '程式法師' },
     enemy:  { gridX: 8, gridY: 8, emoji: '👹', label: '雙角惡魔' },
