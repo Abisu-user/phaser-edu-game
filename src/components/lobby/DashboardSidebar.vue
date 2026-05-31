@@ -26,7 +26,7 @@
           :class="isCollapsed ? 'w-10 h-10' : 'w-12 h-12'"
         >
           <img 
-            :src="playerAvatarUrl || '/avatars/default.png'" 
+            :src="playerAvatarUrl || `https://ui-avatars.com/api/?name=${profile.username || 'User'}&background=random`"
             alt="User Avatar" 
             class="w-full h-full object-cover"
           />
