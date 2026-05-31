@@ -10,12 +10,18 @@
       <p class="text-[12px] font-bold text-[#ffbb33]">⚡ 指令行數限制: {{ levelConfig.restrictions.maxBlocks }} 行</p>
     </div>
 
-    <div class="px-4 py-3 border-b flex-shrink-0" style="border-color:#333355; background: rgba(0,0,0,0.2);">
+    <div class="px-4 py-3 border-b flex-shrink-0 relative" style="border-color:#333355; background: rgba(0,0,0,0.2);">
       <p class="text-xs mb-2" style="color:#8b949e;">可用的指令拼圖：</p>
       <div class="grid grid-cols-2 gap-2">
         <button v-for="block in filteredBlocks" :key="block.code" @click="insertCode(block.code)"
-          class="px-3 py-2 rounded text-xs font-mono font-bold transition-transform hover:scale-105 active:scale-95 flex items-center gap-1.5 justify-center"
-          :style="{ backgroundColor: block.color, color: '#0f0e17', boxShadow: `0 2px 8px ${block.color}40` }">
+          class="px-3 py-2 rounded text-xs font-mono font-bold transition-all hover:scale-105 active:scale-95 flex items-center gap-1.5 justify-center relative"
+          :class="{ 'animate-pulse border-2 border-white': isNewCommand(block.id) }"
+          :style="{ backgroundColor: block.color, color: '#0f0e17', boxShadow: isNewCommand(block.id) ? '0 0 15px white' : `0 2px 8px ${block.color}40` }">
+          
+          <span v-if="isNewCommand(block.id)" class="absolute -top-2 -right-2 bg-white text-[9px] px-1 rounded text-black font-black z-10 shadow-sm animate-bounce">
+            NEW
+          </span>
+
           <span class="text-[12px]">{{ block.icon }}</span> {{ block.label }}
         </button>
       </div>
@@ -99,11 +105,15 @@ const selectedIndex = ref(0);
 const suggestPos = ref({ top: 0, left: 0 });
 const typingWordLength = ref(0);
 
+// 🌟 判斷是否為這關剛解鎖的新指令 (用來套用發光特效)
+const isNewCommand = (cmdId) => {
+  return props.levelConfig.tutorial?.newCommand === cmdId;
+};
+
 // ===============================================
 // 1. 動態從 OUTGAME_COMMANDS 產生按鈕與提示
 // ===============================================
 
-// [新增] 手動定義內建的邏輯按鈕
 const BUILTIN_LOGIC = [
   { id: 'if', label: '❓如果 (if)', type: 'logic' },
   { id: 'else', label: '⚖️ 否則 (else)', type: 'logic' },
@@ -111,24 +121,19 @@ const BUILTIN_LOGIC = [
   { id: 'function', label: '🔧 函式 (function)', type: 'logic' }
 ];
 
-// 將原本 OUTGAME_COMMANDS 中非邏輯的指令 (與 for)，加上內建邏輯合併
 const baseCommands = OUTGAME_COMMANDS.filter(cmd => cmd.type !== 'logic' || cmd.id === 'for');
 const combinedCommands = [...baseCommands, ...BUILTIN_LOGIC];
 
-// 動態產生的按鈕清單
 const ALL_BLOCKS = combinedCommands.map(cmd => {
-  // 自動解析 Emoji 和文字
   const match = cmd.label.match(/([\uD800-\uDBFF][\uDC00-\uDFFF]|\p{Emoji_Presentation})/u);
   const icon = match ? match[0] : '🧩';
   const labelText = cmd.label.replace(icon, '').trim();
 
-  // 根據類型分配顏色
-  let color = '#00d4aa'; // 預設綠色 (移動類)
-  if (['attack', 'shoot', 'magic', 'bomb'].includes(cmd.id)) color = '#ffbb33'; // 攻擊類橘色
-  if (cmd.type === 'sensor') color = '#38bdf8'; // 感知類藍色
-  if (cmd.type === 'logic') color = '#ff6b6b'; // 邏輯類紅色
+  let color = '#00d4aa'; 
+  if (['attack', 'shoot', 'magic', 'bomb'].includes(cmd.id)) color = '#ffbb33'; 
+  if (cmd.type === 'sensor') color = '#38bdf8'; 
+  if (cmd.type === 'logic') color = '#ff6b6b'; 
 
-  // 定義插入的程式碼模板
   let codeSnippet = `${cmd.id}();`;
   if (cmd.id === 'for') codeSnippet = `for(3, () => {\n  // 寫入重複動作\n});`;
   else if (cmd.id === 'if') codeSnippet = `if (isWall()) {\n  \n}`;
@@ -139,7 +144,6 @@ const ALL_BLOCKS = combinedCommands.map(cmd => {
   return { id: cmd.id, label: labelText, code: codeSnippet, color, icon };
 });
 
-// 自動補全提示字串 (Snippets)
 const availableSnippets = [
   ...OUTGAME_COMMANDS.filter(cmd => cmd.type === 'action').map(cmd => `${cmd.id}();`),
   'for(3, () => {\n  \n});',
@@ -153,7 +157,6 @@ const filteredBlocks = computed(() => props.levelConfig.availableCommands
   ? ALL_BLOCKS.filter(b => props.levelConfig.availableCommands.includes(b.id)) 
   : ALL_BLOCKS);
 
-// --- 捲動與游標處理 ---
 const syncScroll = (e) => {
   if (lineNumbersRef.value) lineNumbersRef.value.scrollTop = e.target.scrollTop;
 };
@@ -252,20 +255,14 @@ const handleKeydown = (e) => {
   }
 };
 
-// ===============================================
-// 🌟 2. 核心魔法：全自動微型編譯器
-// ===============================================
 const handleExecute = () => {
   let codeToRun = userCode.value;
   const originalCode = userCode.value; 
   
   codeToRun = codeToRun.replace(/for\s*\(\s*(\d+)\s*,\s*\(\s*\)\s*=>\s*\{([\s\S]*?)\}\s*\);?/g, "for(let i=0; i<$1; i++) { $2 }");
-  
   codeToRun = codeToRun.replace(/\(\s*\)\s*=>/g, "async () =>");
-
   codeToRun = codeToRun.replace(/\bshoot\s*\(([^)]+)\);?/g, "await window.shoot($1);");
 
-  // 2. 處理自訂函式
   const customFuncs = [];
   const funcRegex = /function\s+([a-zA-Z0-9_]+)\s*\(/g;
   let match;
@@ -274,8 +271,6 @@ const handleExecute = () => {
   }
   
   customFuncs.forEach(funcName => {
-    // 🌟 終極修復：精準辨識「宣告」與「呼叫」
-    // 如果前面帶有 function，代表是宣告，就原封不動；否則就是呼叫，加上 await
     const callRegex = new RegExp(`(\\bfunction\\s+)?\\b(${funcName})\\s*\\(`, 'g');
     codeToRun = codeToRun.replace(callRegex, (m, isDef, name) => {
       if (isDef) return m; 
@@ -283,10 +278,8 @@ const handleExecute = () => {
     });
   });
   
-  // 🎯 將普通的 function 升級為 async function
   codeToRun = codeToRun.replace(/function\s+([a-zA-Z0-9_]+)\s*\(/g, "async function $1(");
 
-  // 3. 自動替換所有內建動作與感應器指令
   OUTGAME_COMMANDS.forEach(cmd => {
     if (cmd.type === 'action') {
       const regex = new RegExp(`(?<!\\.)\\b${cmd.id}\\s*\\(\\);?`, 'g');
@@ -297,7 +290,6 @@ const handleExecute = () => {
     }
   });
 
-  // 4. 防作弊積木數量計算 (精準計算，無視換行)
   let blockCount = 0;
   const cleanCode = originalCode.replace(/\/\/.*$/gm, ''); 
   
@@ -331,4 +323,13 @@ const handleClear = () => {
 .scrollbar-thin::-webkit-scrollbar { width: 6px; }
 .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
 .scrollbar-thin::-webkit-scrollbar-thumb { background-color: #333355; border-radius: 3px; }
+
+/* 讓發光按鈕有呼吸效果 */
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.9; transform: scale(1.02); }
+}
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
 </style>

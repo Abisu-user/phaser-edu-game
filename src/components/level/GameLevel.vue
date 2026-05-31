@@ -1,6 +1,26 @@
 <template>
-  <div id="game-screen" class="h-full w-full flex flex-col overflow-hidden" style="background: linear-gradient(135deg, #0a0e27 0%, #1a1a3e 50%, #0f1428 100%);">
+  <div id="game-screen" class="h-full w-full flex flex-col overflow-hidden relative" style="background: linear-gradient(135deg, #0a0e27 0%, #1a1a3e 50%, #0f1428 100%);">
       
+    <div v-if="showTutorial" class="absolute inset-0 z-[200] flex items-center justify-center bg-[#0a0e27]/90 backdrop-blur-sm p-4">
+      <div class="bg-[#1e1e2e] border border-[#ffbb33] p-8 rounded-2xl max-w-lg w-full shadow-[0_0_50px_rgba(255,187,51,0.15)] text-center animate-slide-up relative overflow-hidden">
+        
+        <div class="absolute top-0 left-1/2 -translate-x-1/2 w-full h-32 bg-[#ffbb33] opacity-10 blur-[50px] pointer-events-none"></div>
+
+        <div class="text-6xl mb-4 relative z-10 drop-shadow-lg">🧙‍♂️</div>
+        <h2 class="text-2xl font-black text-[#ffbb33] mb-4 tracking-wider relative z-10">魔法導師傳授</h2>
+        
+        <div class="bg-[#0a0e27]/50 rounded-xl p-5 mb-8 border border-[#ffbb33]/20 relative z-10">
+          <div class="text-white text-[15px] leading-relaxed font-medium" 
+               v-html="levelConfig.tutorial?.message || '準備好迎接新的挑戰了嗎？'">
+          </div>
+        </div>
+        
+        <button @click="closeTutorial" class="w-full py-4 bg-gradient-to-r from-[#ffbb33] to-[#ff8800] text-[#0a0e27] font-black text-lg rounded-xl shadow-[0_0_20px_rgba(255,187,51,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all relative z-10">
+          我準備好了！ 🚀
+        </button>
+      </div>
+    </div>
+
     <div class="flex items-center justify-between px-6 py-3 border-b flex-shrink-0" style="border-color:#1e1e2e; background:#0a0e27; z-index:50;">
       <div class="flex items-center gap-3">
         <button @click="$emit('back')" class="p-2 rounded-lg hover:bg-white/10 transition" style="color:#f0f0f0;"> 
@@ -137,23 +157,26 @@ const isLoading = ref(true);
 const currentLine = ref(-1);
 const currentLevel = ref(1);
 const currentXP = ref(0);
-const xpPerLevel = ref(1000);
+const xpPerLevel = ref(1000); // 預設值，在 onMounted 中會動態計算
 const hp = ref(3);
 const currentTotalXP = ref(0);
 const enterTime = ref(0);
 const levelConfig = ref({});
 const isLastLevel = ref(false);
 
-// 🌟 新增：用來記錄是不是「首次通關」以及「實際獲得經驗值」
 const isFirstTimeClear = ref(true);
 const actualXpGained = ref(0);
-
-// 🌟 用來追蹤「語法限制」是否達成的陣列
 const achievedCommands = ref([]);
+
+const showTutorial = ref(false);
 
 let game = null;
 
-// 🌟 解析通關目標為帶有狀態的物件
+// 🌟 新增：計算某個等級升級需要多少經驗值 (1級1000, 2級1500, 3級2000...)
+const getRequiredExpForLevel = (level) => {
+  return 1000 + (level - 1) * 500; 
+};
+
 const parsedVictoryConditions = computed(() => {
   let conds = levelConfig.value?.victoryCondition;
   if (!conds || conds.length === 0) conds = ['kill_enemy'];
@@ -169,12 +192,11 @@ const parsedVictoryConditions = computed(() => {
     return {
       id: cond,
       text: text,
-      isCompleted: isLevelCleared.value // 通關時自動打勾
+      isCompleted: isLevelCleared.value
     };
   });
 });
 
-// 🌟 解析限制條件為帶有狀態的物件
 const parsedRequiredCommands = computed(() => {
   if (!levelConfig.value?.requiredCommand) return [];
   
@@ -207,6 +229,10 @@ const parsedRequiredCommands = computed(() => {
   });
 });
 
+const closeTutorial = () => {
+  showTutorial.value = false;
+};
+
 const executeCode = async (code, blockCount = 0, rawUserCode = '') => {
   const checkCode = rawUserCode || code; 
   
@@ -216,7 +242,6 @@ const executeCode = async (code, blockCount = 0, rawUserCode = '') => {
     return;
   }
 
-  // 👉 動態掃描使用者的程式碼，看是否有達成條件 (全面升級版)
   const currentAchieved = [];
   const reqCmds = levelConfig.value?.requiredCommand || [];
   
@@ -229,8 +254,8 @@ const executeCode = async (code, blockCount = 0, rawUserCode = '') => {
   if (reqCmds.includes('variable') && /\b(let|const|var)\b/.test(checkCode)) currentAchieved.push('variable');
   if (reqCmds.includes('shoot') && /\bshoot\b/.test(checkCode)) currentAchieved.push('shoot');
   
-  achievedCommands.value = currentAchieved; // 更新畫面打勾狀態
-  isLevelCleared.value = false; // 重新執行時，先重置通關狀態
+  achievedCommands.value = currentAchieved; 
+  isLevelCleared.value = false;
 
   if (!game) return;
   const phaserScene = game.scene.getScene('TeachingScene');
@@ -281,23 +306,29 @@ const handleWin = () => {
     return; 
   }
 
-  // 🌟 首通經驗值判定機制：只有第一次打贏才給錢
   actualXpGained.value = isFirstTimeClear.value ? (levelConfig.value?.xpReward || 200) : 0;
 
   if (isFirstTimeClear.value) {
     currentXP.value += actualXpGained.value;
     currentTotalXP.value += actualXpGained.value;
 
-    if (currentXP.value >= xpPerLevel.value) {
-      currentLevel.value += Math.floor(currentXP.value / xpPerLevel.value);
-      currentXP.value = currentXP.value % xpPerLevel.value;
+    let leveledUp = false;
+
+    // 🌟 核心修復：使用 while 迴圈處理升級 (支援一次獲得大量 XP 連升好幾級的情況)
+    while (currentXP.value >= xpPerLevel.value) {
+      currentXP.value -= xpPerLevel.value; // 扣除升級消耗的經驗值
+      currentLevel.value += 1;             // 等級提升
+      xpPerLevel.value = getRequiredExpForLevel(currentLevel.value); // 重新計算下一級的經驗值上限
+      leveledUp = true;
+    }
+
+    if (leveledUp) {
       localStorage.setItem('justLeveledUp', 'true'); 
     }
   }
 
   showWinModal.value = true;
 
-  // 背景資料庫結算
   (async () => {
       const leaveTime = Date.now();
       const timeSpentSeconds = Math.floor((leaveTime - enterTime.value) / 1000);
@@ -308,19 +339,16 @@ const handleWin = () => {
       const levelId = levelConfig.value?.id || Number(props.levelId) || 0; 
 
       if (!isFirstTimeClear.value) {
-        // 如果已經通關過，只更新星星和花費時間
         const { data: existingProgress } = await supabase.from('user_progress').select('id, stars').eq('user_id', user.id).eq('course_id', safeCourseId).eq('level_id', levelId).maybeSingle();
         if (existingProgress) {
           const newStars = Math.max(existingProgress.stars || 0, hp.value);
           await supabase.from('user_progress').update({ stars: newStars, time_spent_seconds: timeSpentSeconds }).eq('id', existingProgress.id);
         }
       } else {
-        // 首次通關：寫入通關紀錄並加經驗值
         await supabase.from('user_progress').insert({ user_id: user.id, course_id: safeCourseId, level_id: levelId, stars: hp.value, time_spent_seconds: timeSpentSeconds });
         await supabase.from('profiles').update({ xp: currentXP.value, level: currentLevel.value, total_exp: currentTotalXP.value }).eq('id', user.id);
       }
         
-      // 檢查徽章
       const { count: clearedCount } = await supabase.from('user_progress').select('*', { count: 'exact', head: true }).eq('user_id', user.id);
       const currentStats = { clearedLevelsCount: clearedCount || 0, currentTotalXP: currentTotalXP.value, currentLevel: currentLevel.value };
 
@@ -334,7 +362,7 @@ const handleWin = () => {
 
 const handleNextLevel = () => {
   isLevelCleared.value = false;
-  achievedCommands.value = []; // 進入下一關時，重置勾選狀態
+  achievedCommands.value = []; 
   emit('next-level');
 };
 
@@ -348,7 +376,7 @@ const handleRestart = () => {
   showFailModal.value = false;
   hp.value = levelConfig.value.hearts || 3; 
   enterTime.value = Date.now(); 
-  achievedCommands.value = []; // 重新開始時，重置勾選狀態
+  achievedCommands.value = []; 
   isLevelCleared.value = false;
   if (game) {
     const scene = game.scene.getScene('TeachingScene');
@@ -416,7 +444,7 @@ const loadLevelData = async () => {
       if (cmd === 'if') return 'if_else';
       return cmd;
       });
-      rCmd = [...new Set(rCmd)]; // 過濾掉重複的元素
+      rCmd = [...new Set(rCmd)]; 
 
       let cmds = ['moveRight', 'attack'];
       try { cmds = typeof data.available_commands === 'string' ? JSON.parse(data.available_commands) : (data.available_commands || cmds); } catch(e){}
@@ -454,6 +482,10 @@ const loadLevelData = async () => {
     }
   }
   isLoading.value = false;
+
+  if (levelConfig.value?.tutorial) {
+    showTutorial.value = true;
+  }
 };
 
 onMounted(async () => {
@@ -462,7 +494,6 @@ onMounted(async () => {
 
   const { data: { user } } = await supabase.auth.getUser();
   if (user) {
-    // 🌟 在載入關卡前，先去資料庫確認這是不是第一次通關 (解決 XP 農場 Bug)
     const [profileRes, progressRes] = await Promise.all([
       supabase.from('profiles').select('xp, level, total_exp').eq('id', user.id).single(),
       supabase.from('user_progress').select('id').eq('user_id', user.id).eq('course_id', props.courseId).eq('level_id', Number(props.levelId)).maybeSingle()
@@ -472,9 +503,11 @@ onMounted(async () => {
       currentLevel.value = profileRes.data.level || 1;
       currentXP.value = profileRes.data.xp || 0;
       currentTotalXP.value = profileRes.data.total_exp || 0;
+      
+      // 🌟 新增：根據玩家目前的等級，設定正確的經驗值上限
+      xpPerLevel.value = getRequiredExpForLevel(currentLevel.value);
     }
 
-    // 如果資料庫已經有這一關的進度紀錄，就代表他已經打贏過了
     isFirstTimeClear.value = !progressRes.data; 
   }
   
@@ -497,3 +530,13 @@ onUnmounted(() => {
   window.removeEventListener('level-win', onLevelWin);
 });
 </script>
+
+<style scoped>
+.animate-slide-up {
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(30px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+</style>

@@ -39,7 +39,10 @@
         <div class="h-px bg-white/10 w-full mb-4"></div>
 
         <div class="flex justify-between items-center mb-2">
-          <span class="text-white font-bold font-['Fredoka'] text-lg">Lv. {{ currentLevel }}</span>
+          <span class="text-white font-bold font-['Fredoka'] text-lg"
+                :class="{ 'animate-pulse text-[#ffbb33] drop-shadow-[0_0_10px_rgba(255,187,51,0.8)]': isJustLeveledUp }">
+            Lv. {{ currentLevel }}
+          </span>
           <span class="text-[#ffbb33] font-bold text-sm">
             {{ currentXP }} <span class="text-[#a0a0b8] text-xs">/ {{ xpPerLevel }}</span>
           </span>
@@ -47,7 +50,7 @@
         
         <div class="w-full h-2.5 rounded-full bg-black/60 overflow-hidden relative shadow-inner">
           <div class="h-full rounded-full transition-all duration-1000 ease-out relative overflow-hidden" 
-               :style="{ width: Math.min((currentXP / xpPerLevel * 100), 100) + '%', background: 'linear-gradient(90deg, #ff8800, #ffbb33)' }">
+               :style="{ width: expPercentage + '%', background: 'linear-gradient(90deg, #ff8800, #ffbb33)' }">
                <div class="absolute inset-0 bg-white/20"></div>
           </div>
         </div>
@@ -79,9 +82,9 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'; // 引入 ref
+import { ref, computed, onMounted } from 'vue';
 
-defineProps({
+const props = defineProps({
   currentLevel: { type: Number, default: 1 },
   currentXP: { type: Number, default: 0 },
   xpPerLevel: { type: Number, default: 1000 },
@@ -93,8 +96,22 @@ defineProps({
 
 const emit = defineEmits(['next', 'home']);
 
-// 🌟 防連點狀態鎖
 const isNavigating = ref(false);
+const isJustLeveledUp = ref(false); // 用來控制升級發光特效
+
+// 🌟 安全計算經驗值百分比 (防止分母為 0 或超過 100)
+const expPercentage = computed(() => {
+  if (props.xpPerLevel <= 0) return 0;
+  return Math.min((props.currentXP / props.xpPerLevel) * 100, 100);
+});
+
+onMounted(() => {
+  // 檢查在 GameLevel.vue 是否有觸發升級，如果有，就讓 Lv 數字發光！
+  if (localStorage.getItem('justLeveledUp') === 'true') {
+    isJustLeveledUp.value = true;
+    localStorage.removeItem('justLeveledUp'); // 播完特效就清除
+  }
+});
 
 const handleNextClick = () => {
   if (isNavigating.value) return;
@@ -114,5 +131,14 @@ const handleHomeClick = () => {
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(30px) scale(0.95); }
   to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* 升級發光動畫 */
+.animate-pulse {
+  animation: pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.1); }
 }
 </style>

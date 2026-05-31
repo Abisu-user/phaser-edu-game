@@ -4,6 +4,11 @@ export const levels = [
     id: 1,
     title: '1-1 窄門試煉',
     description: '學習最基本的移動，並繞過前方的障礙物。',
+    // 🌟 新增：第一關的基礎教學
+    tutorial: {
+      message: '歡迎來到迷霧森林，年輕的法師！點擊右側的移動指令(move)繞開石頭，最後使用「attack()」擊敗怪物吧！',
+      newCommand: 'attack'
+    },
     grid_size: { cols: 10, rows: 10 },
     player: { gridX: 2, gridY: 5, emoji: '🧙', label: '程式法師' },
     enemy:  { gridX: 6, gridY: 5, emoji: '👾', label: '弱小Bug' },
@@ -112,6 +117,11 @@ export const levels = [
     id: 6,
     title: '2-1 節能法師',
     description: '這條路很長，用最少的積木走完它。',
+    // 🌟 新增：迴圈教學
+    tutorial: {
+      message: '【新指令解鎖】，這條路太長了，單步移動會超過能量限制！我來傳授你「for」迴圈：<br><br><div class="bg-[#0a0e27] border border-[#333355] text-[#00d4aa] font-mono px-3 py-2 rounded-lg text-sm text-left shadow-inner tracking-wider">for(3, () => {<br>&nbsp;&nbsp;moveRight();<br>});</div><br>像這樣，就會自動重複執行三次向右移動！',
+      newCommand: 'for'
+    },
     grid_size: { cols: 10, rows: 10 },
     player: { gridX: 1, gridY: 4, emoji: '🧙', label: '程式法師' },
     enemy:  { gridX: 8, gridY: 4, emoji: '👾', label: '迴圈怪' },
@@ -207,6 +217,11 @@ export const levels = [
     id: 11,
     title: '3-1 盲目探索 (基礎判斷)',
     description: '前方有牆壁！使用感應器來越過這堵牆。',
+    // 🌟 新增：If 教學
+    tutorial: {
+      message: '地底佈滿未知障礙，你需要學會讓程式自己做判斷！使用「if (如果)」搭配雷達：<br><br><div class="bg-[#0a0e27] border border-[#333355] text-[#00d4aa] font-mono px-3 py-2 rounded-lg text-sm text-left shadow-inner tracking-wider">if (isWall()) {<br>&nbsp;&nbsp;moveUp();<br>}</div><br>像這樣，當雷達偵測到前方有牆壁時，法師就會自動往上走來閃避喔！',
+      newCommand: 'if'
+    },
     grid_size: { cols: 10, rows: 10 },
     player: { gridX: 2, gridY: 5, emoji: '🧙', label: '程式法師' },
     enemy:  { gridX: 6, gridY: 5, emoji: '🔥', label: '火元素' },
@@ -289,6 +304,11 @@ export const levels = [
     id: 16,
     title: '4-1 無盡追尋 (While迴圈)',
     description: '地圖被迷霧壟罩，走到碰面為止。',
+    // 🌟 新增：While 教學
+    tutorial: {
+      message: '在這片無盡的迷霧中，我們不知道敵人有多遠。使用「while (當)」迴圈：<br><br><div class="bg-[#0a0e27] border border-[#333355] text-[#00d4aa] font-mono px-3 py-2 rounded-lg text-sm text-left shadow-inner tracking-wider">while (!isEnemy()) {<br>&nbsp;&nbsp;moveRight();<br>}</div><br>注意前面的驚嘆號 <code>!</code> 代表「相反」。這段咒語的意思是：當「還沒遇到」敵人時，法師就會不斷自動向右前進！',
+      newCommand: 'while'
+    },
     grid_size: { cols: 10, rows: 10 },
     player: { gridX: 1, gridY: 3, emoji: '🧙', label: '程式法師' },
     enemy:  { gridX: 8, gridY: 3, emoji: '🎯', label: '標靶怪' },
@@ -303,6 +323,11 @@ export const levels = [
     id: 17,
     title: '4-2 記憶法術 (Function 基礎)',
     description: '閃避的動作太繁瑣了？把它打包成自訂指令！',
+    // 🌟 新增：Function 教學
+    tutorial: {
+      message: '閃避的動作太繁瑣了！我來教你如何使用「function (函式)」自創法術，把一整套動作打包起來呼叫！',
+      newCommand: 'function'
+    },
     grid_size: { cols: 10, rows: 10 },
     player: { gridX: 2, gridY: 1, emoji: '🧙', label: '程式法師' },
     enemy:  { gridX: 8, gridY: 8, emoji: '👹', label: '雙角惡魔' },
@@ -368,6 +393,11 @@ export const levels = [
     id: 21,
     title: '5-1 奧術飛彈',
     description: '解鎖遠程攻擊 shoot(X, Y)！請站在原地施展遠程攻擊將怪物狙擊！',
+    // 🌟 修改：Shoot(1,0) 直線遠程教學
+    tutorial: {
+      message: '前方敵人太遠了，走過去會有危險！我來傳授你遠程奧義：<code class="bg-[#0a0e27] border border-[#ffbb33]/30 text-[#ffbb33] font-mono px-1.5 py-0.5 rounded text-sm mx-1">shoot(X, Y)</code><br><br><div class="bg-[#0a0e27] border border-[#333355] text-[#00d4aa] font-mono px-3 py-2 rounded-lg text-sm text-left shadow-inner tracking-wider">shoot(1, 0);</div><br><b>X</b> 代表水平方向（1 向右，-1 向左），<b>Y</b> 代表垂直方向（0 代表不上下偏）。這行咒語會發射一枚向右直飛的飛彈，試著狙擊蝙蝠吧！',
+      newCommand: 'shoot'
+    },
     grid_size: { cols: 10, rows: 10 },
     player: { gridX: 2, gridY: 5, emoji: '🧙', label: '程式法師' },
     enemy:  { gridX: 7, gridY: 5, emoji: '🦇', label: '遠程吸血蝠' },
@@ -379,7 +409,7 @@ export const levels = [
     failMessages: {
       missingCommand: '❌ 這關不能走過去！你必須使用「shoot」積木在遠處狙擊目標！'
     },
-    hint: '開火路線完全敞通！直接在程式中填入一個 「shoot(1,0」 積木，飛彈就會朝指定的方向直線攻擊5格內的的怪物！',
+    hint: '開火路線完全敞通！直接在程式中填入一個 shoot(1, 0) 積木，飛彈就會直線攻擊怪物！',
     xpReward: 3200,
     successMessage: '🏹 轟！遠程魔法威力強大，你甚至不需要挪動腳步！'
   },
@@ -387,6 +417,11 @@ export const levels = [
     id: 22,
     title: '5-2 調整彈道',
     description: '利用 shoot(X, Y) 的彈道特性，調整位置讓飛彈能夠擊中敵人！',
+    // 🌟 修改：Shoot(1,1) 斜角彈道教學
+    tutorial: {
+      message: '敵人躲在斜對角！普通的直線魔法打不到牠，我們需要調整彈道。<br><br><div class="bg-[#0a0e27] border border-[#333355] text-[#00d4aa] font-mono px-3 py-2 rounded-lg text-sm text-left shadow-inner tracking-wider">shoot(1, 1);</div><br>將 <b>X</b> 設為 1 (向右)，<b>Y</b> 設為 1 (向下)，飛彈就會往「右下方」斜向狙擊！',
+      newCommand: 'shoot'
+    },
     grid_size: { cols: 10, rows: 10 },
     player: { gridX: 2, gridY: 2, emoji: '🧙', label: '程式法師' },
     enemy:  { gridX: 7, gridY: 7, emoji: '👹', label: '躲藏的小鬼' },
@@ -398,14 +433,19 @@ export const levels = [
     failMessages: {
       hitObstacle: '💥 飛彈在半路撞上高牆爆炸了！看來必須移動到跟怪物同一列（row 6）才能打中牠。'
     },
-    hint: '利用 shoot朝指定的方向發射，X軸為水平（方向右為正，方向左為負），Y軸為垂直（方向下為正，方向上為負）。',
+    hint: '利用 shoot 朝指定的方向發射，X軸為水平（方向右為正，方向左為負），Y軸為垂直（方向下為正，方向上為負）。',
     xpReward: 3500,
-    successMessage: '🎯 聰明的決策！移動並拉出完美的狙擊視線！'
+    successMessage: '🎯 聰明的決策！完美的斜角狙擊視線！'
   },
   {
     id: 23,
     title: '5-3 火力壓制 (迴圈狙擊)',
     description: '射程受到極度限制！利用 for 迴圈編寫出「更遠的射程」精準打擊目標。',
+    // 🌟 修改：Function + Loop + Shoot 移動射擊教學
+    tutorial: {
+      message: '這關的怪物移動路徑特殊！我們要把移動動作打包成一個叫 <code>arror</code> 的函式，並傳給 <code>shoot()</code> 執行：<br><br><div class="bg-[#0a0e27] border border-[#333355] text-[#00d4aa] font-mono px-3 py-2 rounded-lg text-sm text-left shadow-inner tracking-wider">function arror(p) {<br>&nbsp;&nbsp;for(3, () => {<br>&nbsp;&nbsp;&nbsp;&nbsp;p.moveRight();<br>&nbsp;&nbsp;});<br>}<br><br>shoot(arror);</div><br>這裡的 <code>p</code> 代表「子彈」，這段代碼會自動讓子彈執行三次右移，然後進行精準狙擊！',
+      newCommand: 'function'
+    },
     grid_size: { cols: 10, rows: 10 },
     player: { gridX: 0, gridY: 4, emoji: '🧙', label: '程式法師' },
     enemy:  { gridX: 9, gridY: 4, emoji: '💎', label: '遠古結晶怪' },
@@ -416,7 +456,7 @@ export const levels = [
     failMessages: {
       tooManyBlocks: '🧱 積木數量超標了！請善用 for 迴圈來包裝重複的「向右」和「射擊」動作。'
     },
-    hint: 'ˋ預設彈道為5格，利用function+for迴圈的組合，增加狙擊射程，讓飛彈一路追蹤到敵人！',
+    hint: '利用 function 加上 for 迴圈的組合，邊走邊開火，讓飛彈一路追蹤到敵人！',
     xpReward: 4000,
     successMessage: '🔁 太流暢了！這就是迴圈配上射擊的移動重火力壓制！'
   },
