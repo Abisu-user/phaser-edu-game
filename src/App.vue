@@ -1,23 +1,32 @@
 <template>
   <router-view v-slot="{ Component }">
-    <component 
-      :is="Component" 
-      :key="$route.fullPath"
-      :player-name="currentPlayerName"
-      :levelConfig="currentLevelData"
-      @go-login="$router.push('/login')"
-      @login-success="onLoginSuccess"
-      @back-to-home="$router.push('/')"
-      @logout="handleLogout"
-      @enter-game="goToLevel"
-      @back="$router.push('/dashboard')"
-      @next-level="goToNextLevel"
-    />
+    <Suspense>
+      <component 
+        :is="Component" 
+        :key="$route.fullPath"
+        :player-name="currentPlayerName"
+        :levelConfig="currentLevelData"
+        @go-login="$router.push('/login')"
+        @login-success="onLoginSuccess"
+        @back-to-home="$router.push('/')"
+        @logout="handleLogout"
+        @enter-game="goToLevel"
+        @back="$router.push('/dashboard')"
+        @next-level="goToNextLevel"
+      />
+      
+      <template #fallback>
+        <div style="background-color: #0a0e27; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; color: white;">
+          <div class="loading-spinner">🌀</div>
+          <h2 style="font-size: 24px; font-weight: bold; margin-top: 20px; color: #00d4aa; text-shadow: 0 0 10px rgba(0,212,170,0.5);">魔法大廳連線中...</h2>
+        </div>
+      </template>
+    </Suspense>
   </router-view>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'; 
+import { ref, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { supabase } from './supabase.js';
 import './style.css'; 
@@ -27,6 +36,7 @@ const router = useRouter();
 const currentLevelData = ref(null);
 const currentPlayerName = ref('');       
 const currentUserRole = ref('student'); 
+let devToolsInterval = null; 
 
 const onLoginSuccess = (username) => {
   currentPlayerName.value = username; 
@@ -37,6 +47,7 @@ const handleLogout = async () => {
   await supabase.auth.signOut(); 
   currentPlayerName.value = '';      
   currentUserRole.value = 'student'; 
+  if (devToolsInterval) clearInterval(devToolsInterval); 
   router.push('/'); 
 };
 
@@ -64,12 +75,28 @@ const goToNextLevel = () => {
 };
 
 // ==========================================
-// 🛡️ 防作弊與防調試系統 (Anti-Cheat)
+// 🛡️ 防作弊系統 1：懲罰執行器
+// ==========================================
+const executePunishment = () => {
+  document.body.innerHTML = `
+    <div style="background:#0a0e27; height:100vh; width:100vw; display:flex; justify-content:center; align-items:center; color:#ff6b6b; font-size:30px; font-weight:bold; font-family:sans-serif; text-align:center; z-index:99999; position:fixed; top:0; left:0;">
+      <div>
+        <div style="font-size:60px; margin-bottom:20px;">🚨</div>
+        ⚠️ 偵測到非法調試行為<br>連線已強制中斷！
+      </div>
+    </div>`;
+  
+  setTimeout(() => {
+    window.location.href = "about:blank"; 
+  }, 1500);
+};
+
+// ==========================================
+// 🛡️ 防作弊系統 2：被動按鍵攔截
 // ==========================================
 const antiCheatHandler = (e) => {
   if (currentUserRole.value === 'admin') return;
 
-  // 偵測 F12
   const isF12 = e.key === 'F12' || e.keyCode === 123;
   const isInspect = (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'C' || e.key === 'c')) || 
                     (e.metaKey && e.altKey && (e.key === 'I' || e.key === 'i')) ||
@@ -77,18 +104,7 @@ const antiCheatHandler = (e) => {
 
   if (isF12 || isInspect) {
     e.preventDefault(); 
-
-    document.body.innerHTML = `
-      <div style="background:#0a0e27; height:100vh; width:100vw; display:flex; justify-content:center; align-items:center; color:#ff6b6b; font-size:30px; font-weight:bold; font-family:sans-serif; text-align:center; z-index:99999; position:fixed; top:0; left:0;">
-        <div>
-          <div style="font-size:60px; margin-bottom:20px;">🚨</div>
-          ⚠️ 偵測到非法調試行為<br>連線已強制中斷！
-        </div>
-      </div>`;
-    
-    setTimeout(() => {
-      window.location.href = "about:blank"; 
-    }, 1500);
+    executePunishment();
   }
 };
 
@@ -99,26 +115,86 @@ const preventContextMenu = (e) => {
 };
 
 // ==========================================
+// 🛡️ 防作弊系統 3：主動 Debugger 陷阱 
+// ==========================================
+const startDevToolsDetector = () => {
+  if (currentUserRole.value === 'admin') return;
+  if (devToolsInterval) clearInterval(devToolsInterval);
+
+  devToolsInterval = setInterval(() => {
+    const start = performance.now();
+    console.clear();
+    
+    // 強制暫停陷阱
+    (function() {}.constructor("debugger")());
+    
+    const end = performance.now();
+    
+    // 如果卡頓超過 1.2 秒，判定為開啟開發者工具
+    if (end - start > 1200) {
+      executePunishment();
+    }
+  }, 1000);
+};
+
+// ==========================================
+// 🛡️ 封印控制台 (Anti-Console)
+// ==========================================
+try {
+  const shouldBlockConsole = true; 
+
+  if (shouldBlockConsole) {
+    const noop = () => {};
+    const methods = ['log', 'info', 'warn', 'error', 'dir', 'table', 'clear'];
+    
+    methods.forEach((method) => {
+      window.console[method] = noop;
+    });
+
+    Object.freeze(window.console);
+  }
+} catch (e) {}
+
+// ==========================================
 // 生命週期掛載
 // ==========================================
 onMounted(async () => {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (session) {
-    const { data: profile } = await supabase.from('profiles').select('username, role').eq('id', session.user.id).single();
-    if (profile) {
-      currentPlayerName.value = profile.username;
-      currentUserRole.value = profile.role || 'student'; // 讀取權限
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (session) {
+      const { data: profile } = await supabase.from('profiles').select('username, role').eq('id', session.user.id).single();
+      
+      if (profile) {
+        currentPlayerName.value = profile.username || '玩家';
+        currentUserRole.value = profile.role || 'student';
+      }
+
+      // 如果已經登入且在首頁，自動進大廳
+      if (window.location.pathname === '/') {
+        router.push('/dashboard');
+      }
+
+      // 🌟 延遲 3 秒後啟動防外掛陷阱 (給網頁足夠的時間載入)
+      if (currentUserRole.value !== 'admin') {
+        setTimeout(startDevToolsDetector, 3000);
+      }
     }
-    // 如果在首頁，自動進大廳
-    if (window.location.pathname === '/') router.push('/dashboard');
+  } catch (err) {
+    console.error("載入時發生錯誤:", err);
   }
 
+  // 監聽登出入狀態切換
   supabase.auth.onAuthStateChange(async (event, session) => {
     if (event === 'SIGNED_OUT') {
       router.push('/');
     } else if (event === 'SIGNED_IN' && session) {
       const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
-      if (profile) currentUserRole.value = profile.role || 'student';
+      currentUserRole.value = profile?.role || 'student';
+      
+      if (currentUserRole.value !== 'admin') {
+        setTimeout(startDevToolsDetector, 3000);
+      }
     }
   });
 
@@ -129,5 +205,19 @@ onMounted(async () => {
 onUnmounted(() => {
   window.removeEventListener('keydown', antiCheatHandler);
   window.removeEventListener('contextmenu', preventContextMenu);
+  if (devToolsInterval) clearInterval(devToolsInterval);
 });
 </script>
+
+<style scoped>
+/* 給載入動畫加上無限旋轉效果 */
+.loading-spinner {
+  font-size: 60px;
+  animation: spin 1.5s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+</style>
