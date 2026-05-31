@@ -42,7 +42,7 @@
              class="bg-white/10 hover:bg-white/15 transition-all p-4 rounded-2xl flex items-center gap-4 border border-white/5 cursor-pointer group">
           
           <div class="relative flex-shrink-0">
-            <img :src="friend.avatar_url || `https://ui-avatars.com/api/?name=${profile.username || 'User'}&background=random`" class="w-14 h-14 rounded-full border-2 object-cover" :class="friend.role === 'teacher' ? 'border-[#ffbb33]' : 'border-white/20'" />
+            <img :src="friend.avatar_url || `https://ui-avatars.com/api/?name=${profile?.username || 'User'}&background=random`" class="w-14 h-14 rounded-full border-2 object-cover" :class="friend.role === 'teacher' ? 'border-[#ffbb33]' : 'border-white/20'" />
             <div v-if="friend.role !== 'teacher'" :class="['absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-[#151932]', checkOnline(friend.last_login_at) ? 'bg-green-500' : 'bg-gray-500']"></div>
             <div v-else class="absolute -bottom-1 -right-2 bg-[#ffbb33] text-[#0a0e27] text-[10px] px-1.5 py-0.5 rounded font-bold shadow-md">老師</div>
           </div>
@@ -74,7 +74,7 @@
       <div v-if="pendingRequests.length === 0" class="text-center py-12 text-white/50">沒有好友邀請。</div>
       <div v-else class="space-y-3">
         <div v-for="req in pendingRequests" :key="req.id" class="bg-white/10 p-4 rounded-2xl flex items-center gap-4 border border-[#00d4aa]/30">
-          <img :src="req.avatar_url || `https://ui-avatars.com/api/?name=${req.username || 'User'}&background=random`" class="w-14 h-14 rounded-full object-cover" />
+          <img :src="req.avatar_url || `https://ui-avatars.com/api/?name=${profile?.username || 'User'}&background=random`" class="w-14 h-14 rounded-full object-cover" />
           <div class="flex-grow">
             <div class="font-bold text-lg text-white">{{ req.username }}</div>
             <div class="text-xs text-white/60">想加您為好友</div>
@@ -128,7 +128,7 @@
           <div v-if="searchResults.length > 0" class="mt-4 space-y-3 overflow-y-auto custom-scrollbar pr-2 pb-2 flex-1">
             <div v-for="user in searchResults" :key="user.id" class="p-3 bg-white/5 rounded-xl border border-white/10 flex items-center justify-between animate-fade-in">
               <div class="flex items-center space-x-3 overflow-hidden flex-1 pr-2">
-                <img :src="user.avatar_url || `https://ui-avatars.com/api/?name=${user.username || 'User'}&background=random`" class="w-10 h-10 rounded-full border-2 border-white/20 object-cover flex-shrink-0" />
+                <img :src="user.avatar_url || `https://ui-avatars.com/api/?name=${profile?.username || 'User'}&background=random`" class="w-10 h-10 rounded-full border-2 border-white/20 object-cover flex-shrink-0" />
                 <div class="overflow-hidden w-full">
                   <div class="font-bold text-white text-sm truncate">{{ user.username }}</div>
                   <div class="text-[10px] text-white/50">Lv.{{ user.level || 1 }} 玩家</div>
@@ -161,7 +161,7 @@
 
         <div class="px-6 pb-6 relative flex flex-col items-center mt-[-40px]">
           <div class="relative">
-            <img :src="selectedProfile.avatar_url || `https://ui-avatars.com/api/?name=${selectedProfile.username || 'User'}&background=random`" class="w-24 h-24 rounded-full border-4 border-[#0f1225] object-cover bg-[#0f1225] shadow-lg" />
+            <img :src="selectedProfile.avatar_url || `https://ui-avatars.com/api/?name=${profile?.username || 'User'}&background=random`" class="w-24 h-24 rounded-full border-4 border-[#0f1225] object-cover bg-[#0f1225] shadow-lg" />
             <div :class="['absolute bottom-1 right-1 w-6 h-6 rounded-full border-4 border-[#0f1225]', checkOnline(selectedProfile.last_login_at) ? 'bg-green-500' : 'bg-gray-500']"></div>
           </div>
           
@@ -210,7 +210,7 @@
         <div class="px-4 py-3 bg-white/5 border-b border-white/10 flex justify-between items-center flex-shrink-0">
           <div class="flex items-center space-x-3">
             <div class="relative">
-              <img :src="activeChatFriend.avatar_url || `https://ui-avatars.com/api/?name=${activeChatFriend.username || 'User'}&background=random`" class="w-10 h-10 rounded-full border-2 border-white/10 object-cover" />
+              <img :src="activeChatFriend.avatar_url || `https://ui-avatars.com/api/?name=${profile?.username || 'User'}&background=random`" class="w-10 h-10 rounded-full border-2 border-white/10 object-cover" />
               <div :class="['absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#151932]', checkOnline(activeChatFriend.last_login_at) ? 'bg-green-500' : 'bg-gray-500']"></div>
             </div>
             <div>

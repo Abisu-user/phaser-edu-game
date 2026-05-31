@@ -60,7 +60,7 @@
             <div class="flex items-center gap-1.5 bg-[#0a0e27] px-2.5 py-1.5 rounded-full border border-white/10 shadow-inner" @click="currentSection = 'profile'">
               <span class="text-xs font-black text-[#ffbb33] tracking-wide">Lv.{{ currentLevel }}</span>
               <div class="w-5 h-5 rounded-full overflow-hidden ml-1 border border-[#ffbb33]/50">
-                <img :src="playerAvatarUrl || `https://ui-avatars.com/api/?name=${profile.username || 'User'}&background=random`" class="w-full h-full object-cover" />
+                <img :src="playerAvatarUrl || `https://ui-avatars.com/api/?name=${profile?.username || 'User'}&background=random`" class="w-full h-full object-cover" />
               </div>
             </div>
             
@@ -206,7 +206,7 @@
               @click="currentSection = 'friends'"
               class="bg-[#151932]/95 backdrop-blur-md border border-[#00d4aa]/40 p-4 rounded-2xl shadow-[0_10px_40px_rgba(0,212,170,0.3)] flex items-center gap-4 w-72 lg:w-80 transform transition-all pointer-events-auto cursor-pointer hover:scale-105 hover:border-[#00d4aa]">
             
-            <img :src="toast.avatar || `https://ui-avatars.com/api/?name=${profile.username || 'User'}&background=random`" class="w-10 h-10 lg:w-12 lg:h-12 rounded-full border-2 border-[#00d4aa]/50 object-cover flex-shrink-0" />
+            <img :src="toast.avatar || `https://ui-avatars.com/api/?name=${profile?.username || 'User'}&background=random`" class="w-10 h-10 lg:w-12 lg:h-12 rounded-full border-2 border-[#00d4aa]/50 object-cover flex-shrink-0" />
             
             <div class="flex-1 overflow-hidden">
               <div class="text-[#00d4aa] font-bold text-sm truncate flex justify-between items-center">
