@@ -38,6 +38,11 @@ const currentPlayerName = ref('');
 const currentUserRole = ref('student'); 
 let devToolsInterval = null; 
 
+const getAuthRole = (user) => {
+  const role = user?.app_metadata?.role;
+  return ['admin', 'teacher', 'student'].includes(role) ? role : 'student';
+};
+
 const onLoginSuccess = (username) => {
   currentPlayerName.value = username; 
   router.push('/dashboard'); 
@@ -163,12 +168,12 @@ onMounted(async () => {
     const { data: { session } } = await supabase.auth.getSession();
     
     if (session) {
-      const { data: profile } = await supabase.from('profiles').select('username, role').eq('id', session.user.id).single();
+      const { data: profile } = await supabase.from('profiles').select('username').eq('id', session.user.id).single();
       
       if (profile) {
         currentPlayerName.value = profile.username || '玩家';
-        currentUserRole.value = profile.role || 'student';
       }
+      currentUserRole.value = getAuthRole(session.user);
 
       // 如果已經登入且在首頁，自動進大廳
       if (window.location.pathname === '/') {
@@ -189,8 +194,7 @@ onMounted(async () => {
     if (event === 'SIGNED_OUT') {
       router.push('/');
     } else if (event === 'SIGNED_IN' && session) {
-      const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
-      currentUserRole.value = profile?.role || 'student';
+      currentUserRole.value = getAuthRole(session.user);
       
       if (currentUserRole.value !== 'admin') {
         setTimeout(startDevToolsDetector, 3000);

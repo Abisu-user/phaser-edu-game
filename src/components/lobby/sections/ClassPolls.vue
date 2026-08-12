@@ -272,13 +272,12 @@ const submitVote = async (poll) => {
     let expMessage = '';
     if (poll.settings?.expReward > 0) {
       // 呼叫我們剛剛在 Supabase 建立的 RPC
-      const { error: expError } = await supabase.rpc('add_student_exp', {
-        p_user_id: myProfile.value.id, // 即使這張選票是匿名的，系統還是知道是「你」按下了送出，照樣給獎勵！
-        p_exp_amount: poll.settings.expReward
+      const { data: awardedXp, error: expError } = await supabase.rpc('claim_poll_reward', {
+        p_poll_id: poll.id
       });
       
-      if (!expError) {
-        expMessage = `\n✨ 恭喜獲得 ${poll.settings.expReward} 點 EXP！`;
+      if (!expError && awardedXp > 0) {
+        expMessage = `\n✨ 恭喜獲得 ${awardedXp} 點 EXP！`;
       } else {
         console.error('發放經驗值失敗:', expError);
       }

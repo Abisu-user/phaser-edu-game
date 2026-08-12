@@ -366,13 +366,12 @@ const submitSurvey = async () => {
     let expMessage = '';
     
     if (rewardXP > 0) {
-      const { error: expError } = await supabase.rpc('add_student_exp', {
-        p_user_id: myProfile.value.id,
-        p_exp_amount: rewardXP
+      const { data: awardedXp, error: expError } = await supabase.rpc('claim_survey_reward', {
+        p_survey_id: currentSurvey.value.id
       });
       
-      if (!expError) {
-        expMessage = `\n✨ 恭喜獲得 ${rewardXP} 點 EXP！`;
+      if (!expError && awardedXp > 0) {
+        expMessage = `\n✨ 恭喜獲得 ${awardedXp} 點 EXP！`;
       } else {
         console.error('發放經驗值失敗:', expError);
       }

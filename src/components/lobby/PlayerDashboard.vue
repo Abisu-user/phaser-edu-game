@@ -340,6 +340,11 @@ const toastNotifications = ref([]);
 const hasUnreadMessages = ref(false);
 const activeAdminTab = ref('system');
 const isForceLogoutModalOpen = ref(false);
+
+const getAuthRole = (user) => {
+  const role = user?.app_metadata?.role;
+  return ['admin', 'teacher', 'student'].includes(role) ? role : 'student';
+};
 const activeTeacherTab = ref('overview');
 const stat_points = ref(0);
 const bestFloor = ref(0);
@@ -632,7 +637,7 @@ const fetchLobbyData = async (prefetchedUser = null) => {
       currentTotalXP.value = profile.total_exp || 0;
       playerAvatarUrl.value = profile.avatar_url || ''; 
       playerName.value = profile.username || '遊客模式';
-      playerRole.value = profile.role || 'student';
+      playerRole.value = getAuthRole(user);
       currentTitle.value = profile.current_title || '見習冒險者';
       pinnedBadges.value = profile.pinned_badges || [];
       totalKills.value = profile.total_kills || 0;

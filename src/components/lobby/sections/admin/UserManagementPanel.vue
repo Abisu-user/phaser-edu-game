@@ -193,10 +193,11 @@ const handleModalConfirm = async () => {
     if (action === 'unban')   updatePayload = { status: 'active' };
 
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update(updatePayload) // 一次把 status 跟 role 寫進去
-        .eq('id', userId);
+      const { error } = await supabase.rpc('admin_set_user_access', {
+        p_user_id: userId,
+        p_role: updatePayload.role || null,
+        p_status: updatePayload.status || null
+      });
 
       if (error) throw error;
 

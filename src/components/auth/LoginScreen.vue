@@ -253,6 +253,11 @@ import QuickReigster from '../../QuickReigster.vue';
 
 const emit = defineEmits(['login-success', 'back-to-home']);
 
+const getAuthRole = (user) => {
+  const role = user?.app_metadata?.role;
+  return ['admin', 'teacher', 'student'].includes(role) ? role : 'student';
+};
+
 // ── UI 狀態 ─────────────────────────────────────────────
 const isLoginMode = ref(true);
 const isLoading = ref(false);
@@ -385,7 +390,7 @@ const handleLogin = async () => {
         throw new Error('此帳號已遭管理員停權。如有疑問請聯繫導師。');
     }
 
-    const canEnter = await checkMaintenance(profile.role);
+    const canEnter = await checkMaintenance(getAuthRole(data.user));
     if (!canEnter) {
       isLoading.value = false;
       return; 
