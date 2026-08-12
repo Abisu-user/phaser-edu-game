@@ -357,8 +357,9 @@ const submitSurvey = async () => {
   isSubmitting.value = true;
 
   try {
-    const { error: respError } = await supabase.from('survey_responses').insert({
-      survey_id: currentSurvey.value.id, user_id: myProfile.value.id, answers: formAnswers.value 
+    const { error: respError } = await supabase.rpc('submit_survey_response', {
+      p_survey_id: currentSurvey.value.id,
+      p_answers: formAnswers.value
     });
     if (respError) throw respError;
 

@@ -401,18 +401,16 @@ const handleCreateClass = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     const randomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     
-    const { error } = await supabase
-      .from('profiles')
-      .update({ 
-        class_name: newClassName.value.trim(),
-        class_code: randomCode 
-      })
-      .eq('id', user.id);
+    const { data: classData, error } = await supabase.rpc('create_teacher_class', {
+      p_class_name: newClassName.value.trim()
+    });
 
     if (error) throw error;
+    const createdClass = classData?.[0];
+    if (!createdClass) throw new Error('Class creation did not return a class code');
 
-    teacherInfo.value.class_name = newClassName.value.trim();
-    teacherInfo.value.class_code = randomCode;
+    teacherInfo.value.class_name = createdClass.class_name;
+    teacherInfo.value.class_code = createdClass.class_code;
     newClassName.value = '';
     
     await fetchStudents();
@@ -583,10 +581,10 @@ const handleToggleBan = async () => {
   try {
     const newStatus = selectedStudent.value.status === 'banned' ? 'active' : 'banned';
 
-    const { error } = await supabase
-      .from('profiles')
-      .update({ status: newStatus })
-      .eq('id', selectedStudent.value.id);
+    const { error } = await supabase.rpc('teacher_set_student_access', {
+      p_student_id: selectedStudent.value.id,
+      p_status: newStatus
+    });
 
     if (error) throw error;
 
@@ -616,20 +614,16 @@ const setAssistant = async (studentId) => {
   if (!confirm('確定要將這位學生設為班級助理嗎？\n他將獲得「發佈問卷」與「發佈投票」的權限！')) return;
   
   try {
-    const { data, error } = await supabase.from('profiles')
-      .update({ is_assistant: true })
-      .eq('id', studentId)
-      .select();
+    const { error } = await supabase.rpc('teacher_set_student_access', {
+      p_student_id: studentId,
+      p_is_assistant: true
+    });
 
     if (error) {
       console.error('Supabase 更新錯誤:', error);
       throw new Error(error.message);
     }
     
-    if (!data || data.length === 0) {
-      throw new Error("更新了 0 筆資料！這通常是被 Supabase RLS (Row Level Security) 擋下了。老師帳號預設可能沒有權限直接修改學生的資料列。");
-    }
-
     alert('👑 設定成功！該學生已成為班級助理。');
     await fetchStudentsOnly(); 
   } catch (err) {
@@ -642,14 +636,12 @@ const removeAssistant = async (studentId) => {
   if (!confirm('確定要解除他的助理職務嗎？他將失去問卷與投票的管理權限。')) return;
   
   try {
-    const { data, error } = await supabase.from('profiles')
-      .update({ is_assistant: false })
-      .eq('id', studentId)
-      .select();
+    const { error } = await supabase.rpc('teacher_set_student_access', {
+      p_student_id: studentId,
+      p_is_assistant: false
+    });
 
     if (error) throw new Error(error.message);
-    if (!data || data.length === 0) throw new Error("被 RLS 擋下，無法修改資料。");
-
     alert('✅ 已解除助理職務。');
     await fetchStudentsOnly(); 
   } catch (err) {

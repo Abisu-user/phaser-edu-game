@@ -189,10 +189,12 @@ const loadPolls = async () => {
 
   // 抓取所有票數 (為了計算即時進度條與截止結果)
   const allPollIds = pollsData.map(p => p.id);
-  let allVotesData = [];
+  let voteSummary = [];
   if (allPollIds.length > 0) {
-    const { data: vData } = await supabase.from('poll_votes').select('poll_id, option_id').in('poll_id', allPollIds);
-    if (vData) allVotesData = vData;
+    const { data: summaryData } = await supabase.rpc('get_poll_vote_summary', {
+      p_poll_ids: allPollIds
+    });
+    if (summaryData) voteSummary = summaryData;
   }
 
   const activeTemp = [];
@@ -200,7 +202,6 @@ const loadPolls = async () => {
 
   pollsData.forEach(poll => {
     // 💡 匿名防呆處理：檢查 LocalStorage 判斷是否投過匿名票
-    const localVoted = localStorage.getItem(`voted_anon_poll_${poll.id}`);
     const myVoteRecords = myVotes?.filter(v => v.poll_id === poll.id) || [];
     
     // 注入預設 settings 防止報錯
@@ -212,7 +213,7 @@ const loadPolls = async () => {
       status: poll.status,
       options: poll.poll_options || [],
       settings: settings,
-      hasVoted: myVoteRecords.length > 0 || !!localVoted,
+      hasVoted: myVoteRecords.length > 0,
       
       // 狀態儲存 (同時支援單選/多選)
       selectedOption: myVoteRecords.length > 0 ? myVoteRecords[0].option_id : null,
@@ -222,10 +223,11 @@ const loadPolls = async () => {
     };
 
     // 計算選項得票數與總數
-    const pollVotes = allVotesData.filter(v => v.poll_id === poll.id);
+    const pollVotes = voteSummary.filter(v => v.poll_id === poll.id);
     pollObj.totalVotes = pollVotes.length; // 以「總票數」為分母
+    pollObj.totalVotes = pollVotes.reduce((sum, vote) => sum + Number(vote.vote_count || 0), 0);
     pollObj.options.forEach(opt => {
-      opt.votes = pollVotes.filter(v => v.option_id === opt.id).length;
+      opt.votes = Number(pollVotes.find(v => v.option_id === opt.id)?.vote_count || 0);
     });
 
     if (poll.status === 'active') {
@@ -241,31 +243,26 @@ const loadPolls = async () => {
 
 // 🚀 送出投票邏輯 (🌟 加入發放經驗值的功能！)
 const submitVote = async (poll) => {
-  let inserts = [];
-  const isAnon = poll.settings?.isAnonymous;
+  let optionIds = [];
   // 💡 如果是匿名，user_id 存為 null (確保票數的後端關聯是斷開的，達成絕對匿名)
-  const userIdToStore = isAnon ? null : myProfile.value.id;
 
   if (poll.settings.isMultipleChoice) {
     if (!poll.selectedOptions || poll.selectedOptions.length === 0) return;
-    inserts = poll.selectedOptions.map(optId => ({
-      poll_id: poll.id, option_id: optId, user_id: userIdToStore
-    }));
+    optionIds = poll.selectedOptions;
   } else {
     if (!poll.selectedOption) return;
-    inserts = [{ poll_id: poll.id, option_id: poll.selectedOption, user_id: userIdToStore }];
+    optionIds = [poll.selectedOption];
   }
 
-  const { error } = await supabase.from('poll_votes').insert(inserts);
+  const { error } = await supabase.rpc('cast_poll_vote', {
+    p_poll_id: poll.id,
+    p_option_ids: optionIds
+  });
 
   if (error) {
     alert('投票失敗！請確認網路狀態。');
   } else {
     // 💡 如果是匿名，將投票紀錄存入本地瀏覽器防重複
-    if (isAnon) {
-      localStorage.setItem(`voted_anon_poll_${poll.id}`, 'true');
-    }
-
     // ==========================================
     // 🌟 發放經驗值邏輯
     // ==========================================

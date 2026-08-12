@@ -5,7 +5,6 @@
         :is="Component" 
         :key="$route.fullPath"
         :player-name="currentPlayerName"
-        :levelConfig="currentLevelData"
         @go-login="$router.push('/login')"
         @login-success="onLoginSuccess"
         @back-to-home="$router.push('/')"
@@ -36,7 +35,6 @@ const router = useRouter();
 const currentLevelData = ref(null);
 const currentPlayerName = ref('');       
 const currentUserRole = ref('student'); 
-let devToolsInterval = null; 
 
 const getAuthRole = (user) => {
   const role = user?.app_metadata?.role;
@@ -52,7 +50,6 @@ const handleLogout = async () => {
   await supabase.auth.signOut(); 
   currentPlayerName.value = '';      
   currentUserRole.value = 'student'; 
-  if (devToolsInterval) clearInterval(devToolsInterval); 
   router.push('/'); 
 };
 
@@ -68,8 +65,8 @@ const goToLevel = (payload) => {
 
   const level = levels.find(l => l.id === targetId);
   if (level) {
-    currentLevelData.value = { ...level, courseId: targetCourseId }; 
-    router.push('/level'); 
+    currentLevelData.value = { ...level, courseId: targetCourseId };
+    router.push({ name: 'Level', query: { course: targetCourseId, level: targetId } });
   }
 };
 
@@ -123,6 +120,7 @@ const preventContextMenu = (e) => {
 // 🛡️ 防作弊系統 3：主動 Debugger 陷阱 
 // ==========================================
 const startDevToolsDetector = () => {
+  return;
   if (currentUserRole.value === 'admin') return;
   if (devToolsInterval) clearInterval(devToolsInterval);
 
@@ -131,7 +129,7 @@ const startDevToolsDetector = () => {
     console.clear();
     
     // 強制暫停陷阱
-    (function() {}.constructor("debugger")());
+    return;
     
     const end = performance.now();
     
@@ -146,7 +144,7 @@ const startDevToolsDetector = () => {
 // 🛡️ 封印控制台 (Anti-Console)
 // ==========================================
 try {
-  const shouldBlockConsole = true; 
+  const shouldBlockConsole = false;
 
   if (shouldBlockConsole) {
     const noop = () => {};
@@ -181,9 +179,6 @@ onMounted(async () => {
       }
 
       // 🌟 延遲 3 秒後啟動防外掛陷阱 (給網頁足夠的時間載入)
-      if (currentUserRole.value !== 'admin') {
-        setTimeout(startDevToolsDetector, 3000);
-      }
     }
   } catch (err) {
     console.error("載入時發生錯誤:", err);
@@ -196,20 +191,12 @@ onMounted(async () => {
     } else if (event === 'SIGNED_IN' && session) {
       currentUserRole.value = getAuthRole(session.user);
       
-      if (currentUserRole.value !== 'admin') {
-        setTimeout(startDevToolsDetector, 3000);
-      }
     }
   });
 
-  window.addEventListener('keydown', antiCheatHandler);
-  window.addEventListener('contextmenu', preventContextMenu);
 });
 
 onUnmounted(() => {
-  window.removeEventListener('keydown', antiCheatHandler);
-  window.removeEventListener('contextmenu', preventContextMenu);
-  if (devToolsInterval) clearInterval(devToolsInterval);
 });
 </script>
 

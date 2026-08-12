@@ -281,13 +281,7 @@ const applyForTeacher = async () => {
 
   try {
     // 2. 更新 Supabase 資料表
-    const { error } = await supabase
-      .from('profiles')
-      .update({ 
-        role: 'teacher',     // 角色轉為教師
-        status: 'pending'    // 狀態設為待審核
-      })
-      .eq('id', props.playerId); // 對準目前登入玩家的 ID
+    const { error } = await supabase.rpc('request_teacher_role');
 
     if (error) throw error;
 

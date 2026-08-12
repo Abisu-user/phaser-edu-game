@@ -4,8 +4,8 @@ import { createRouter, createWebHistory } from 'vue-router';
 import LandingPage from '../components/lobby/LandingPage.vue';
 import LoginScreen from '../components/auth/LoginScreen.vue';
 import PlayerDashboard from '../components/lobby/PlayerDashboard.vue';
-import GameLevel from '../components/level/GameLevel.vue';
-import EndlessLevel from '../components/roguelike/EndlessLevel.vue'; 
+const GameLevel = () => import('../components/level/GameLevel.vue');
+const EndlessLevel = () => import('../components/roguelike/EndlessLevel.vue');
 
 // 2. 定義唯一的路由表
 const routes = [
@@ -27,7 +27,11 @@ const routes = [
   { 
     path: '/level', 
     name: 'Level',
-    component: GameLevel 
+    component: GameLevel,
+    props: route => ({
+      courseId: route.query.course || 'python',
+      levelId: Number(route.query.level) || 1,
+    })
   },
   { 
     path: '/endless-tower', 

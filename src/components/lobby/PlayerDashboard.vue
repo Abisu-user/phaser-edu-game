@@ -281,7 +281,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, defineAsyncComponent } from 'vue';
 import { supabase } from '../../supabase';
 import CourseLevelModal from '../level/CourseLevelModal.vue';
 import DashboardSidebar from './DashboardSidebar.vue';
@@ -300,13 +300,14 @@ import TeacherSection from './sections/TeacherSection.vue';
 import FriendsSection from './sections/FriendsSection.vue';
 import SystemAnnouncement from './sections/admin/SystemAnnouncement.vue';
 import ConfirmModal from '../common/ConfirmModal.vue'; 
-import GameLevel from '../level/GameLevel.vue';
 import ClassSection from './sections/ClassSection.vue';
-import EndlessLevel from '../roguelike/EndlessLevel.vue';
 import LeaderboardSection from './sections/LeaderboardSection.vue';
 import LevelDesigner from './sections/admin/LevelDesigner.vue';
 import ClassPolls from './sections/ClassPolls.vue';
 import ClassSurveys from './sections/ClassSurveys.vue';
+
+const GameLevel = defineAsyncComponent(() => import('../level/GameLevel.vue'));
+const EndlessLevel = defineAsyncComponent(() => import('../roguelike/EndlessLevel.vue'));
 
 // --- 狀態管理區 ---
 const currentView = ref('lobby'); // 'lobby' 或 'game'

@@ -44,14 +44,15 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'; 
+import { computed, ref, defineAsyncComponent } from 'vue';
 import TeacherDashboardPanel from './teacher/TeacherDashboardPanel.vue';
 import StudentManagementPanel from './teacher/StudentManagementPanel.vue';
 import StudentProgressPanel from './teacher/StudentProgressPanel.vue';
 import LevelDesigner from './admin/LevelDesigner.vue';
-import GameLevel from '../../level/GameLevel.vue'; 
 import TeacherInteractions from './teacher/TeacherInteractions.vue';
 import TeacherAnnouncements from './teacher/TeacherAnnouncements.vue';
+
+const GameLevel = defineAsyncComponent(() => import('../../level/GameLevel.vue'));
 
 const props = defineProps({
   currentTab: { type: String, default: 'overview' },

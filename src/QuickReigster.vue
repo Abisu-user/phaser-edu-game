@@ -103,10 +103,7 @@ const handleQuickRegister = async () => {
     if (authData?.user) {
       const { error: profileError } = await supabase
         .from('profiles')
-        .update({ 
-          username: name.value,
-          role: 'student' // 強制設定為學生
-        })
+        .update({ username: name.value })
         .eq('id', authData.user.id);
         
       if (profileError) {

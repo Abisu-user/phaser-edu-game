@@ -270,7 +270,7 @@ const handleLeaveClass = async () => {
   const isConfirm = window.confirm('確定要退出目前的班級嗎？退出後您將從老師的名單中移除。');
   if (!isConfirm) return;
   try {
-    const { error: updateError } = await supabase.from('profiles').update({ class_name: null, class_code: null, is_assistant: false }).eq('id', myUserId.value);
+    const { error: updateError } = await supabase.rpc('leave_current_class');
     if (updateError) throw updateError;
     currentClassName.value = null; currentClassCode.value = null; classMembers.value = [];
     if (realtimeChannel) supabase.removeChannel(realtimeChannel);
@@ -288,7 +288,7 @@ const handleJoinClass = async () => {
     const { data: teacher, error: teacherError } = await supabase.from('profiles').select('class_name').eq('role', 'teacher').eq('class_code', code).single();
     if (teacherError || !teacher) { alert('找不到該代碼，請確認老師提供的邀請碼是否正確！'); return; }
     
-    const { error: updateError } = await supabase.from('profiles').update({ class_name: teacher.class_name, class_code: code }).eq('id', myUserId.value);
+    const { error: updateError } = await supabase.rpc('join_class_by_code', { p_class_code: code });
     if (updateError) throw updateError;
     
     currentClassName.value = teacher.class_name; currentClassCode.value = code; inputCode.value = '';
