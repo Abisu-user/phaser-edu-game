@@ -588,7 +588,7 @@ export default class EndlessScene extends Phaser.Scene {
         
         // 🌟 正確發送事件 (變數名稱為 coinAmt 與 xpAmt)
         window.dispatchEvent(new CustomEvent('tower-coin-collected', { detail: { amount: coinAmt } }));
-        window.dispatchEvent(new CustomEvent('tower-xp-gained', { detail: { amount: xpAmt } }));
+        window.dispatchEvent(new CustomEvent('tower-xp-gained', { detail: { amount: xpAmt, source: `擊殺 ${enemy.name || '魔物'}` } }));
         
         if (this.levelConfig.winCondition.type === 'exterminate' && this.enemies.length === 0) {
             if (this.terminal && this.playerGridX === this.terminal.gx && this.playerGridY === this.terminal.gy) {

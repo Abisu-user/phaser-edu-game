@@ -69,6 +69,83 @@ const radarBoss = ref(null);
 const radarNearby = ref([]);
 
 let saveTimeout = null;
+const LOCAL_SAVE_PREFIX = 'code-quest:endless-run:';
+
+const getLocalSaveKey = (userId) => `${LOCAL_SAVE_PREFIX}${userId}`;
+
+const persistExplorationSnapshot = (captureMapState = false) => {
+  if (!currentUserId.value || !isGameStarted.value) return;
+
+  let snapshotMap = mapData.value;
+  if (captureMapState && game.value) {
+    const scene = game.value.scene.getScene('EndlessScene');
+    if (scene && typeof scene.exportMapState === 'function') {
+      try {
+        snapshotMap = scene.exportMapState();
+        mapData.value = snapshotMap;
+      } catch (error) {
+        console.warn('Unable to cache the current tower map.', error);
+      }
+    }
+  }
+
+  try {
+    window.localStorage.setItem(getLocalSaveKey(currentUserId.value), JSON.stringify({
+      user_id: currentUserId.value,
+      current_floor: floor.value,
+      current_hp: hp.value,
+      max_hp: maxHp.value,
+      current_mp: mp.value,
+      max_mp: maxMp.value,
+      current_ap: ap.value,
+      max_ap: maxAp.value,
+      current_atk: atk.value,
+      max_atk: maxAtk.value,
+      coins: coins.value,
+      level: level.value,
+      xp: xp.value,
+      total_exp: totalExp.value,
+      inventory: inventory.value,
+      map_data: snapshotMap,
+      updated_at: new Date().toISOString()
+    }));
+  } catch (error) {
+    console.warn('Unable to cache the current tower exploration.', error);
+  }
+};
+
+const restoreSavedExploration = async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return;
+
+  currentUserId.value = session.user.id;
+  const { data: remoteSave, error } = await supabase
+    .from('tower_saves')
+    .select('*')
+    .eq('user_id', session.user.id)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Unable to restore the saved tower exploration.', error);
+    return;
+  }
+
+  let localSave = null;
+  try {
+    const rawSnapshot = window.localStorage.getItem(getLocalSaveKey(session.user.id));
+    localSave = rawSnapshot ? JSON.parse(rawSnapshot) : null;
+  } catch (error) {
+    console.warn('Unable to read the cached tower exploration.', error);
+  }
+
+  const remoteTime = remoteSave?.updated_at ? new Date(remoteSave.updated_at).getTime() : 0;
+  const localTime = localSave?.updated_at ? new Date(localSave.updated_at).getTime() : 0;
+  const savedExploration = localTime > remoteTime ? localSave : remoteSave;
+
+  if (savedExploration) await handleStart(savedExploration);
+};
+
+const handlePageHide = () => persistExplorationSnapshot(true);
 
 const handleStart = async (data) => {
   isShuttingDown.value = false;
@@ -104,6 +181,7 @@ const handleStart = async (data) => {
 
 const handleUpdateInventory = async (newInventory) => {
   inventory.value = newInventory;
+  persistExplorationSnapshot();
 };
 
 const saveToTowerSaves = async () => {
@@ -155,6 +233,7 @@ const handleNextFloor = async () => {
   floor.value++;
   
   mapData.value = null; 
+  persistExplorationSnapshot();
   await saveToTowerSaves(); 
   
   if (game.value) {
@@ -166,6 +245,7 @@ const handleNextFloor = async () => {
 };
 
 const handleStopAndSave = async () => {
+  persistExplorationSnapshot(true);
   console.log("💾 [暫時中陣] 正在打包所有戰局資料存入 tower_saves...");
   isShuttingDown.value = true; // 🌟 啟動關機鎖
 
@@ -221,6 +301,7 @@ const handleStopAndSave = async () => {
 };
 
 const handleAbandonGame = async () => {
+  if (currentUserId.value) window.localStorage.removeItem(getLocalSaveKey(currentUserId.value));
   console.log("💀 [終結連線] 開始結算永久資源，並格式化戰局...");
   isShuttingDown.value = true; // 🌟 1. 優先鎖定自動存檔
 
@@ -312,6 +393,7 @@ const handleUpdateStats = (newStats) => {
   if (newStats.floor !== undefined) floor.value = newStats.floor;
   if (newStats.totalExp !== undefined) totalExp.value = newStats.totalExp;
   if (newStats.xp !== undefined) xp.value = newStats.xp;
+  persistExplorationSnapshot();
   
   let isLevelUp = false;
   if (newStats.level !== undefined && newStats.level > level.value) {
@@ -376,10 +458,14 @@ const provideInitData = (e) => {
 
 onMounted(() => {
   window.addEventListener('tower-request-init-data', provideInitData);
+  window.addEventListener('pagehide', handlePageHide);
+  restoreSavedExploration();
 });
 
 onUnmounted(() => {
+  persistExplorationSnapshot(true);
   window.removeEventListener('tower-request-init-data', provideInitData);
+  window.removeEventListener('pagehide', handlePageHide);
   
   if (game.value) {
     game.value.destroy(true); // 參數 true 代表把 canvas 實體也一起拔掉

@@ -161,7 +161,7 @@
           
           <div class="flex items-end justify-between mt-6">
             <div>
-              <div class="text-xs text-[#8C6239] mb-1 font-bold">最深探索</div>
+              <div class="text-xs text-[#8C6239] mb-1 font-bold">最高通關階層</div>
               <div class="text-6xl font-black text-[#FFF8DC] drop-shadow-[0_2px_10px_rgba(212,175,55,0.2)]">
                 {{ bestFloor }}<span class="text-2xl text-[#8C6239] ml-1">階</span>
               </div>
@@ -443,6 +443,8 @@ const fetchPlayerData = async () => {
 
           await supabase.from('tower_lobby').update({
               level: finalLevel,
+              xp: profileData?.xp ?? 0,
+              total_exp: profileData?.total_exp ?? 0,
               stat_points: finalPoints,
           }).eq('user_id', session.user.id);
 
@@ -451,8 +453,10 @@ const fetchPlayerData = async () => {
               stat_points: finalPoints
           }).eq('id', session.user.id);
           
-          towerData.level = finalLevel;
-          towerData.stat_points = finalPoints;
+           towerData.level = finalLevel;
+           towerData.xp = profileData?.xp ?? 0;
+           towerData.total_exp = profileData?.total_exp ?? 0;
+           towerData.stat_points = finalPoints;
       }
     }
 

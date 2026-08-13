@@ -126,6 +126,14 @@
       </div>
     </header>
 
+    <section aria-live="polite" class="absolute top-[84px] right-5 z-30 w-[280px] bg-[#0F0805]/95 p-3 rounded-sm border border-[#4A5D23] shadow-[0_4px_14px_rgba(0,0,0,0.65)]">
+      <div class="text-[11px] font-black text-[#8FBC8F] uppercase tracking-widest mb-1 border-b border-[#4A5D23] pb-1">XP 活動紀錄</div>
+      <p v-for="activity in xpActivities" :key="activity.id" class="flex items-center justify-between gap-2 text-[11px] font-bold py-0.5 text-[#C8B693]">
+        <span>{{ activity.source }}</span>
+        <span :class="activity.amount > 0 ? 'text-[#8FBC8F]' : 'text-[#8C6239]'">{{ activity.amount > 0 ? `+${activity.amount} XP` : activity.detail }}</span>
+      </p>
+    </section>
+
     <main class="flex-1 flex overflow-hidden p-3 gap-3 relative z-10">
       
       <aside class="w-[280px] bg-[#1C110C] border-4 border-[#3A2318] rounded-sm flex flex-col gap-6 p-5 overflow-y-auto custom-scrollbar shadow-[inset_0_0_20px_rgba(0,0,0,1)] z-10">
@@ -407,6 +415,7 @@ const floorBonusCoins = ref(0);
 const isExecuting = ref(false);
 const radarBoss = ref(null);
 const radarNearby = ref([]);
+const xpActivities = ref([]);
 const requiredXp = computed(() => {
   return 1000 + ((props.level || 1) - 1) * 500;
 });
@@ -440,7 +449,7 @@ const availableCommands = computed(() => {
 });
 
 const VALID_KEYWORDS = computed(() => {
-  const jsKeywords = ['let', 'const', 'var', 'await', 'async', 'return', 'true', 'false', 'p'];
+  const jsKeywords = ['let', 'const', 'var', 'await', 'async', 'return', 'true', 'false', 'p', 'dx', 'dy'];
   return [...jsKeywords, ...availableCommands.value.map(c => c.id)];
 });
 
@@ -508,8 +517,10 @@ const confirmExit = (type) => {
 };
 
 const handleFloorCleared = () => {
+  if (showClearModal.value) return;
   currentRewards.value = getRandomRewards(3);
   showClearModal.value = true;
+  handleXpGained({ detail: { amount: 20 + (props.floor * 5), source: `通關地下 ${props.floor} 階` } });
 
   floorBonusCoins.value = 30 + (props.floor * 10);
   setTimeout(() => {
@@ -557,7 +568,7 @@ const lineCount = computed(() => {
 const insertCode = (commandId) => {
   if (isExecuting.value) return; 
   
-  const needTargetingSkills = ['attack', 'shoot', 'magic', 'bomb', 'laser', 'dash', 'hack_wall', 'pull', 'boomerang', 'spread_shot'];
+  const needTargetingSkills = ['shoot', 'magic', 'bomb', 'laser', 'dash', 'hack_wall', 'pull', 'boomerang', 'spread_shot'];
   if (needTargetingSkills.includes(commandId)) {
     isAiming.value = true;
     pendingCommand.value = commandId;
@@ -851,6 +862,13 @@ const handleXpGained = (e) => {
   }
 
   let finalExp = Math.floor(baseExp * multiplier);
+  xpActivities.value.unshift({
+    id: `${Date.now()}-${Math.random()}`,
+    source: e.detail.source || '擊殺魔物',
+    amount: finalExp,
+    detail: ''
+  });
+  xpActivities.value = xpActivities.value.slice(0, 4);
   
   let newXp = (props.xp || 0) + finalExp;
   let newTotalExp = (props.totalExp || 0) + finalExp; 
@@ -886,6 +904,7 @@ const handlePlayerHeal = (e) => emit('update-stats', { hp: Math.min(props.maxHp,
 
 onMounted(() => {
   emit('init-game');
+  xpActivities.value = [{ id: 'entry', source: '進場', amount: 0, detail: '已同步目前 XP，入場不額外加成' }];
   // 🌟 所有監聽器都統一在這裡註冊
   window.addEventListener('tower-player-hurt', handlePlayerHurt);
   window.addEventListener('tower-player-heal', handlePlayerHeal);

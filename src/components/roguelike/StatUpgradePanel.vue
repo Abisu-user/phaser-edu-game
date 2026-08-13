@@ -1,15 +1,15 @@
 <template>
   <transition name="fade">
-    <div class="absolute inset-0 z-[200] flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 font-serif" @click.self="$emit('close')">
+    <div class="absolute inset-0 z-[200] flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 font-serif" @click.self="closePanel">
       
-      <div class="w-[1050px] max-w-[95vw] max-h-[90vh] bg-[#1A0F0A] border-[6px] border-double border-[#8C6239] rounded-sm custom-scrollbar shadow-[0_20px_60px_rgba(0,0,0,0.9)] flex flex-col relative overflow-hidden">
+      <div ref="dialogRef" role="dialog" aria-modal="true" aria-labelledby="stat-upgrade-title" class="w-[1050px] max-w-[95vw] max-h-[90vh] bg-[#1A0F0A] border-[6px] border-double border-[#8C6239] rounded-sm custom-scrollbar shadow-[0_20px_60px_rgba(0,0,0,0.9)] flex flex-col relative overflow-hidden">
         
         <div class="absolute inset-0 bg-[#0F0805] opacity-70 pointer-events-none"></div>
         <div class="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[60%] h-[50%] bg-[#DAA520]/10 blur-[100px] rounded-full pointer-events-none"></div>
 
         <header class="p-6 lg:p-8 bg-[#150C08] border-b-4 border-[#4A2E1B] flex justify-between items-center shrink-0 relative z-10 shadow-[0_5px_15px_rgba(0,0,0,0.8)]">
           <div>
-            <h2 class="text-2xl lg:text-3xl font-black text-[#FFD700] tracking-widest drop-shadow-[0_2px_4px_rgba(0,0,0,1)]">
+            <h2 id="stat-upgrade-title" class="text-2xl lg:text-3xl font-black text-[#FFD700] tracking-widest drop-shadow-[0_2px_4px_rgba(0,0,0,1)]">
               英雄潛能覺醒祭壇 <span class="text-base lg:text-lg text-[#8C6239] ml-4 font-bold tracking-widest">Hero Awakening</span>
             </h2>
             <p class="text-sm text-[#A08060] mt-3 font-bold tracking-widest drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">
@@ -24,6 +24,7 @@
               <span class="text-4xl lg:text-5xl font-black text-[#F5DEB3] drop-shadow-[0_2px_5px_rgba(218,165,32,0.5)]">{{ localPoints }}</span>
             </div>
           </div>
+          <button ref="closeButtonRef" type="button" @click="closePanel" aria-label="關閉潛能視窗" class="ml-5 h-10 w-10 shrink-0 rounded-full border-2 border-[#593922] bg-[#1C110C] text-2xl leading-none text-[#D7CCC8] hover:border-[#DAA520] hover:text-[#FFD700] focus:outline-none focus:ring-2 focus:ring-[#FFD700]">×</button>
         </header>
 
         <main class="flex-1 p-6 lg:p-10 grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-8 relative z-10 min-h-0 overflow-hidden">
@@ -149,11 +150,48 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue';
 import { supabase } from '../../supabase.js';
 
 const props = defineProps(['currentUserId', 'stats', 'level', 'points', 'coins']);
 const emit = defineEmits(['close', 'updated']);
+const dialogRef = ref(null);
+const closeButtonRef = ref(null);
+let previouslyFocusedElement = null;
+
+const closePanel = () => emit('close');
+
+const handleDialogKeydown = (event) => {
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    closePanel();
+    return;
+  }
+
+  if (event.key !== 'Tab' || !dialogRef.value) return;
+  const focusable = [...dialogRef.value.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')];
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+};
+
+onMounted(() => {
+  previouslyFocusedElement = document.activeElement;
+  document.addEventListener('keydown', handleDialogKeydown);
+  nextTick(() => closeButtonRef.value?.focus());
+});
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleDialogKeydown);
+  if (previouslyFocusedElement?.isConnected) previouslyFocusedElement.focus();
+});
 
 const localPoints = ref(props.points || 0);
 // 用來追蹤「本次操作」新增了多少點
