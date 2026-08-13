@@ -1,7 +1,9 @@
 <template>
   <div class="bg-[#16162a] border border-[#333366] rounded-2xl shadow-lg overflow-hidden relative min-h-[500px]">
     
-    <div v-if="isLoading" class="absolute inset-0 bg-[#16162a]/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center text-[#ffbb33]">
+    <div v-if="isLoading" class="absolute inset-0 bg-[#16162a]/95 backdrop-blur-sm z-50 p-6 animate-pulse">
+      <div class="h-10 w-72 rounded bg-[#333366] mb-6"></div>
+      <div v-for="row in 5" :key="row" class="h-16 rounded-lg bg-[#0a0e27] border border-[#333366] mb-3"></div>
       <div class="w-10 h-10 border-4 border-[#ffbb33]/30 border-t-[#ffbb33] rounded-full animate-spin mb-3"></div>
       <div class="font-bold tracking-widest animate-pulse">讀取中...</div>
     </div>
@@ -294,6 +296,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { supabase } from '../../../../supabase.js'; 
+import { calculateLearningMetrics } from '../../../../utils/learningMetrics.js';
 
 // 基礎狀態
 const isLoading = ref(true);
@@ -335,19 +338,14 @@ const formatStudentsWithProgress = async (students) => {
   const studentIds = students.map(s => s.id);
   const { data: progressData } = await supabase
     .from('user_progress')
-    .select('user_id')
+    .select('user_id, level_id, stars, time_spent_seconds, completed_at')
     .in('user_id', studentIds);
     
-  const progressCount = {};
-  if (progressData) {
-    progressData.forEach(p => {
-      progressCount[p.user_id] = (progressCount[p.user_id] || 0) + 1;
-    });
-  }
+  const { byStudent } = calculateLearningMetrics(progressData || [], studentIds);
   
   return students.map(s => ({
     ...s,
-    cleared: progressCount[s.id] || 0
+    cleared: byStudent.get(s.id).clearedLevels
   }));
 };
 
@@ -375,7 +373,7 @@ const fetchStudents = async () => {
     if (hasActiveClass.value) {
       const { data: students, error: studentsError } = await supabase
         .from('profiles')
-        .select('*, is_assistant')
+        .select('id, username, avatar_url, level, status, created_at, is_assistant, badges_count')
         .eq('role', 'student')
         .eq('class_code', profile.class_code); 
 
@@ -441,7 +439,7 @@ const fetchStudentsOnly = async () => {
   if (!hasActiveClass.value) return;
   const { data: students } = await supabase
     .from('profiles')
-    .select('*, is_assistant')
+    .select('id, username, avatar_url, level, status, created_at, is_assistant, badges_count')
     .eq('role', 'student')
     .eq('class_code', teacherInfo.value.class_code);
     
@@ -521,20 +519,24 @@ const backToList = () => {
 const fetchStudentDetails = async (studentId) => {
   isDetailsLoading.value = true;
   try {
-    const { data: records } = await supabase.from('user_progress').select('id, course_id, level_id, stars, completed_at').eq('user_id', studentId).order('completed_at', { ascending: false }).limit(5);
-    studentRecords.value = (records || []).map(record => ({
+    const { data: progressRecords } = await supabase
+      .from('user_progress')
+      .select('id, course_id, level_id, stars, completed_at, time_spent_seconds')
+      .eq('user_id', studentId)
+      .order('completed_at', { ascending: false });
+    const records = progressRecords || [];
+    studentRecords.value = records.slice(0, 5).map(record => ({
       id: record.id,
       level_name: `${record.course_id.charAt(0).toUpperCase() + record.course_id.slice(1)} - 第 ${record.level_id} 關`,
       stars: record.stars,
       cleared_at: record.completed_at
     }));
 
-    const { count } = await supabase.from('user_progress').select('*', { count: 'exact', head: true }).eq('user_id', studentId);
-    selectedStudent.value.cleared = count || 0;
-
-    const { data: profileObj } = await supabase.from('profiles').select('badges_count, total_learning_hours').eq('id', studentId).single();
-    studentStats.value.badges = profileObj?.badges_count || 0;
-    studentStats.value.hours = profileObj?.total_learning_hours || 0;
+    const { byStudent } = calculateLearningMetrics(records, [studentId]);
+    const summary = byStudent.get(studentId);
+    selectedStudent.value.cleared = summary.clearedLevels;
+    studentStats.value.badges = selectedStudent.value.badges_count || 0;
+    studentStats.value.hours = Math.floor(summary.totalTimeSeconds / 60);
   } catch (error) {
     console.error('獲取紀錄失敗:', error.message);
   } finally {

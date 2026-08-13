@@ -1,7 +1,14 @@
 <template>
   <div class="bg-[#16162a] border border-[#333366] rounded-2xl shadow-lg p-6 relative min-h-[500px]">
     
-    <div v-if="isLoading" class="absolute inset-0 bg-[#16162a]/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center text-[#ffbb33] rounded-2xl">
+    <div v-if="isLoading" class="absolute inset-0 bg-[#16162a]/95 backdrop-blur-sm z-50 p-6 rounded-2xl animate-pulse">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div v-for="card in 4" :key="card" class="h-28 rounded-xl bg-[#0a0e27] border border-[#333366]"></div>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 h-72 rounded-xl bg-[#0a0e27] border border-[#333366]"></div>
+        <div class="h-72 rounded-xl bg-[#0a0e27] border border-[#333366]"></div>
+      </div>
       <div class="w-10 h-10 border-4 border-[#ffbb33]/30 border-t-[#ffbb33] rounded-full animate-spin mb-3"></div>
       <div class="font-bold tracking-widest animate-pulse">分析數據中...</div>
     </div>
@@ -143,7 +150,8 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import { supabase } from '../../../../supabase.js'; 
+import { supabase } from '../../../../supabase.js';
+import { calculateLearningMetrics } from '../../../../utils/learningMetrics.js';
 
 const isLoading = ref(true);
 const hasClass = ref(false);
@@ -168,6 +176,7 @@ const handleHorizontalScroll = (event) => {
 
 const fetchDashboardData = async () => {
   isLoading.value = true;
+  resetStats();
   try {
     // 1. 獲取老師的班級代碼
     const { data: { user } } = await supabase.auth.getUser();
@@ -188,7 +197,7 @@ const fetchDashboardData = async () => {
     // 2. 獲取該班級的所有學生
     const { data: students } = await supabase
       .from('profiles')
-      .select('id, username, avatar_url, total_learning_hours')
+      .select('id, username, avatar_url')
       .eq('class_code', classCode)
       .eq('role', 'student');
 
@@ -201,20 +210,20 @@ const fetchDashboardData = async () => {
     
     // 基本數據賦值
     stats.value.totalStudents = students.length;
-    stats.value.totalHours = Math.floor(students.reduce((sum, s) => sum + (s.total_learning_hours || 0), 0));
 
     // 3. 撈取這些學生的通關進度紀錄
     const { data: progress } = await supabase
       .from('user_progress')
-      .select('id, user_id, level_id, stars, completed_at')
+      .select('id, user_id, level_id, stars, completed_at, time_spent_seconds')
       .in('user_id', studentIds)
       .order('completed_at', { ascending: false });
 
     const progData = progress || [];
 
     // 去重複：同一個學生同一關只算一次
-    const uniqueClears = progData.filter((obj, index, self) =>
-      index === self.findIndex((t) => (t.user_id === obj.user_id && t.level_id === obj.level_id))
+    const { bestProgress: uniqueClears } = calculateLearningMetrics(progData, studentIds);
+    stats.value.totalHours = Math.floor(
+      uniqueClears.reduce((total, record) => total + (Number(record.time_spent_seconds) || 0), 0) / 60
     );
 
     // 計算平均進度 (總共 25 關)

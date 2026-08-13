@@ -50,7 +50,8 @@
                 </div>
                 <div class="flex-1">
                   <label class="block text-xs text-gray-400 mb-1.5">關卡標題</label>
-                  <input v-model="form.title" type="text" placeholder="例如: 窄門試煉" class="w-full bg-[#0a0914] border border-indigo-900/50 rounded-lg p-2.5 text-sm focus:border-indigo-500 outline-none transition" />
+                  <input ref="titleInput" v-model="form.title" @input="formError = ''" type="text" placeholder="例如: 窄門試煉" :class="formError ? 'border-rose-500 focus:border-rose-500' : 'border-indigo-900/50 focus:border-indigo-500'" class="w-full bg-[#0a0914] border rounded-lg p-2.5 text-sm outline-none transition" />
+                  <p v-if="formError" class="mt-1.5 text-xs font-bold text-rose-400" role="alert">{{ formError }}</p>
                 </div>
               </div>
               
@@ -255,7 +256,8 @@
           </div>
           
           <div v-else-if="savedLevels.length === 0" class="text-center py-10 text-gray-500">
-            目前還沒有儲存任何關卡喔！
+            <p>目前還沒有儲存任何關卡喔！</p>
+            <p class="mt-2 text-xs leading-relaxed text-gray-600">此處僅顯示教師自建的班級關卡；基礎邏輯課程的既有關卡不會列在這裡。</p>
           </div>
 
           <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4 relative">
@@ -312,7 +314,7 @@
 </style>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, nextTick } from 'vue';
 import { supabase } from '../../../../supabase'; 
 import { OUTGAME_COMMANDS } from '../../../../game/config/CommandList.js';
 
@@ -325,6 +327,8 @@ const showLoadModal = ref(false);
 const savedLevels = ref([]);
 const isFetchingLevels = ref(false);
 const isModifying = ref(false); 
+const formError = ref('');
+const titleInput = ref(null);
 
 const form = ref({
   id: null,
@@ -534,10 +538,13 @@ const swapLevels = async (indexA, indexB) => {
 
 // --- 儲存與預覽 ---
 const saveLevel = async (showAlert = true) => {
-  if (!form.value.title) {
-    alert('請輸入關卡名稱！');
+  if (!form.value.title.trim()) {
+    formError.value = '請輸入關卡名稱。';
+    await nextTick();
+    titleInput.value?.focus();
     return false;
   }
+  formError.value = '';
   loading.value = true;
 
   const obstacles = [];

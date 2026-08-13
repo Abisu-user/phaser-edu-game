@@ -1,7 +1,11 @@
 <template>
   <div class="bg-[#16162a] border border-[#333366] rounded-2xl shadow-lg p-6 relative min-h-[500px] flex flex-col">
     
-    <div v-if="isLoading" class="absolute inset-0 bg-[#16162a]/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center text-[#ffbb33] rounded-2xl">
+    <div v-if="isLoading" class="absolute inset-0 bg-[#16162a]/95 backdrop-blur-sm z-50 p-6 rounded-2xl animate-pulse">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div v-for="card in 3" :key="card" class="h-36 rounded-xl bg-[#0a0e27] border border-[#333366]"></div>
+      </div>
+      <div class="h-72 rounded-xl bg-[#0a0e27] border border-[#333366]"></div>
       <div class="w-10 h-10 border-4 border-[#ffbb33]/30 border-t-[#ffbb33] rounded-full animate-spin mb-3"></div>
       <div class="font-bold tracking-widest animate-pulse">正在運算大數據模型...</div>
     </div>
@@ -84,12 +88,13 @@
                 <th class="p-4 text-[#a0a0b8] font-bold text-sm border-b border-[#333366]">當前等級</th>
                 <th class="p-4 text-[#a0a0b8] font-bold text-sm border-b border-[#333366]">通關總數</th>
                 <th class="p-4 text-[#a0a0b8] font-bold text-sm border-b border-[#333366]">完美通關 (3⭐)</th>
+                <th class="p-4 text-[#a0a0b8] font-bold text-sm border-b border-[#333366]">徽章</th>
                 <th class="p-4 text-[#a0a0b8] font-bold text-sm border-b border-[#333366]">總學習時數</th>
               </tr>
             </thead>
             <tbody>
               <tr v-if="studentsData.length === 0">
-                <td colspan="6" class="p-8 text-center text-[#666688]">目前班級尚無學生學習數據</td>
+                <td colspan="7" class="p-8 text-center text-[#666688]">目前班級尚無學生學習數據</td>
               </tr>
               <tr v-for="(student, index) in studentsData" :key="student.id" 
                   class="border-b border-[#333366]/50 hover:bg-[#16162a] transition-colors group">
@@ -136,6 +141,10 @@
                 </td>
                 
                 <td class="p-4">
+                  <span class="text-[#ffbb33] text-sm font-bold">{{ student.badges }}</span>
+                </td>
+
+                <td class="p-4">
                   <span class="text-[#a0a0b8] text-sm">{{ formatMinutes(student.totalTimeSeconds) }}</span>
                 </td>
                 
@@ -152,6 +161,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { supabase } from '../../../../supabase.js';
+import { calculateLearningMetrics } from '../../../../utils/learningMetrics.js';
 
 const isLoading = ref(true);
 const hasClass = ref(false);
@@ -161,6 +171,8 @@ const studentsData = ref([]);
 
 const fetchAnalysisData = async () => {
   isLoading.value = true;
+  hotspots.value = [];
+  studentsData.value = [];
   try {
     // 1. 獲取老師的班級代碼
     const { data: { user } } = await supabase.auth.getUser();
@@ -181,7 +193,7 @@ const fetchAnalysisData = async () => {
     // 2. 獲取班級學生基本資料
     const { data: students } = await supabase
       .from('profiles')
-      .select('id, username, avatar_url, level, total_exp')
+      .select('id, username, avatar_url, level, total_exp, badges_count')
       .eq('class_code', classCode)
       .eq('role', 'student');
 
@@ -196,7 +208,7 @@ const fetchAnalysisData = async () => {
     // 3. 獲取學生通關紀錄大數據
     const { data: progress } = await supabase
       .from('user_progress')
-      .select('user_id, level_id, stars, time_spent_seconds')
+      .select('user_id, level_id, stars, time_spent_seconds, completed_at')
       .in('user_id', studentIds);
 
     const progData = progress || [];
@@ -236,29 +248,9 @@ const fetchAnalysisData = async () => {
     // ==========================================
     // 💡 大數據分析 2：學生進度排名與詳細數據
     // ==========================================
-    const studentStats = {};
-    studentIds.forEach(id => {
-      studentStats[id] = { clearedLevels: 0, perfectClears: 0, totalTimeSeconds: 0 };
-    });
+    const { byStudent: studentStats } = calculateLearningMetrics(progData, studentIds);
 
     // 確保同一關卡只算最高成績 (去重處理)
-    const bestProgressMap = {};
-    progData.forEach(p => {
-      const key = `${p.user_id}_${p.level_id}`;
-      if (!bestProgressMap[key] || bestProgressMap[key].stars < p.stars) {
-        bestProgressMap[key] = p;
-      }
-    });
-
-    Object.values(bestProgressMap).forEach(p => {
-      if (studentStats[p.user_id]) {
-        studentStats[p.user_id].clearedLevels += 1;
-        studentStats[p.user_id].totalTimeSeconds += (p.time_spent_seconds || 0);
-        if (p.stars === 3) {
-          studentStats[p.user_id].perfectClears += 1;
-        }
-      }
-    });
 
     // 組合最終列表
     const finalStudentData = students.map(s => ({
@@ -267,9 +259,10 @@ const fetchAnalysisData = async () => {
       avatar: s.avatar_url,
       level: s.level || 1,
       totalExp: s.total_exp || 0,
-      clearedLevels: studentStats[s.id].clearedLevels,
-      perfectClears: studentStats[s.id].perfectClears,
-      totalTimeSeconds: studentStats[s.id].totalTimeSeconds
+      badges: s.badges_count || 0,
+      clearedLevels: studentStats.get(s.id).clearedLevels,
+      perfectClears: studentStats.get(s.id).perfectClears,
+      totalTimeSeconds: studentStats.get(s.id).totalTimeSeconds
     }));
 
     // 排序邏輯：1.通關數最高 2.等級最高 3.總經驗值最高

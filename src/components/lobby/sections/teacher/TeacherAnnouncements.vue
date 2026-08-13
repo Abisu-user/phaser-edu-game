@@ -76,12 +76,14 @@
 
         <div class="space-y-2">
           <label class="text-[#a0a0b8] font-bold text-sm">公告標題 <span class="text-red-500">*</span></label>
-          <input v-model="editingItem.title" type="text" placeholder="例如：期中考範圍提醒..." class="w-full bg-[#0a0e27] border-2 border-[#333366] focus:border-[#ffbb33] rounded-xl px-4 py-3 text-white font-bold outline-none transition-colors">
+          <input ref="titleInput" v-model="editingItem.title" @input="formErrors.title = ''" type="text" placeholder="例如：期中考範圍提醒..." :class="formErrors.title ? 'border-red-500 focus:border-red-500' : 'border-[#333366] focus:border-[#ffbb33]'" class="w-full bg-[#0a0e27] border-2 rounded-xl px-4 py-3 text-white font-bold outline-none transition-colors" :aria-invalid="!!formErrors.title">
+          <p v-if="formErrors.title" class="text-sm font-bold text-red-400" role="alert">{{ formErrors.title }}</p>
         </div>
 
         <div class="space-y-2 flex-1 flex flex-col h-full min-h-[250px]">
           <label class="text-[#a0a0b8] font-bold text-sm">公告內容 <span class="text-red-500">*</span></label>
-          <textarea v-model="editingItem.content" placeholder="請輸入詳細的公告內容..." class="w-full flex-1 bg-[#0a0e27] border-2 border-[#333366] focus:border-[#ffbb33] rounded-xl px-4 py-3 text-white outline-none transition-colors resize-none custom-scrollbar shadow-inner"></textarea>
+          <textarea ref="contentInput" v-model="editingItem.content" @input="formErrors.content = ''" placeholder="請輸入詳細的公告內容..." :class="formErrors.content ? 'border-red-500 focus:border-red-500' : 'border-[#333366] focus:border-[#ffbb33]'" class="w-full flex-1 bg-[#0a0e27] border-2 rounded-xl px-4 py-3 text-white outline-none transition-colors resize-none custom-scrollbar shadow-inner" :aria-invalid="!!formErrors.content"></textarea>
+          <p v-if="formErrors.content" class="text-sm font-bold text-red-400" role="alert">{{ formErrors.content }}</p>
         </div>
       </div>
 
@@ -106,7 +108,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, nextTick } from 'vue';
 import { supabase } from '../../../../supabase.js';
 import ConfirmModal from '../../../common/ConfirmModal.vue'; 
 
@@ -114,6 +116,9 @@ const viewMode = ref('list');
 const editingItem = ref(null);
 const announcements = ref([]);
 const myTeacherProfile = ref({ id: '', class_code: '' });
+const formErrors = ref({ title: '', content: '' });
+const titleInput = ref(null);
+const contentInput = ref(null);
 
 // 彈跳視窗控制
 const isConfirmModalOpen = ref(false);
@@ -152,11 +157,13 @@ const fetchData = async () => {
 };
 
 const createNewItem = () => {
+  formErrors.value = { title: '', content: '' };
   editingItem.value = { title: '', content: '', is_pinned: false };
   viewMode.value = 'edit';
 };
 
 const editItem = (item) => {
+  formErrors.value = { title: '', content: '' };
   editingItem.value = JSON.parse(JSON.stringify(item));
   viewMode.value = 'edit';
 };
@@ -170,9 +177,14 @@ const cancelEdit = () => {
 };
 
 const saveItem = async () => {
-  if (!editingItem.value.title.trim() || !editingItem.value.content.trim()) { 
-    alert('請填寫標題與內容！'); 
-    return; 
+  formErrors.value = {
+    title: editingItem.value.title.trim() ? '' : '請填寫公告標題。',
+    content: editingItem.value.content.trim() ? '' : '請填寫公告內容。'
+  };
+  if (formErrors.value.title || formErrors.value.content) {
+    await nextTick();
+    (formErrors.value.title ? titleInput.value : contentInput.value)?.focus();
+    return;
   }
 
   try {

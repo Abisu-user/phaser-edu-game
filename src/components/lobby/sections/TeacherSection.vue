@@ -27,12 +27,12 @@
 
       <div class="flex-1 overflow-y-auto animate-fade-in pr-2 sidebar-scroll">
         
-        <TeacherDashboardPanel v-if="currentTab === 'overview'" />
-        <TeacherInteractions v-if="currentTab === 'interactions'" />
-        <TeacherAnnouncements v-if="currentTab === 'announcements'" />
-        <StudentManagementPanel v-if="currentTab === 'students'" />
-        <StudentProgressPanel v-if="currentTab === 'analytics'" />
-        <LevelDesigner v-show="currentTab === 'content'" @preview="handlePreview" />
+        <component
+          :is="currentTabComponent"
+          v-if="currentTabComponent"
+          :key="currentTab"
+          @preview="handlePreview"
+        />
 
       </div>
     </div>
@@ -55,6 +55,17 @@ const props = defineProps({
   currentTab: { type: String, default: 'overview' },
   playerRole: { type: String, default: 'teacher' } 
 });
+
+const teacherTabComponents = {
+  overview: TeacherDashboardPanel,
+  students: StudentManagementPanel,
+  analytics: StudentProgressPanel,
+  content: LevelDesigner,
+  interactions: TeacherInteractions,
+  announcements: TeacherAnnouncements
+};
+
+const currentTabComponent = computed(() => teacherTabComponents[props.currentTab] || TeacherDashboardPanel);
 
 // --- 預覽邏輯狀態區 ---
 const isPreviewing = ref(false);
