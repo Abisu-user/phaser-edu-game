@@ -160,17 +160,15 @@ const isClassDropdownOpen = ref(false);
 
 // 🌟 新增：追蹤班級狀態以及「是否為助理」
 const hasClass = ref(false); 
-const isAssistant = ref(false);
 let profileChannel = null;
 
 onMounted(async () => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
 
-  // 1. 初始化：抓取 class_code 和 is_assistant
-  const { data } = await supabase.from('profiles').select('class_code, is_assistant').eq('id', user.id).single();
+  // Keep class navigation in sync without exposing teacher-only publishing tools.
+  const { data } = await supabase.from('profiles').select('class_code').eq('id', user.id).single();
   hasClass.value = !!(data && data.class_code);
-  isAssistant.value = !!(data && data.is_assistant);
 
   // 2. 即時監聽：確保老師拔除或設定權限時，側邊欄會瞬間更新
   profileChannel = supabase.channel('sidebar_profile_updates')
@@ -182,7 +180,6 @@ onMounted(async () => {
     }, (payload) => {
       if (payload.new) {
         hasClass.value = !!payload.new.class_code;
-        isAssistant.value = !!payload.new.is_assistant;
       }
     }).subscribe();
 });
@@ -226,16 +223,6 @@ const sectionedMenus = computed(() => {
   const menus = [
     { header: 'Lobby Section', items: baseItems }
   ];
-
-  // 🌟 新增：如果學生是「班級助理」，推入專屬的互動管理功能
-  if (props.playerRole === 'student' && isAssistant.value) {
-    menus.push({
-      header: 'Class Assistant',
-      items: [
-        { id: 'teacher-interactions', icon: '✨', label: '互動管理 (助理)' }
-      ]
-    });
-  }
 
   if (props.playerRole === 'admin') {
     menus.push({

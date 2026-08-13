@@ -39,7 +39,7 @@
             
             <div class="slide-up slide-up-d4 flex flex-wrap gap-6 sm:gap-10 mt-10 justify-center lg:justify-start">
               <div><span class="text-3xl font-black" style="color:#ffbb33;">5+</span><p class="text-[13px] font-bold mt-1 uppercase tracking-wider" style="color:#a0a0b8;">活躍玩家</p></div>
-              <div><span class="text-3xl font-black" style="color:#00d4aa;">20+</span><p class="text-[13px] font-bold mt-1 uppercase tracking-wider" style="color:#a0a0b8;">遊戲關卡</p></div>
+              <div><span class="text-3xl font-black" style="color:#00d4aa;">{{ staticLevels.length }}+</span><p class="text-[13px] font-bold mt-1 uppercase tracking-wider" style="color:#a0a0b8;">遊戲關卡</p></div>
               <div><span class="text-3xl font-black" style="color:#ff6b6b;">4%</span><p class="text-[13px] font-bold mt-1 uppercase tracking-wider" style="color:#a0a0b8;">好評率</p></div>
             </div>
           </div>

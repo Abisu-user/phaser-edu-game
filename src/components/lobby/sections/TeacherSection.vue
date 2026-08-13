@@ -19,10 +19,7 @@
           <p class="text-[#a0a0b8] mt-1">{{ currentTabDesc }}</p>
         </div>
         
-        <div v-if="isAssistantMode" class="px-4 py-1.5 bg-[#a78bfa]/20 text-[#a78bfa] border border-[#a78bfa]/50 rounded-full text-xs font-bold tracking-widest shadow-[0_0_10px_rgba(167,139,250,0.2)] flex items-center gap-2">
-          👑 ASSISTANT MODE
-        </div>
-        <div v-else class="px-4 py-1.5 bg-[#ffbb33]/20 text-[#ffbb33] border border-[#ffbb33]/50 rounded-full text-xs font-bold tracking-widest shadow-[0_0_10px_rgba(255,187,51,0.2)]">
+        <div class="px-4 py-1.5 bg-[#ffbb33]/20 text-[#ffbb33] border border-[#ffbb33]/50 rounded-full text-xs font-bold tracking-widest shadow-[0_0_10px_rgba(255,187,51,0.2)]">
           TEACHER MODE
         </div>
 
@@ -59,8 +56,6 @@ const props = defineProps({
   playerRole: { type: String, default: 'teacher' } 
 });
 
-const isAssistantMode = computed(() => props.playerRole === 'student');
-
 // --- 預覽邏輯狀態區 ---
 const isPreviewing = ref(false);
 const previewLevelId = ref(1);
@@ -86,11 +81,6 @@ const currentTabIcon = computed(() => {
 });
 
 const currentTabDesc = computed(() => {
-  // 🌟 如果是助理進來互動管理，顯示專屬的描述
-  if (isAssistantMode.value && props.currentTab === 'interactions') {
-    return '協助老師發布與管理班級的問卷及投票';
-  }
-
   const descs = {
     overview: '快速查看班級活躍度與平均學習進度',
     students: '追蹤個別學生進度，查看詳細通關紀錄',

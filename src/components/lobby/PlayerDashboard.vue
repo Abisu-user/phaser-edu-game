@@ -166,7 +166,7 @@
           />
 
           <TeacherSection 
-            v-if="currentSection === 'teacher'" 
+            v-if="playerRole === 'teacher' && currentSection === 'teacher'"
             :currentTab="activeTeacherTab"
             :playerRole="playerRole"
           />

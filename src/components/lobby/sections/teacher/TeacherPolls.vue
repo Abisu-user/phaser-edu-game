@@ -333,7 +333,7 @@ import { supabase } from '../../../../supabase.js';
 import ConfirmModal from '../../../common/ConfirmModal.vue'; 
 
 const viewMode = ref('list'); // 'list', 'edit', 'preview', 'result'
-const myTeacherProfile = ref({ id: '', class_code: '' });
+const myTeacherProfile = ref({ id: '', class_code: '', role: '' });
 const pollsList = ref([]);
 const classStudents = ref([]); // 🌟 新增：存放該班級所有的學生名單
 
@@ -398,8 +398,8 @@ const getStatusClass = (status) => ({
 const fetchData = async () => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
-  const { data: profile } = await supabase.from('profiles').select('id, class_code').eq('id', user.id).single();
-  if (!profile || !profile.class_code) return;
+  const { data: profile } = await supabase.from('profiles').select('id, class_code, role').eq('id', user.id).single();
+  if (!profile || !profile.class_code || profile.role !== 'teacher') return;
   myTeacherProfile.value = profile;
 
   // 🌟 新增：抓取班級所有的學生名單 (用來比對誰還沒投票)
@@ -450,7 +450,7 @@ const saveItem = async (targetStatus) => {
   if (!title) {
     formErrors.value.title = '請填寫投票標題。';
   }
-  if (!myTeacherProfile.value?.id || !myTeacherProfile.value?.class_code) {
+  if (!myTeacherProfile.value?.id || !myTeacherProfile.value?.class_code || myTeacherProfile.value?.role !== 'teacher') {
     formErrors.value.permission = '你沒有發布權限，請確認教師帳號與班級設定。';
   }
   if (targetStatus === 'active' && !editingItem.value.settings?.deadline) {
