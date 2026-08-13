@@ -116,6 +116,11 @@ import { ref, onMounted, nextTick } from 'vue';
 import { supabase } from '../../../../supabase.js';
 import ConfirmModal from '../../../common/ConfirmModal.vue';
 import ToastMessage from '../../../common/ToastMessage.vue';
+import {
+  getCurrentTeacherProfile,
+  getTeacherPublishErrorMessage,
+  TEACHER_PUBLISH_PERMISSION_MESSAGE
+} from '../../../../utils/teacherPublishing.js';
 
 const viewMode = ref('list'); 
 const editingItem = ref(null);
@@ -136,13 +141,6 @@ const showNotice = (message, type = 'success') => {
   notice.value = { message, type };
   noticeTimer = setTimeout(clearNotice, 4500);
 };
-const getWriteErrorMessage = (err) => {
-  const message = String(err?.message || '').toLowerCase();
-  if (err?.code === '42501' || /row-level security|permission|policy|not allowed|authorized/.test(message)) {
-    return '沒有班級發布權限，請確認教師帳號與班級設定。';
-  }
-  return '資料庫寫入失敗，請稍後再試。';
-};
 
 // 彈跳視窗控制
 const isConfirmModalOpen = ref(false);
@@ -158,18 +156,12 @@ const handleModalConfirm = () => { if (confirmAction.value) confirmAction.value(
 const handleModalCancel = () => { isConfirmModalOpen.value = false; confirmAction.value = null; };
 
 const initTeacher = async () => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
-  const { data: profile, error } = await supabase.from('profiles').select('id, class_code, role').eq('id', user.id).single();
-  if (error || !profile) {
-    showNotice('無法讀取教師帳號資料，請重新登入後再試。', 'error');
+  const { profile } = await getCurrentTeacherProfile();
+  if (!profile) {
+    showNotice(TEACHER_PUBLISH_PERMISSION_MESSAGE, 'error');
     return;
   }
   myTeacherProfile.value = profile;
-  if (profile.role !== 'teacher' || !profile.class_code) {
-    showNotice('沒有班級發布權限，請確認教師帳號與班級設定。', 'error');
-    return;
-  }
   await fetchData();
 };
 
@@ -217,11 +209,13 @@ const saveItem = async () => {
     (formErrors.value.title ? titleInput.value : contentInput.value)?.focus();
     return;
   }
-  if (myTeacherProfile.value.role !== 'teacher' || !myTeacherProfile.value.class_code) {
-    formErrors.value.permission = '沒有班級發布權限，請確認教師帳號與班級設定。';
+  const { profile } = await getCurrentTeacherProfile();
+  if (!profile) {
+    formErrors.value.permission = TEACHER_PUBLISH_PERMISSION_MESSAGE;
     showNotice(formErrors.value.permission, 'error');
     return;
   }
+  myTeacherProfile.value = profile;
 
   try {
     const payload = {
@@ -246,7 +240,7 @@ const saveItem = async () => {
     await fetchData();
   } catch (err) { 
     console.error('公告儲存失敗:', err);
-    formErrors.value.permission = getWriteErrorMessage(err);
+    formErrors.value.permission = getTeacherPublishErrorMessage(err);
     showNotice(formErrors.value.permission, 'error');
   }
 };
@@ -255,7 +249,7 @@ const togglePin = async (item) => {
   const newStatus = !item.is_pinned;
   const { error } = await supabase.from('announcements').update({ is_pinned: newStatus }).eq('id', item.id);
   if (error) {
-    showNotice(getWriteErrorMessage(error), 'error');
+    showNotice(getTeacherPublishErrorMessage(error), 'error');
     return;
   }
   await fetchData();
@@ -268,7 +262,7 @@ const triggerDelete = (item) => {
       if (error) throw error;
       showNotice('公告已刪除。');
       await fetchData();
-    } catch (err) { showNotice(getWriteErrorMessage(err), 'error'); }
+    } catch (err) { showNotice(getTeacherPublishErrorMessage(err), 'error'); }
   });
 };
 

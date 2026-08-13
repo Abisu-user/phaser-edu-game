@@ -331,6 +331,11 @@
 import { ref, onMounted, watch, computed } from 'vue';
 import { supabase } from '../../../../supabase.js';
 import ConfirmModal from '../../../common/ConfirmModal.vue'; 
+import {
+  getCurrentTeacherProfile,
+  TEACHER_PUBLISH_PERMISSION_MESSAGE,
+  TEACHER_PUBLISH_WRITE_ERROR_MESSAGE
+} from '../../../../utils/teacherPublishing.js';
 
 const viewMode = ref('list'); // 'list', 'edit', 'preview', 'result'
 const myTeacherProfile = ref({ id: '', class_code: '', role: '' });
@@ -396,10 +401,8 @@ const getStatusClass = (status) => ({
 })[status];
 
 const fetchData = async () => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
-  const { data: profile } = await supabase.from('profiles').select('id, class_code, role').eq('id', user.id).single();
-  if (!profile || !profile.class_code || profile.role !== 'teacher') return;
+  const { profile } = await getCurrentTeacherProfile();
+  if (!profile) return;
   myTeacherProfile.value = profile;
 
   // 🌟 新增：抓取班級所有的學生名單 (用來比對誰還沒投票)
@@ -467,9 +470,6 @@ const saveItem = async (targetStatus) => {
   if (!title) {
     formErrors.value.title = '請填寫投票標題。';
   }
-  if (!myTeacherProfile.value?.id || !myTeacherProfile.value?.class_code || myTeacherProfile.value?.role !== 'teacher') {
-    formErrors.value.permission = '你沒有發布權限，請確認教師帳號與班級設定。';
-  }
   if (targetStatus === 'active' && !editingItem.value.settings?.deadline) {
     formErrors.value.deadline = '請選擇截止時間。';
   }
@@ -480,6 +480,15 @@ const saveItem = async (targetStatus) => {
     formErrors.value.title = '標題不可重複，請使用不同的投票標題。';
   }
   if (Object.values(formErrors.value).some(Boolean)) return;
+
+  // Revalidate at write time so a slow initial dashboard fetch cannot cause a
+  // false permission failure. RLS still enforces the same rule on the server.
+  const { profile } = await getCurrentTeacherProfile();
+  if (!profile) {
+    formErrors.value.permission = TEACHER_PUBLISH_PERMISSION_MESSAGE;
+    return;
+  }
+  myTeacherProfile.value = profile;
 
   try {
     let pollId = editingItem.value.id;
@@ -506,9 +515,9 @@ const saveItem = async (targetStatus) => {
     fetchData();
   } catch (err) {
     const message = err?.message || '投票儲存失敗，請稍後再試。';
-    if (/permission|policy|authorized/i.test(message)) formErrors.value.permission = '你沒有發布權限。';
+    if (/permission|policy|authorized|row-level security/i.test(message)) formErrors.value.permission = TEACHER_PUBLISH_PERMISSION_MESSAGE;
     else if (/duplicate|unique/i.test(message)) formErrors.value.title = '標題不可重複，請使用不同的投票標題。';
-    else formErrors.value.general = message;
+    else formErrors.value.general = TEACHER_PUBLISH_WRITE_ERROR_MESSAGE;
   }
 };
 

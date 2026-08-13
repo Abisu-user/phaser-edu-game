@@ -446,6 +446,11 @@ import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import { supabase } from '../../../../supabase.js';
 import ConfirmModal from '../../../common/ConfirmModal.vue';
 import ToastMessage from '../../../common/ToastMessage.vue';
+import {
+  getCurrentTeacherProfile,
+  getTeacherPublishErrorMessage,
+  TEACHER_PUBLISH_PERMISSION_MESSAGE
+} from '../../../../utils/teacherPublishing.js';
 
 const viewMode = ref('list'); // 'list', 'edit', 'preview', 'result'
 const surveysList = ref([]);
@@ -468,13 +473,6 @@ const showNotice = (message, type = 'success') => {
   clearNotice();
   notice.value = { message, type };
   noticeTimer = setTimeout(clearNotice, 4500);
-};
-const getWriteErrorMessage = (err) => {
-  const message = String(err?.message || '').toLowerCase();
-  if (err?.code === '42501' || /row-level security|permission|policy|not allowed|authorized/.test(message)) {
-    return '沒有班級發布權限，請確認教師帳號與班級設定。';
-  }
-  return '資料庫寫入失敗，請稍後再試。';
 };
 const openConfirm = (config, onConfirm) => {
   confirmModalConfig.value = { ...confirmModalConfig.value, ...config };
@@ -579,11 +577,9 @@ const aggregatedResults = computed(() => {
 });
 
 const fetchData = async () => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
-  const { data: profile, error: profileError } = await supabase.from('profiles').select('id, class_code, role').eq('id', user.id).single();
-  if (profileError || !profile || profile.role !== 'teacher' || !profile.class_code) {
-    showNotice('沒有班級發布權限，請確認教師帳號與班級設定。', 'error');
+  const { profile } = await getCurrentTeacherProfile();
+  if (!profile) {
+    showNotice(TEACHER_PUBLISH_PERMISSION_MESSAGE, 'error');
     return;
   }
   myTeacherProfile.value = profile;
@@ -713,10 +709,12 @@ const saveSurvey = async (targetStatus) => {
     titleInput.value?.focus();
     return;
   }
-  if (!myTeacherProfile.value.id || !myTeacherProfile.value.class_code || myTeacherProfile.value.role !== 'teacher') {
-    formErrors.value.permission = '沒有班級發布權限，請確認教師帳號與班級設定。';
+  const { profile } = await getCurrentTeacherProfile();
+  if (!profile) {
+    formErrors.value.permission = TEACHER_PUBLISH_PERMISSION_MESSAGE;
     return;
   }
+  myTeacherProfile.value = profile;
   try {
     const payload = {
       title: editingItem.value.title, description: editingItem.value.desc, deadline: editingItem.value.deadline || null,
@@ -732,21 +730,21 @@ const saveSurvey = async (targetStatus) => {
     await fetchData();
   } catch (err) {
     console.error('問卷儲存失敗:', err);
-    formErrors.value.permission = getWriteErrorMessage(err);
+    formErrors.value.permission = getTeacherPublishErrorMessage(err);
     showNotice(formErrors.value.permission, 'error');
   }
 };
 
 const updateStatus = async (item, newStatus) => {
   const { error } = await supabase.from('surveys').update({ status: newStatus }).eq('id', item.id);
-  if (error) { showNotice(getWriteErrorMessage(error), 'error'); return; }
+  if (error) { showNotice(getTeacherPublishErrorMessage(error), 'error'); return; }
   showNotice(newStatus === 'active' ? '問卷已發布。' : '問卷已結束。');
   await fetchData();
 };
 const triggerDelete = (item) => {
   openConfirm({ title: '刪除問卷', message: `確定要永久刪除「${item.title}」嗎？此動作無法復原。`, confirmText: '永久刪除', icon: '🗑️', isDanger: true }, async () => {
     const { error } = await supabase.from('surveys').delete().eq('id', item.id);
-    if (error) { showNotice(getWriteErrorMessage(error), 'error'); return; }
+    if (error) { showNotice(getTeacherPublishErrorMessage(error), 'error'); return; }
     showNotice('問卷已刪除。');
     await fetchData();
   });
