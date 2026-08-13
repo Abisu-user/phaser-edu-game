@@ -69,6 +69,9 @@ const radarBoss = ref(null);
 const radarNearby = ref([]);
 
 let saveTimeout = null;
+let profileSyncPending = false;
+let lobbySyncPending = false;
+let statPointsSyncPending = false;
 const LOCAL_SAVE_PREFIX = 'code-quest:endless-run:';
 
 const getLocalSaveKey = (userId) => `${LOCAL_SAVE_PREFIX}${userId}`;
@@ -393,14 +396,18 @@ const handleUpdateStats = (newStats) => {
   if (newStats.floor !== undefined) floor.value = newStats.floor;
   if (newStats.totalExp !== undefined) totalExp.value = newStats.totalExp;
   if (newStats.xp !== undefined) xp.value = newStats.xp;
+  if (newStats.level !== undefined || newStats.xp !== undefined || newStats.totalExp !== undefined) {
+    profileSyncPending = true;
+    lobbySyncPending = true;
+  }
+  if (newStats.coins !== undefined) lobbySyncPending = true;
   persistExplorationSnapshot();
   
-  let isLevelUp = false;
   if (newStats.level !== undefined && newStats.level > level.value) {
     const levelsGained = newStats.level - level.value;
     level.value = newStats.level;
     stat_points.value = (stat_points.value || 0) + (levelsGained * 5); 
-    isLevelUp = true;
+    statPointsSyncPending = true;
   }
 
   // 2. 【防抖存檔機制】清除上一次的倒數計時
@@ -414,26 +421,33 @@ const handleUpdateStats = (newStats) => {
 
     try {
       // 一次性把最終結果存入三個表格
+      const syncProfile = profileSyncPending;
+      const syncLobby = lobbySyncPending;
+      const syncStatPoints = statPointsSyncPending;
+      profileSyncPending = false;
+      lobbySyncPending = false;
+      statPointsSyncPending = false;
+
       await saveToTowerSaves();
 
-      let profileUpdate = { level: level.value, xp: xp.value, total_exp: totalExp.value };
-      if (isLevelUp) profileUpdate.stat_points = stat_points.value;
-      await supabase.from('profiles').update(profileUpdate).eq('id', currentUserId.value);
-
-      let lobbyUpdate = { 
-        coins: coins.value, 
-        level: level.value, 
-        xp: xp.value, 
-        total_exp: totalExp.value 
-      };
-      if (isLevelUp) lobbyUpdate.stat_points = stat_points.value;
-      await supabase.from('tower_lobby').update(lobbyUpdate).eq('user_id', currentUserId.value);
+      const updates = [];
+      if (syncProfile) {
+        const profileUpdate = { level: level.value, xp: xp.value, total_exp: totalExp.value };
+        if (syncStatPoints) profileUpdate.stat_points = stat_points.value;
+        updates.push(supabase.from('profiles').update(profileUpdate).eq('id', currentUserId.value));
+      }
+      if (syncLobby) {
+        const lobbyUpdate = { coins: coins.value, level: level.value, xp: xp.value, total_exp: totalExp.value };
+        if (syncStatPoints) lobbyUpdate.stat_points = stat_points.value;
+        updates.push(supabase.from('tower_lobby').update(lobbyUpdate).eq('user_id', currentUserId.value));
+      }
+      await Promise.all(updates);
 
       console.log(`[🔄 延遲同步成功] 金幣: ${coins.value}, 等級: ${level.value}`);
     } catch (err) {
       console.error('延遲同步資料庫失敗:', err);
     }
-  }, 4000); // 4000 毫秒 (4秒) 的冷卻時間
+  }, 7000); // Batch short bursts while keeping a fresh local recovery snapshot.
 };
 
 const handleExit = () => {
@@ -463,6 +477,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  if (saveTimeout) clearTimeout(saveTimeout);
   persistExplorationSnapshot(true);
   window.removeEventListener('tower-request-init-data', provideInitData);
   window.removeEventListener('pagehide', handlePageHide);

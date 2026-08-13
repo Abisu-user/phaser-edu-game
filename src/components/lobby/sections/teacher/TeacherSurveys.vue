@@ -542,10 +542,20 @@ const fetchData = async () => {
 
   const { data: surveys } = await supabase.from('surveys').select('*').eq('class_code', profile.class_code).order('created_at', { ascending: false });
   if (surveys) {
+    const surveyIds = surveys.map(survey => survey.id);
+    const { data: responses } = surveyIds.length
+      ? await supabase.from('survey_responses').select('survey_id, user_id, answers').in('survey_id', surveyIds)
+      : { data: [] };
+    const responsesBySurvey = new Map();
+    for (const response of responses || []) {
+      const surveyResponses = responsesBySurvey.get(response.survey_id) || [];
+      surveyResponses.push(response);
+      responsesBySurvey.set(response.survey_id, surveyResponses);
+    }
+
     for (let survey of surveys) {
-      // 🌟 將學生的回答一起撈出來，存入 survey.responses
-      const { data: responses } = await supabase.from('survey_responses').select('user_id, answers').eq('survey_id', survey.id);
-      survey.responses = responses || [];
+      // Keep the component's existing response shape while loading it in bulk.
+      survey.responses = responsesBySurvey.get(survey.id) || [];
     }
     surveysList.value = surveys;
   }

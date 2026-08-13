@@ -117,16 +117,16 @@
               @exit="handleExitEndlessMode" 
           />
 
-          <div v-show="currentSection === 'class'">
+          <div v-if="currentSection === 'class'">
             <ClassSection v-if="activeClassTab === 'home'" />
             <ClassPolls v-if="activeClassTab === 'polls'" />
             <ClassSurveys v-if="activeClassTab === 'surveys'" />
           </div>
 
-          <FriendsSection v-show="currentSection === 'friends'" />
+          <FriendsSection v-if="currentSection === 'friends'" />
 
           <AchievementsSection
-            v-show="currentSection === 'achievements'" 
+            v-if="currentSection === 'achievements'"
             :badges="badges"
             :currentTitle="currentTitle"
             :pinnedBadges="pinnedBadges"
@@ -139,7 +139,7 @@
           />
 
           <ProfileSection 
-            v-show="currentSection === 'profile'"
+            v-if="currentSection === 'profile'"
             :playerId="currentId"
             :playerName="playerName"
             :playerEmail="playerEmail"
@@ -157,11 +157,10 @@
           
           <div v-show="currentSection === 'settings'" class="text-center py-20 text-[#a0a0b8] font-bold">設定即將推出...</div>
 
-          <HelpSection v-show="currentSection === 'help'" />
+          <HelpSection v-if="currentSection === 'help'" />
 
           <AdminSection 
-            v-if="playerRole === 'admin'" 
-            v-show="currentSection === 'admin'" 
+            v-if="playerRole === 'admin' && currentSection === 'admin'"
             :currentTab="activeAdminTab" 
           />
 
@@ -295,21 +294,21 @@ import { useRouter } from 'vue-router';
 
 import LobbySection from './sections/LobbySection.vue';
 import CoursesSection from './sections/CoursesSection.vue';
-import AchievementsSection from './sections/AchievementsSection.vue';
-import ProfileSection from './sections/ProfileSection.vue';
-import AdminSection from './sections/AdminSection.vue';
-import TeacherSection from './sections/TeacherSection.vue';
-import FriendsSection from './sections/FriendsSection.vue';
 import SystemAnnouncement from './sections/admin/SystemAnnouncement.vue';
 import ConfirmModal from '../common/ConfirmModal.vue'; 
-import ClassSection from './sections/ClassSection.vue';
-import LeaderboardSection from './sections/LeaderboardSection.vue';
-import LevelDesigner from './sections/admin/LevelDesigner.vue';
-import ClassPolls from './sections/ClassPolls.vue';
-import ClassSurveys from './sections/ClassSurveys.vue';
 
 const GameLevel = defineAsyncComponent(() => import('../level/GameLevel.vue'));
 const EndlessLevel = defineAsyncComponent(() => import('../roguelike/EndlessLevel.vue'));
+const AchievementsSection = defineAsyncComponent(() => import('./sections/AchievementsSection.vue'));
+const ProfileSection = defineAsyncComponent(() => import('./sections/ProfileSection.vue'));
+const AdminSection = defineAsyncComponent(() => import('./sections/AdminSection.vue'));
+const TeacherSection = defineAsyncComponent(() => import('./sections/TeacherSection.vue'));
+const FriendsSection = defineAsyncComponent(() => import('./sections/FriendsSection.vue'));
+const ClassSection = defineAsyncComponent(() => import('./sections/ClassSection.vue'));
+const LeaderboardSection = defineAsyncComponent(() => import('./sections/LeaderboardSection.vue'));
+const LevelDesigner = defineAsyncComponent(() => import('./sections/admin/LevelDesigner.vue'));
+const ClassPolls = defineAsyncComponent(() => import('./sections/ClassPolls.vue'));
+const ClassSurveys = defineAsyncComponent(() => import('./sections/ClassSurveys.vue'));
 
 // --- 狀態管理區 ---
 const currentView = ref('lobby'); // 'lobby' 或 'game'
@@ -759,7 +758,9 @@ onMounted(async () => {
 
   if (user) await loadDailyQuests();
   sendHeartbeat();
-  heartbeatInterval = setInterval(sendHeartbeat, 60 * 1000);
+  // The online indicator treats activity within five minutes as online. Updating
+  // every four minutes keeps that behaviour while avoiding a write per minute.
+  heartbeatInterval = setInterval(sendHeartbeat, 4 * 60 * 1000);
   document.addEventListener('visibilitychange', handleVisibilityChange);
   window.addEventListener('click', handleUserInteraction);
 

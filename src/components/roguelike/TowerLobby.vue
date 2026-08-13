@@ -571,10 +571,6 @@ const handleContinue = () => {
   if (activeSave.value) emit('start', activeSave.value);
 };
 
-onMounted(() => {
-  fetchPlayerData();
-});
-
 const menus = [
   { name: '背包', icon: '👝' },
   { name: '商店', icon: '⚖️' },

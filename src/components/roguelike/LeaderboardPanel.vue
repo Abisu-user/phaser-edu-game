@@ -194,13 +194,36 @@ const fetchData = async () => {
   isLoading.value = true;
   try {
     // 併發兩個請求以加快速度
-    const [profilesRes, towerRes] = await Promise.all([
-      supabase.from('profiles').select('id, username, avatar_url, level, total_exp'),
-      supabase.from('tower_lobby').select('user_id, best_floor')
-    ]);
+    // The UI displays the top 50 only. Sort and limit on Postgres instead of
+    // downloading every player record to the browser.
+    if (activeTab.value === 'tower') {
+      const { data: towerRows, error: towerError } = await supabase
+        .from('tower_lobby')
+        .select('user_id, best_floor')
+        .order('best_floor', { ascending: false, nullsFirst: false })
+        .limit(50);
+      if (towerError) throw towerError;
 
-    if (profilesRes.data) rawProfiles.value = profilesRes.data;
-    if (towerRes.data) rawTowerData.value = towerRes.data;
+      const userIds = (towerRows || []).map(row => row.user_id);
+      const { data: profiles, error: profileError } = userIds.length
+        ? await supabase.from('profiles').select('id, username, avatar_url, level, total_exp').in('id', userIds)
+        : { data: [], error: null };
+      if (profileError) throw profileError;
+
+      rawProfiles.value = profiles || [];
+      rawTowerData.value = towerRows || [];
+    } else {
+      const { data: profiles, error } = await supabase
+        .from('profiles')
+        .select('id, username, avatar_url, level, total_exp')
+        .order('level', { ascending: false })
+        .order('total_exp', { ascending: false })
+        .limit(50);
+      if (error) throw error;
+
+      rawProfiles.value = profiles || [];
+      rawTowerData.value = [];
+    }
 
     applySorting(); 
   } catch (err) {
@@ -266,8 +289,9 @@ const applySorting = () => {
 };
 
 const switchTab = (tab) => {
+  if (activeTab.value === tab) return;
   activeTab.value = tab;
-  applySorting(); 
+  fetchData();
 };
 
 onMounted(() => {

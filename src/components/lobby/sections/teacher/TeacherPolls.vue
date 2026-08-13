@@ -413,9 +413,19 @@ const fetchData = async () => {
   const { data: polls } = await supabase.from('polls').select('*, poll_options(*)').eq('class_code', profile.class_code).order('created_at', { ascending: false });
   
   if (polls) {
+    const pollIds = polls.map(poll => poll.id);
+    const { data: votes } = pollIds.length
+      ? await supabase.from('poll_votes').select('poll_id, user_id, option_id').in('poll_id', pollIds)
+      : { data: [] };
+    const votesByPoll = new Map();
+    for (const vote of votes || []) {
+      const pollVotes = votesByPoll.get(vote.poll_id) || [];
+      pollVotes.push(vote);
+      votesByPoll.set(vote.poll_id, pollVotes);
+    }
+
     for (let poll of polls) {
-      const { data: votes } = await supabase.from('poll_votes').select('user_id, option_id').eq('poll_id', poll.id);
-      poll.votes = votes || [];
+      poll.votes = votesByPoll.get(poll.id) || [];
       poll.totalVotes = poll.votes.length;
       poll.options = poll.poll_options || [];
       poll.options.forEach(opt => opt.votesCount = poll.votes.filter(v => v.option_id === opt.id).length);
