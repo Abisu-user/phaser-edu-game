@@ -42,11 +42,13 @@
 
       <div class="flex-1 relative flex overflow-hidden">
         <div ref="lineNumbersRef" class="w-10 bg-[#181825] border-r border-[#333355] py-3 flex flex-col items-center select-none overflow-hidden text-xs font-mono text-[#5c5c77] flex-shrink-0">
-          <div v-for="n in lineCount" :key="n" class="leading-[21px] h-[21px]">{{ n }}</div>
+          <div v-for="n in lineCount" :key="n" :class="isLineOverLimit(n) ? 'bg-[#ff3366]/20 text-[#ff8395] w-full text-center' : ''" class="leading-[21px] h-[21px]">{{ n }}</div>
         </div>
 
         <div v-if="currentLine >= 0" class="absolute left-10 right-0 h-[21px] pointer-events-none transition-all duration-200 z-10" 
           :style="{ top: `${12 + currentLine * 21}px`, background: 'rgba(0, 212, 170, 0.15)', borderLeft: '3px solid #00d4aa' }"></div>
+
+        <div v-if="isOverLineLimit" class="absolute left-10 right-0 pointer-events-none z-10 bg-[#ff3366]/15 border-l-2 border-[#ff3366]" :style="overLimitOverlayStyle"></div>
 
         <textarea 
           ref="codeTextarea" 
@@ -56,7 +58,7 @@
           :disabled="isExecuting"
           @scroll="syncScroll"
           @keydown="handleKeydown"
-          @input="updateSuggestions" @click="updateSuggestions"
+          @input="onEditorInput" @click="updateSuggestions"
           class="flex-1 w-full h-full bg-transparent resize-none outline-none font-mono text-sm leading-[21px] pl-4 pr-4 py-3 relative z-20 scrollbar-thin whitespace-pre"
           style="color: #f8f8f2; caret-color: #ffbb33;"
           :style="{ opacity: isExecuting ? 0.5 : 1, cursor: isExecuting ? 'not-allowed' : 'text' }"
@@ -81,6 +83,9 @@
       </button> 
       <button @click="handleClear" :disabled="isExecuting" class="w-full py-2 rounded-lg font-semibold text-sm border transition-colors hover:bg-white/10 disabled:opacity-50" style="border-color:#ff6b6b;color:#ff6b6b;"> 🗑️ 清空程式碼 </button>
     </div>
+    <div v-if="editorNotice" role="alert" class="fixed bottom-6 right-6 z-[300] max-w-sm rounded-xl border border-[#ff3366]/70 bg-[#1a1a3e] px-4 py-3 text-sm font-bold text-[#ffd0d8] shadow-2xl">
+      {{ editorNotice }}
+    </div>
   </div>
 </template>
 
@@ -104,6 +109,8 @@ const filteredSnippets = ref([]);
 const selectedIndex = ref(0);
 const suggestPos = ref({ top: 0, left: 0 });
 const typingWordLength = ref(0);
+const editorNotice = ref('');
+let editorNoticeTimer = null;
 
 // 🌟 判斷是否為這關剛解鎖的新指令 (用來套用發光特效)
 const isNewCommand = (cmdId) => {
@@ -153,6 +160,14 @@ const availableSnippets = [
 ];
 
 const lineCount = computed(() => Math.max(15, userCode.value.split('\n').length));
+const codeLineCount = computed(() => userCode.value.trim().length ? userCode.value.replace(/\n+$/, '').split('\n').length : 0);
+const maxLines = computed(() => props.levelConfig?.restrictions?.maxBlocks || 0);
+const isOverLineLimit = computed(() => maxLines.value > 0 && codeLineCount.value > maxLines.value);
+const overLimitOverlayStyle = computed(() => ({
+  top: `${12 + maxLines.value * 21}px`,
+  height: `${Math.max(21, (codeLineCount.value - maxLines.value) * 21)}px`
+}));
+const isLineOverLimit = (lineNumber) => isOverLineLimit.value && lineNumber > maxLines.value;
 const filteredBlocks = computed(() => props.levelConfig.availableCommands 
   ? ALL_BLOCKS.filter(b => props.levelConfig.availableCommands.includes(b.id)) 
   : ALL_BLOCKS);
@@ -212,6 +227,17 @@ const updateSuggestions = () => {
   showSuggestions.value = false;
 };
 
+const showEditorNotice = (message) => {
+  editorNotice.value = message;
+  if (editorNoticeTimer) clearTimeout(editorNoticeTimer);
+  editorNoticeTimer = setTimeout(() => { editorNotice.value = ''; }, 4000);
+};
+
+const onEditorInput = () => {
+  updateSuggestions();
+  if (!isOverLineLimit.value && userCode.value.trim()) editorNotice.value = '';
+};
+
 const applySuggestion = (index) => {
   const textarea = codeTextarea.value;
   if (!textarea) return;
@@ -256,6 +282,14 @@ const handleKeydown = (e) => {
 };
 
 const handleExecute = () => {
+  if (!userCode.value.trim()) {
+    showEditorNotice('請先加入至少一個指令。');
+    return;
+  }
+  if (isOverLineLimit.value) {
+    showEditorNotice(`目前 ${codeLineCount.value} 行，上限 ${maxLines.value} 行。`);
+    return;
+  }
   let codeToRun = userCode.value;
   const originalCode = userCode.value; 
   

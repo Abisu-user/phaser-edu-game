@@ -93,6 +93,8 @@
             :xpPercent="xpPercent"
             :lastPlayed="lastPlayed"
             :clearedLevelsCount="clearedLevelsCount"
+            :pythonCompleted="courseProgress.python"
+            :totalLevels="staticLevels.length"
             :dailyQuests="dailyQuests"  
             :badges="badges"         
             :pinnedBadges="pinnedBadges"
@@ -565,22 +567,28 @@ const handlePreview = (levelNumber) => {
 };
 
 // --- 成就與每日任務 ---
-const initDailyQuests = () => {
-  const today = new Date().toISOString().split('T')[0];
-  const storedData = JSON.parse(localStorage.getItem('code_quest_daily') || '{}');
+const DAILY_QUEST_META = {
+  login: { title: '每日登入', desc: '登入即可領取獎勵' },
+  pass_levels: { title: '通關挑戰', desc: '今天完成 3 個關卡' },
+  perfect_clear: { title: '完美通關', desc: '今天取得一個三星關卡' }
+};
 
-  const defaultQuests = [
-    { id: 'login', title: '每日登入報到', target: 1, progress: 1, xp: 50, isClaimed: false, desc: '已完成登入' },
-    { id: 'pass_levels', title: '突破自我極限', target: 3, progress: 0, xp: 300, isClaimed: false, desc: '通過 3 個新關卡' },
-    { id: 'perfect_clear', title: '完美通關', target: 1, progress: 0, xp: 150, isClaimed: false, desc: '獲得 3 顆星' }
-  ];
-
-  if (storedData.date === today) {
-    dailyQuests.value = storedData.quests;
-  } else {
-    dailyQuests.value = defaultQuests;
-    localStorage.setItem('code_quest_daily', JSON.stringify({ date: today, quests: defaultQuests }));
+const loadDailyQuests = async () => {
+  const { data, error } = await supabase.rpc('get_daily_quest_status');
+  if (error) {
+    console.error('Unable to load daily quests:', error);
+    return;
   }
+
+  dailyQuests.value = (data || []).map((quest) => ({
+    id: quest.quest_id,
+    title: DAILY_QUEST_META[quest.quest_id]?.title || quest.quest_id,
+    desc: DAILY_QUEST_META[quest.quest_id]?.desc || '',
+    target: quest.target,
+    progress: quest.progress,
+    xp: quest.awarded_xp,
+    isClaimed: quest.is_claimed
+  }));
 };
 
 const badges = computed(() => {
@@ -604,11 +612,24 @@ const claimQuest = async (questId) => {
   const quest = dailyQuests.value.find(q => q.id === questId);
   if (!quest || quest.isClaimed || quest.progress < quest.target) return;
 
-  quest.isClaimed = true;
-  await addExperience(quest.xp);
-  
-  const today = new Date().toISOString().split('T')[0];
-  localStorage.setItem('code_quest_daily', JSON.stringify({ date: today, quests: dailyQuests.value }));
+  const { data, error } = await supabase.rpc('claim_daily_quest_reward', { p_quest_id: questId });
+  if (error) {
+    console.error('Unable to claim daily quest reward:', error);
+    toastNotifications.value.push({ id: Date.now(), senderName: '每日任務', content: error.message });
+    setTimeout(() => { toastNotifications.value.shift(); }, 4000);
+    await loadDailyQuests();
+    return;
+  }
+
+  const reward = Array.isArray(data) ? data[0] : data;
+  if (reward) {
+    currentXP.value = reward.current_xp;
+    currentLevel.value = reward.current_level;
+    currentTotalXP.value = reward.total_xp;
+    toastNotifications.value.push({ id: Date.now(), senderName: '每日任務', content: `已領取 ${reward.awarded_xp} XP` });
+    setTimeout(() => { toastNotifications.value.shift(); }, 4000);
+  }
+  await loadDailyQuests();
 };
 
 // --- 🌟 資料抓取效能優化區 ---
@@ -736,7 +757,7 @@ onMounted(async () => {
     ]);
   }
 
-  initDailyQuests();
+  if (user) await loadDailyQuests();
   sendHeartbeat();
   heartbeatInterval = setInterval(sendHeartbeat, 60 * 1000);
   document.addEventListener('visibilitychange', handleVisibilityChange);

@@ -195,6 +195,7 @@ import { ref, onMounted } from 'vue';
 import LandingPageHeader from './LandingPageHeader.vue';
 import CourseCard from './CourseCard.vue';
 import img1 from '../../assets/images/landing1.png';
+import { levels as staticLevels } from '../../game/scenes/LevelConfig.js';
 
 const getImageUrl = (name) => {
   return new URL(`../../assets/images/${name}`, import.meta.url).href;
@@ -221,7 +222,7 @@ const courses = ref([
     badgeText: '入門',
     badgeColor: '#00d4aa',
     badgeBg: '#00d4aa22',
-    levelsText: '20 關卡',
+    levelsText: `${staticLevels.length} 關卡`,
     progress: 65,
     barGradient: 'linear-gradient(90deg,#00d4aa,#00b894)',
     disabled: false

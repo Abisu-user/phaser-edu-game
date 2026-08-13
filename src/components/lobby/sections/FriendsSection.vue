@@ -363,6 +363,15 @@ const fetchData = async () => {
       .eq('status', 'pending');
     if (requestsData) pendingRequests.value = requestsData.map(item => item.profiles);
 
+    // Pending outgoing invitations must be recovered from the backend on reload.
+    const { data: outgoingRequests, error: outgoingError } = await supabase
+      .from('friendships')
+      .select('friend_id')
+      .eq('user_id', user.id)
+      .eq('status', 'pending');
+    if (outgoingError) throw outgoingError;
+    recentlyInvited.value = new Set((outgoingRequests || []).map(item => item.friend_id));
+
     // ==========================================
     // 🌟 3. 新增：撈取曾經傳訊息給我的「老師」，並加入列表
     // ==========================================
@@ -527,29 +536,32 @@ const isAlreadyFriend = (userId) => {
 
 const sendFriendRequest = async (targetUser) => { 
   try {
-    const { data: existing } = await supabase.from('friendships').select('id').eq('user_id', myId.value).eq('friend_id', targetUser.id).single();
-    if (existing) { 
-      alert('已發送過邀請或是對方已邀請您！'); 
-      recentlyInvited.value.add(targetUser.id);
-      return; 
-    }
-    await supabase.from('friendships').insert([{ user_id: myId.value, friend_id: targetUser.id, status: 'pending' }]);
-    
+    const { data: created, error } = await supabase.rpc('send_friend_request', { p_friend_id: targetUser.id });
+    if (error) throw error;
     recentlyInvited.value.add(targetUser.id);
-    alert(`已向 ${targetUser.username} 發送好友邀請！`);
+    if (!created) recentlyInvited.value.add(targetUser.id);
   } catch (err) { 
     console.error('發送失敗:', err);
-    alert('發送失敗，請稍後再試。'); 
+    searchError.value = err.message || '無法送出好友邀請，請稍後再試。';
   }
 };
 
 const acceptRequest = async (senderId) => { 
-  await supabase.from('friendships').update({ status: 'accepted' }).eq('user_id', senderId).eq('friend_id', myId.value);
-  await supabase.from('friendships').insert([{ user_id: myId.value, friend_id: senderId, status: 'accepted' }]);
+  const { error } = await supabase.rpc('respond_to_friend_request', { p_sender_id: senderId, p_accept: true });
+  if (error) {
+    console.error('Unable to accept friend request:', error);
+    return;
+  }
+  await fetchData();
 };
 
 const rejectRequest = async (senderId) => { 
-  await supabase.from('friendships').delete().eq('user_id', senderId).eq('friend_id', myId.value).eq('status', 'pending');
+  const { error } = await supabase.rpc('respond_to_friend_request', { p_sender_id: senderId, p_accept: false });
+  if (error) {
+    console.error('Unable to reject friend request:', error);
+    return;
+  }
+  await fetchData();
 };
 
 const closeAddModal = () => { 

@@ -32,6 +32,12 @@
           </div>
         </div>
 
+        <div v-else-if="totalLevels > 0 && pythonCompleted >= totalLevels" class="rounded-[24px] p-6 md:p-8 border border-[#00d4aa44] bg-[#102b2a] relative overflow-hidden flex flex-col justify-center min-h-[160px]">
+          <p class="text-[#00d4aa] text-xs font-bold tracking-widest mb-3 uppercase relative z-10">課程完成</p>
+          <h3 class="text-3xl font-bold text-[#f0f0f0] font-['Fredoka'] mb-2 relative z-10">🏆 基礎邏輯已完成</h3>
+          <p class="text-[#a0a0b8] text-sm relative z-10">已完成 {{ totalLevels }}/{{ totalLevels }} 關。推薦挑戰 JavaScript 課程、無盡模式，或重玩關卡挑戰三星。</p>
+        </div>
+
         <div v-else class="rounded-[24px] p-6 md:p-8 border border-[#333355] bg-[#1a1a2e] relative overflow-hidden flex flex-col justify-center min-h-[160px]">
           <p class="text-[#a0a0b8] text-xs font-bold tracking-widest mb-3 uppercase relative z-10">上次遊玩</p>
           <h3 class="text-3xl font-bold text-[#f0f0f0] font-['Fredoka'] mb-2 relative z-10">🥚 旅程尚未開始</h3>
@@ -171,6 +177,8 @@ const props = defineProps({
   xpPercent: { type: Number, required: true },
   lastPlayed: { type: Object, default: null },
   clearedLevelsCount: { type: Number, default: 0 },
+  pythonCompleted: { type: Number, default: 0 },
+  totalLevels: { type: Number, default: 0 },
   dailyQuests: { type: Array, default: () => [] },
   badges: { type: Array, default: () => [] },
   consecutiveDays: { type: Number, default: 1 },

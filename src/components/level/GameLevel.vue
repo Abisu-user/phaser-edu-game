@@ -107,6 +107,9 @@
         @clear="clearCode"
       />
     </div>
+    <div v-if="executionNotice" role="alert" class="fixed bottom-6 right-6 z-[300] max-w-sm rounded-xl border border-[#ff3366]/70 bg-[#1a1a3e] px-4 py-3 text-sm font-bold text-[#ffd0d8] shadow-2xl">
+      {{ executionNotice }}
+    </div>
   </div>
 
   <LevelWinModal 
@@ -155,6 +158,8 @@ const isExecuting = ref(false);
 const showFailModal = ref(false);
 const isLoading = ref(true); 
 const currentLine = ref(-1);
+const executionNotice = ref('');
+let executionNoticeTimer = null;
 const currentLevel = ref(1);
 const currentXP = ref(0);
 const xpPerLevel = ref(1000); // 預設值，在 onMounted 中會動態計算
@@ -235,10 +240,20 @@ const closeTutorial = () => {
 
 const executeCode = async (code, blockCount = 0, rawUserCode = '') => {
   const checkCode = rawUserCode || code; 
+  const showExecutionNotice = (message) => {
+    executionNotice.value = message;
+    if (executionNoticeTimer) clearTimeout(executionNoticeTimer);
+    executionNoticeTimer = setTimeout(() => { executionNotice.value = ''; }, 4000);
+  };
+
+  if (!checkCode.trim()) {
+    showExecutionNotice('請先加入至少一個指令。');
+    return;
+  }
   
   const maxBlocks = levelConfig.value?.restrictions?.maxBlocks;
   if (maxBlocks && blockCount > maxBlocks) {
-    alert(`⚠️ 魔法能量不足！這關最多只能使用 ${maxBlocks} 個積木，但你使用了 ${blockCount} 個。\n請嘗試使用迴圈來優化！`);
+    showExecutionNotice(`目前使用 ${blockCount} 個指令，上限 ${maxBlocks} 個。請刪減或使用迴圈。`);
     return;
   }
 

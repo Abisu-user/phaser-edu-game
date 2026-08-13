@@ -172,9 +172,13 @@
 
     <div v-else-if="viewMode === 'edit'" class="flex-1 flex overflow-hidden bg-[#0a0e27] rounded-xl border border-[#333366] shadow-inner mb-2 animate-fade-in">
       <div class="flex-1 overflow-y-auto custom-scrollbar p-5 md:p-8 space-y-6">
+        <div v-if="formErrors.general || formErrors.permission" role="alert" class="rounded-xl border border-[#ff3366]/60 bg-[#ff3366]/10 px-4 py-3 text-sm text-[#ffb3c1]">
+          {{ formErrors.general || formErrors.permission }}
+        </div>
         
         <div class="bg-[#16162a] border-t-8 border-[#a78bfa] p-6 rounded-xl shadow-lg relative">
-          <input v-model="editingItem.title" type="text" placeholder="投票標題" class="w-full bg-transparent text-3xl text-white font-black outline-none border-b border-transparent focus:border-[#a78bfa] pb-2 transition-colors mb-4">
+          <input v-model="editingItem.title" @input="formErrors.title = ''" type="text" placeholder="投票標題" :class="formErrors.title ? 'border-[#ff3366]' : 'border-transparent'" class="w-full bg-transparent text-3xl text-white font-black outline-none border-b focus:border-[#a78bfa] pb-2 transition-colors mb-1">
+          <p v-if="formErrors.title" class="text-sm text-[#ff8395]">{{ formErrors.title }}</p>
         </div>
 
         <div class="bg-[#16162a] p-6 rounded-xl border border-[#333366] shadow-md group focus-within:border-l-4 focus-within:border-l-[#a78bfa] transition-all">
@@ -228,11 +232,12 @@
             </div>
             
             <div class="space-y-2 md:col-span-2">
-              <label class="text-[#a0a0b8] text-sm font-bold">⏳ 截止時間 (選填)</label>
+              <label class="text-[#a0a0b8] text-sm font-bold">⏳ 截止時間（發佈時必填）</label>
               <div class="flex items-center gap-2">
-                <input v-model="editingItem.settings.deadline" type="datetime-local" class="bg-[#0a0e27] border border-[#333366] text-white rounded-lg px-3 py-2 outline-none focus:border-[#a78bfa] text-sm [color-scheme:dark]">
+                <input v-model="editingItem.settings.deadline" @input="formErrors.deadline = ''" type="datetime-local" :class="formErrors.deadline ? 'border-[#ff3366]' : 'border-[#333366]'" class="bg-[#0a0e27] border text-white rounded-lg px-3 py-2 outline-none focus:border-[#a78bfa] text-sm [color-scheme:dark]">
                 <span class="text-[#666688] text-xs">到達時間將自動截止投票</span>
               </div>
+              <p v-if="formErrors.deadline" class="text-sm text-[#ff8395]">{{ formErrors.deadline }}</p>
             </div>
           </div>
         </div>
@@ -374,6 +379,7 @@ const defaultPoll = {
   }
 };
 const editingItem = ref(JSON.parse(JSON.stringify(defaultPoll)));
+const formErrors = ref({ title: '', deadline: '', permission: '', general: '' });
 
 const isConfirmModalOpen = ref(false);
 const confirmAction = ref(null);
@@ -419,8 +425,10 @@ const fetchData = async () => {
   }
 };
 
-const createNewItem = () => { editingItem.value = JSON.parse(JSON.stringify(defaultPoll)); viewMode.value = 'edit'; };
+const clearFormErrors = () => { formErrors.value = { title: '', deadline: '', permission: '', general: '' }; };
+const createNewItem = () => { clearFormErrors(); editingItem.value = JSON.parse(JSON.stringify(defaultPoll)); viewMode.value = 'edit'; };
 const editItem = (item) => { 
+  clearFormErrors();
   editingItem.value = JSON.parse(JSON.stringify(item)); 
   if (!editingItem.value.settings) editingItem.value.settings = JSON.parse(JSON.stringify(defaultPoll.settings));
   viewMode.value = 'edit'; 
@@ -437,25 +445,54 @@ const addOption = () => editingItem.value.options.push({ text: '' });
 const removeOption = (index) => { if (editingItem.value.options.length <= 2) { alert('投票最少需要 2 個選項！'); return; } editingItem.value.options.splice(index, 1); };
 
 const saveItem = async (targetStatus) => {
-  if (!editingItem.value.title.trim()) { alert('請填寫主標題！'); return; }
+  clearFormErrors();
+  const title = editingItem.value.title.trim();
+  if (!title) {
+    formErrors.value.title = '請填寫投票標題。';
+  }
+  if (!myTeacherProfile.value?.id || !myTeacherProfile.value?.class_code) {
+    formErrors.value.permission = '你沒有發布權限，請確認教師帳號與班級設定。';
+  }
+  if (targetStatus === 'active' && !editingItem.value.settings?.deadline) {
+    formErrors.value.deadline = '請選擇截止時間。';
+  }
+  const duplicate = pollsList.value.some((poll) =>
+    poll.id !== editingItem.value.id && poll.title?.trim().toLocaleLowerCase() === title.toLocaleLowerCase()
+  );
+  if (duplicate) {
+    formErrors.value.title = '標題不可重複，請使用不同的投票標題。';
+  }
+  if (Object.values(formErrors.value).some(Boolean)) return;
+
   try {
     let pollId = editingItem.value.id;
     const pollPayload = { 
-      title: editingItem.value.title, class_code: myTeacherProfile.value.class_code, 
+      title, class_code: myTeacherProfile.value.class_code,
       status: targetStatus, created_by: myTeacherProfile.value.id,
       settings: editingItem.value.settings
     };
     
     if (pollId && String(pollId).length > 15) {
-      await supabase.from('polls').update(pollPayload).eq('id', pollId);
-      await supabase.from('poll_options').delete().eq('poll_id', pollId);
+      const { error: updateError } = await supabase.from('polls').update(pollPayload).eq('id', pollId);
+      if (updateError) throw updateError;
+      const { error: deleteError } = await supabase.from('poll_options').delete().eq('poll_id', pollId);
+      if (deleteError) throw deleteError;
     } else {
-      const { data } = await supabase.from('polls').insert(pollPayload).select().single(); pollId = data.id;
+      const { data, error: insertError } = await supabase.from('polls').insert(pollPayload).select().single();
+      if (insertError) throw insertError;
+      pollId = data.id;
     }
     const optionsPayload = editingItem.value.options.filter(o => o.text.trim() !== '').map(o => ({ poll_id: pollId, text: o.text }));
-    await supabase.from('poll_options').insert(optionsPayload);
-    alert('儲存成功！'); viewMode.value = 'list'; fetchData();
-  } catch (err) { alert('儲存失敗！請確認資料庫是否已新增 settings (jsonb) 欄位。'); }
+    const { error: optionsError } = await supabase.from('poll_options').insert(optionsPayload);
+    if (optionsError) throw optionsError;
+    viewMode.value = 'list';
+    fetchData();
+  } catch (err) {
+    const message = err?.message || '投票儲存失敗，請稍後再試。';
+    if (/permission|policy|authorized/i.test(message)) formErrors.value.permission = '你沒有發布權限。';
+    else if (/duplicate|unique/i.test(message)) formErrors.value.title = '標題不可重複，請使用不同的投票標題。';
+    else formErrors.value.general = message;
+  }
 };
 
 const updateStatus = async (item, newStatus) => { await supabase.from('polls').update({ status: newStatus }).eq('id', item.id); fetchData(); };
