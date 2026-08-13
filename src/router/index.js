@@ -3,6 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 // 1. 統一引入所有需要的組件 (路徑請根據你實際資料夾位置檢查)
 import LandingPage from '../components/lobby/LandingPage.vue';
 import LoginScreen from '../components/auth/LoginScreen.vue';
+import ResetPassword from '../components/auth/ResetPassword.vue';
 import PlayerDashboard from '../components/lobby/PlayerDashboard.vue';
 const GameLevel = () => import('../components/level/GameLevel.vue');
 const EndlessLevel = () => import('../components/roguelike/EndlessLevel.vue');
@@ -18,6 +19,11 @@ const routes = [
     path: '/login', 
     name: 'Login',
     component: LoginScreen 
+  },
+  {
+    path: '/reset-password',
+    name: 'PasswordReset',
+    component: ResetPassword
   },
   { 
     path: '/dashboard', 

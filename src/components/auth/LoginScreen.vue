@@ -80,6 +80,10 @@
               <span v-else>⚡ 進入遊戲</span>
             </button>
             
+            <button type="button" class="w-full text-center text-xs text-[#a0a0b8] hover:text-[#00d4aa] transition-colors mb-3" :disabled="isLoading" @click="router.push('/reset-password')">
+              忘記密碼？寄送安全重設連結
+            </button>
+
             <button type="button" @click="toggleMode" class="login-btn login-btn-secondary" :disabled="isLoading">
               還沒有帳號？註冊新帳號
             </button>
@@ -248,10 +252,12 @@
 
 <script setup>
 import { ref, reactive, computed } from 'vue';
+import { useRouter } from 'vue-router';
 import { supabase } from '../../supabase.js';
 import QuickReigster from '../../QuickReigster.vue';
 
 const emit = defineEmits(['login-success', 'back-to-home']);
+const router = useRouter();
 
 const getAuthRole = (user) => {
   const role = user?.app_metadata?.role;
