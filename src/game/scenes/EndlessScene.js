@@ -4,6 +4,46 @@ import { HAZARD_DICT } from '../config/Hazards';
 import { ROOM_TYPES, FLOOR_CONFIG } from '../config/LevelRules';
 import { SKILL_DICT, compileToBehavior } from '../config/PlayerSkills';
 import { COMMAND_DICT } from '../config/CommandList';
+import arcaneApprenticeUrl from '../../assets/dungeon/arcane-apprentice.png';
+import slimeUrl from '../../assets/dungeon/slime.png';
+import goblinUrl from '../../assets/dungeon/goblin.png';
+import skeletonUrl from '../../assets/dungeon/skeleton.png';
+import ghostUrl from '../../assets/dungeon/ghost.png';
+import golemUrl from '../../assets/dungeon/golem.png';
+import voidSpiderUrl from '../../assets/dungeon/void-spider.png';
+import demonBossUrl from '../../assets/dungeon/demon-boss.png';
+
+const DUNGEON_TEXTURES = {
+  'dungeon-hero': arcaneApprenticeUrl,
+  'dungeon-slime': slimeUrl,
+  'dungeon-goblin': goblinUrl,
+  'dungeon-skeleton': skeletonUrl,
+  'dungeon-ghost': ghostUrl,
+  'dungeon-golem': golemUrl,
+  'dungeon-void-spider': voidSpiderUrl,
+  'dungeon-demon-boss': demonBossUrl
+};
+
+const ENEMY_TEXTURE_KEYS = {
+  patrol_bug: 'dungeon-slime',
+  tracker_virus: 'dungeon-void-spider',
+  slime: 'dungeon-slime',
+  goblin: 'dungeon-goblin',
+  skeleton: 'dungeon-skeleton',
+  ghost: 'dungeon-ghost',
+  golem: 'dungeon-golem',
+  void_creeper: 'dungeon-void-spider',
+  boss_bat: 'dungeon-demon-boss',
+  boss_skeleton_king: 'dungeon-skeleton',
+  boss_demon_lord: 'dungeon-demon-boss',
+  boss_shadow_stalker: 'dungeon-ghost',
+  boss_dragon: 'dungeon-demon-boss',
+  boss_reaper: 'dungeon-ghost',
+  boss_titan: 'dungeon-golem',
+  boss_hydra: 'dungeon-void-spider',
+  boss_lich: 'dungeon-ghost',
+  boss_abyss_god: 'dungeon-demon-boss'
+};
 
 const AP_COSTS = COMMAND_DICT.reduce((map, cmd) => {
   map[cmd.id] = cmd.ap !== undefined ? cmd.ap : 1;
@@ -21,6 +61,12 @@ class OutOfAPError extends Error {
 export default class EndlessScene extends Phaser.Scene {
   constructor() {
     super({ key: 'EndlessScene' });
+  }
+
+  preload() {
+    Object.entries(DUNGEON_TEXTURES).forEach(([key, url]) => {
+      if (!this.textures.exists(key)) this.load.image(key, url);
+    });
   }
 
   // ==========================================
@@ -449,6 +495,7 @@ export default class EndlessScene extends Phaser.Scene {
     // 記錄面向，並讓冒險者閃爍施法的魔力光芒
     if (originX === null) {
       this.playerFacing = { dx, dy };
+      this.playCastEffect(this.player.x, this.player.y, skillName);
       if (this.playerBody) {
         this.playerBody.fillColor = 0xFFD700; // 詠唱時閃爍耀眼金光
         setTimeout(() => { if (this.playerBody) this.playerBody.fillColor = 0x4299E1; }, 300); // 恢復魔法藍
@@ -474,6 +521,7 @@ export default class EndlessScene extends Phaser.Scene {
           // 基礎物理攻擊特效 (劍刃斬擊)
           const px = this.startX + (startX + t.dx) * this.tileSize;
           const py = this.startY + (startY + t.dy) * this.tileSize;
+          this.playSlashEffect(px, py, Phaser.Math.RadToDeg(Phaser.Math.Angle.Between(0, 0, t.dx, t.dy)));
          const slash = this.add.text(px, py, '✨', { 
             fontSize: Math.floor(this.tileSize * 1) + 'px' // 稍微放大一點點
           }).setOrigin(0.5);
@@ -517,6 +565,15 @@ export default class EndlessScene extends Phaser.Scene {
       
       this.cameras.main.shake(150, 0.015);
       enemy.hp -= damage;
+      this.playHitEffect(enemy.sprite.x, enemy.sprite.y, enemy.hp <= 0 ? 0xf97316 : 0xfde68a);
+      this.tweens.add({
+        targets: enemy.sprite,
+        scaleX: 1.12,
+        scaleY: 0.88,
+        yoyo: true,
+        duration: 90,
+        ease: 'Quad.easeOut'
+      });
 
       // 更新血條
       if (enemy.hpFill && enemy.maxHp) {
@@ -860,14 +917,66 @@ export default class EndlessScene extends Phaser.Scene {
 
   createPlayerGraphic(x, y) {
     if (this.player) this.player.destroy();
-    const glow = this.add.circle(0, 0, this.tileSize * 0.5, 0x6366f1, 0.2);
-    this.tweens.add({ targets: glow, scale: 1.2, alpha: 0.1, duration: 1000, yoyo: true, repeat: -1 });
+    const shadow = this.add.ellipse(0, this.tileSize * 0.3, this.tileSize * 0.65, this.tileSize * 0.2, 0x030712, 0.6);
+    const glow = this.add.circle(0, 0, this.tileSize * 0.48, 0x38bdf8, 0.18).setBlendMode(Phaser.BlendModes.ADD);
+    const rune = this.add.circle(0, this.tileSize * 0.08, this.tileSize * 0.34).setStrokeStyle(2, 0x60a5fa, 0.55).setFillStyle(0x0c4a6e, 0.08);
+    const hero = this.add.image(0, 0, 'dungeon-hero').setDisplaySize(this.tileSize * 1.2, this.tileSize * 1.2);
+    this.playerBody = this.add.circle(0, 0, this.tileSize * 0.45, 0x93c5fd, 0).setBlendMode(Phaser.BlendModes.ADD);
+    this.tweens.add({ targets: glow, scale: 1.18, alpha: 0.08, duration: 900, yoyo: true, repeat: -1 });
+    this.tweens.add({ targets: rune, angle: 360, duration: 7000, repeat: -1 });
 
-    this.playerBody = this.add.rectangle(0, 0, this.tileSize * 0.6, this.tileSize * 0.6, 0x6366f1).setStrokeStyle(2, 0xffffff);
-    const head = this.add.rectangle(0, -this.tileSize * 0.2, this.tileSize * 0.3, this.tileSize * 0.15, 0xffffff);
-    
-    this.player = this.add.container(x, y, [glow, this.playerBody, head]);
+    this.player = this.add.container(x, y, [shadow, glow, rune, hero, this.playerBody]);
     this.player.setDepth(20);
+  }
+
+  playCastEffect(x, y, skillName) {
+    if (!this.player) return;
+    const color = skillName === 'bomb' ? 0xfb7185 : skillName === 'laser' ? 0x22d3ee : 0xa78bfa;
+    const ring = this.add.circle(x, y, this.tileSize * 0.2).setStrokeStyle(3, color, 0.9).setFillStyle(color, 0.08).setDepth(42);
+    const flash = this.playerBody;
+    if (flash) {
+      flash.setFillStyle(color, 0.5).setAlpha(0.5);
+      this.tweens.add({ targets: flash, alpha: 0, duration: 260 });
+    }
+    this.tweens.add({
+      targets: ring,
+      scale: 2.2,
+      alpha: 0,
+      duration: 360,
+      ease: 'Cubic.easeOut',
+      onComplete: () => ring.destroy()
+    });
+  }
+
+  playSlashEffect(x, y, angle) {
+    const slash = this.add.graphics().setPosition(x, y).setDepth(46);
+    slash.lineStyle(Math.max(3, this.tileSize * 0.06), 0xfde68a, 0.95);
+    slash.beginPath();
+    slash.arc(0, 0, this.tileSize * 0.32, Phaser.Math.DegToRad(angle - 70), Phaser.Math.DegToRad(angle + 70), false);
+    slash.strokePath();
+    slash.lineStyle(Math.max(1, this.tileSize * 0.025), 0xffffff, 0.9);
+    slash.beginPath();
+    slash.arc(0, 0, this.tileSize * 0.2, Phaser.Math.DegToRad(angle - 58), Phaser.Math.DegToRad(angle + 58), false);
+    slash.strokePath();
+    this.tweens.add({ targets: slash, scale: 1.6, alpha: 0, angle: 24, duration: 260, ease: 'Cubic.easeOut', onComplete: () => slash.destroy() });
+  }
+
+  playHitEffect(x, y, color = 0xfbbf24) {
+    const burst = this.add.container(x, y).setDepth(55);
+    for (let index = 0; index < 8; index++) {
+      const spark = this.add.rectangle(0, 0, 3, 10, color, 0.95).setRotation((Math.PI * 2 * index) / 8);
+      burst.add(spark);
+      this.tweens.add({
+        targets: spark,
+        x: Math.cos((Math.PI * 2 * index) / 8) * this.tileSize * 0.3,
+        y: Math.sin((Math.PI * 2 * index) / 8) * this.tileSize * 0.3,
+        alpha: 0,
+        scaleY: 0.3,
+        duration: 240,
+        ease: 'Quad.easeOut'
+      });
+    }
+    this.tweens.add({ targets: burst, alpha: 0, duration: 280, onComplete: () => burst.destroy() });
   }
 
   generateLevel() {
@@ -963,6 +1072,15 @@ export default class EndlessScene extends Phaser.Scene {
     spriteText.setShadow(0, 2, 'rgba(0,0,0,0.8)', 4); // 增加實體感陰影
 
     // 2. 血條背景 (深木框)
+    spriteText.setAlpha(0);
+    const textureKey = ENEMY_TEXTURE_KEYS[id] || 'dungeon-slime';
+    const spriteScale = config.isBoss ? 1.45 : 1;
+    const shadow = this.add.ellipse(0, this.tileSize * 0.28, this.tileSize * 0.65 * spriteScale, this.tileSize * 0.18, 0x030712, 0.65);
+    const auraColor = config.isBoss ? 0xfb7185 : (id === 'ghost' ? 0x67e8f9 : 0xa78bfa);
+    const aura = this.add.circle(0, 0, this.tileSize * 0.34 * spriteScale, auraColor, config.isBoss ? 0.2 : 0.1).setBlendMode(Phaser.BlendModes.ADD);
+    const enemyArt = this.add.image(0, 0, textureKey).setDisplaySize(this.tileSize * 0.96 * spriteScale, this.tileSize * 0.96 * spriteScale);
+    this.tweens.add({ targets: aura, alpha: config.isBoss ? 0.06 : 0.03, scale: 1.16, duration: config.isBoss ? 600 : 1000, yoyo: true, repeat: -1 });
+
     const barWidth = this.tileSize * 0.65;
     const barHeight = 5;
     const hpBg = this.add.rectangle(0, -this.tileSize * 0.35, barWidth, barHeight, 0x1C110C).setOrigin(0.5)
@@ -977,7 +1095,7 @@ export default class EndlessScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // 把所有東西打包進一個 Container
-    const container = this.add.container(px, py, [spriteText, hpBg, hpFill, atkText]).setDepth(30);
+    const container = this.add.container(px, py, [shadow, aura, enemyArt, spriteText, hpBg, hpFill, atkText]).setDepth(30);
 
     // 將狀態存入 enemies 陣列
     this.enemies.push({ 
@@ -987,6 +1105,7 @@ export default class EndlessScene extends Phaser.Scene {
       sprite: container, 
       hpFill: hpFill,    
       spriteText: spriteText, 
+      enemyArt: enemyArt,
       hp: config.hp,
       maxHp: config.hp
     });
@@ -1169,6 +1288,14 @@ export default class EndlessScene extends Phaser.Scene {
 
         const fontSize = Math.floor(this.tileSize * 0.6) + 'px';
         const spriteText = this.add.text(0, 0, config.symbol, { fontSize }).setOrigin(0.5);
+        spriteText.setAlpha(0);
+        const textureKey = ENEMY_TEXTURE_KEYS[e.id] || 'dungeon-slime';
+        const spriteScale = config.isBoss ? 1.45 : 1;
+        const shadow = this.add.ellipse(0, this.tileSize * 0.28, this.tileSize * 0.65 * spriteScale, this.tileSize * 0.18, 0x030712, 0.65);
+        const auraColor = config.isBoss ? 0xfb7185 : (e.id === 'ghost' ? 0x67e8f9 : 0xa78bfa);
+        const aura = this.add.circle(0, 0, this.tileSize * 0.34 * spriteScale, auraColor, config.isBoss ? 0.2 : 0.1).setBlendMode(Phaser.BlendModes.ADD);
+        const enemyArt = this.add.image(0, 0, textureKey).setDisplaySize(this.tileSize * 0.96 * spriteScale, this.tileSize * 0.96 * spriteScale);
+        this.tweens.add({ targets: aura, alpha: config.isBoss ? 0.06 : 0.03, scale: 1.16, duration: config.isBoss ? 600 : 1000, yoyo: true, repeat: -1 });
 
         const barWidth = this.tileSize * 0.7;
         const barHeight = 6;
@@ -1184,7 +1311,7 @@ export default class EndlessScene extends Phaser.Scene {
           fontSize: '12px', color: '#f87171', fontFamily: 'monospace', fontStyle: 'bold' 
         }).setOrigin(0.5);
 
-        const container = this.add.container(ex, ey, [spriteText, hpBg, hpFill, atkText]).setDepth(30);
+        const container = this.add.container(ex, ey, [shadow, aura, enemyArt, spriteText, hpBg, hpFill, atkText]).setDepth(30);
 
         this.enemies.push({ 
           id: e.id, 
@@ -1193,6 +1320,7 @@ export default class EndlessScene extends Phaser.Scene {
           sprite: container, 
           hpFill: hpFill,    
           spriteText: spriteText, 
+          enemyArt: enemyArt,
           hp: currentHp,
           maxHp: maxHp
         });
