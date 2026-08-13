@@ -24,7 +24,7 @@
       <div v-for="index in 6" :key="index" class="h-32 animate-pulse rounded-2xl border border-[#333366] bg-[#16162a]"></div>
     </div>
 
-    <template v-else>
+    <template v-else-if="hasReport">
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <article v-for="card in summaryCards" :key="card.label" class="rounded-2xl border border-[#333366] bg-[#16162a] p-5 shadow-lg">
           <div class="text-2xl">{{ card.icon }}</div>
@@ -70,6 +70,10 @@
         </article>
       </div>
     </template>
+
+    <div v-else class="rounded-2xl border border-[#333366] bg-[#16162a] px-6 py-12 text-center text-[#a0a0b8]" role="status">
+      請修正日期範圍後再載入統計報表。
+    </div>
   </section>
 </template>
 
@@ -90,7 +94,9 @@ const startDate = ref(toDateInput(monthAgo));
 const endDate = ref(today);
 const isLoading = ref(true);
 const errorMessage = ref('');
-const analytics = ref({ summary: {}, daily_activity: [], blockers: [] });
+const emptyAnalytics = () => ({ summary: {}, daily_activity: [], blockers: [] });
+const analytics = ref(emptyAnalytics());
+const hasReport = ref(false);
 
 const summary = computed(() => analytics.value.summary || {});
 const dailyActivity = computed(() => analytics.value.daily_activity || []);
@@ -112,6 +118,8 @@ const formatDate = (value) => new Intl.DateTimeFormat('zh-TW', { month: 'numeric
 
 const loadAnalytics = async () => {
   if (!startDate.value || !endDate.value || startDate.value > endDate.value) {
+    analytics.value = emptyAnalytics();
+    hasReport.value = false;
     errorMessage.value = '請選擇有效的日期範圍。';
     return;
   }
@@ -122,9 +130,12 @@ const loadAnalytics = async () => {
     p_end_date: endDate.value
   });
   if (error) {
+    analytics.value = emptyAnalytics();
+    hasReport.value = false;
     errorMessage.value = error.code === 'P0001' ? '沒有查看管理員數據的權限。' : '讀取數據失敗，請稍後再試。';
   } else {
-    analytics.value = data || { summary: {}, daily_activity: [], blockers: [] };
+    analytics.value = data || emptyAnalytics();
+    hasReport.value = true;
   }
   isLoading.value = false;
 };

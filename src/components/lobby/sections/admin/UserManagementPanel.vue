@@ -11,7 +11,7 @@
       </div>
       <div class="flex gap-2 overflow-x-auto hide-scrollbar">
         <button 
-          v-for="filter in userFilters" :key="filter.value" @click="currentUserFilter = filter.value"
+          v-for="filter in userFilters" :key="filter.value" @click="selectUserFilter(filter.value)"
           class="px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all border"
           :class="currentUserFilter === filter.value ? 'bg-[#ff6b6b]/20 text-[#ff6b6b] border-[#ff6b6b]/50 shadow-[0_0_10px_rgba(255,107,107,0.2)]' : 'bg-[#0a0e27] text-[#a0a0b8] border-[#333366] hover:text-white hover:bg-[#333366]'"
         >
@@ -25,7 +25,7 @@
 
     <div class="bg-[#16162a] border border-[#333366] rounded-2xl shadow-lg overflow-x-auto relative min-h-[300px]">
       
-      <div v-if="isLoading" class="absolute inset-0 bg-[#16162a]/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center text-[#9d4edd]">
+      <div v-if="isLoading || isFiltering" class="absolute inset-0 bg-[#16162a]/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center text-[#9d4edd]">
         <div class="w-10 h-10 border-4 border-[#9d4edd]/30 border-t-[#9d4edd] rounded-full animate-spin mb-3"></div>
         <div class="font-bold tracking-widest animate-pulse">讀取資料庫中...</div>
       </div>
@@ -42,7 +42,7 @@
         </thead>
         <tbody class="divide-y divide-[#333366]">
           
-          <tr v-if="!isLoading && filteredUsers.length === 0">
+          <tr v-if="hasLoadedUsers && !isLoading && !isFiltering && filteredUsers.length === 0">
             <td colspan="5" class="p-8 text-center text-[#a0a0b8]">
               <div class="text-4xl mb-2">👻</div>
               找不到符合條件的使用者
@@ -117,14 +117,17 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { supabase } from '../../../../supabase'; 
 import ConfirmModal from '../../../common/ConfirmModal.vue';
 
 const isLoading = ref(true);
+const hasLoadedUsers = ref(false);
+const isFiltering = ref(false);
 const isUpdating = ref(null); 
 const usersData = ref([]);    
 const currentAdminId = ref('');
+let filterSettleTimer;
 
 // ==========================================
 // 共用 Modal 狀態管理系統
@@ -149,6 +152,18 @@ const customAlert = (title, message, icon = 'ℹ️') => {
 };
 
 // 🔥 統一處理所有的確認邏輯，根據 action 區分
+const settleFilters = () => {
+  isFiltering.value = true;
+  clearTimeout(filterSettleTimer);
+  filterSettleTimer = setTimeout(() => {
+    isFiltering.value = false;
+  }, 100);
+};
+
+const selectUserFilter = (filter) => {
+  currentUserFilter.value = filter;
+};
+
 const triggerUpdateStatus = (user, action) => {
   if (user.id === currentAdminId.value) {
     customAlert('安全限制', '為避免管理員在正式環境誤將自己停權，無法變更目前登入帳號的存取狀態。請改用另一位管理員或專用測試帳號驗證流程。', '🛡️');
@@ -246,6 +261,8 @@ const userFilters = [
 
 const pendingCount = computed(() => usersData.value.filter(u => u.status === 'pending').length);
 
+watch([searchQuery, currentUserFilter], settleFilters, { flush: 'sync' });
+
 const filteredUsers = computed(() => {
   return usersData.value.filter(user => {
     if (currentUserFilter.value === 'student' && user.role !== 'student') return false;
@@ -265,6 +282,7 @@ const filteredUsers = computed(() => {
 
 const fetchUsers = async () => {
   isLoading.value = true;
+  hasLoadedUsers.value = false;
   try {
     const { data: { user: currentUser } } = await supabase.auth.getUser();
     currentAdminId.value = currentUser?.id || '';
@@ -281,6 +299,7 @@ const fetchUsers = async () => {
       status: user.status || 'active',
       email: user.email || '未同步信箱' 
     }));
+    hasLoadedUsers.value = true;
     
   } catch (error) {
     console.error('獲取使用者資料失敗:', error.message);
@@ -293,6 +312,8 @@ const fetchUsers = async () => {
 onMounted(() => {
   fetchUsers();
 });
+
+onUnmounted(() => clearTimeout(filterSettleTimer));
 </script>
 
 <style scoped>
