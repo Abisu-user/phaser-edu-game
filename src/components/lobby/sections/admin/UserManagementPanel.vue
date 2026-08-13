@@ -124,6 +124,7 @@ import ConfirmModal from '../../../common/ConfirmModal.vue';
 const isLoading = ref(true);
 const isUpdating = ref(null); 
 const usersData = ref([]);    
+const currentAdminId = ref('');
 
 // ==========================================
 // 共用 Modal 狀態管理系統
@@ -149,6 +150,10 @@ const customAlert = (title, message, icon = 'ℹ️') => {
 
 // 🔥 統一處理所有的確認邏輯，根據 action 區分
 const triggerUpdateStatus = (user, action) => {
+  if (user.id === currentAdminId.value) {
+    customAlert('安全限制', '為避免管理員在正式環境誤將自己停權，無法變更目前登入帳號的存取狀態。請改用另一位管理員或專用測試帳號驗證流程。', '🛡️');
+    return;
+  }
   pendingActionData.value = { userId: user.id, action }; 
   const userName = user.username || '該名玩家';
 
@@ -261,6 +266,8 @@ const filteredUsers = computed(() => {
 const fetchUsers = async () => {
   isLoading.value = true;
   try {
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    currentAdminId.value = currentUser?.id || '';
     const { data, error } = await supabase
       .from('profiles')
       .select('*')

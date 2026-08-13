@@ -1,7 +1,11 @@
 <template>
   <div class="h-full w-full relative overflow-hidden bg-[#0a0e27]">
+    <div v-if="isIdentityLoading" class="absolute inset-0 z-[100] flex flex-col items-center justify-center bg-[#0a0e27] text-white" role="status" aria-live="polite">
+      <div class="h-10 w-10 animate-spin rounded-full border-4 border-[#00d4aa]/30 border-t-[#00d4aa]"></div>
+      <p class="mt-4 font-bold text-[#00d4aa]">正在載入帳號資料…</p>
+    </div>
     
-    <div v-if="currentView === 'lobby'" id="player-lobby" class="h-full w-full flex flex-col lg:flex-row relative" style="background: linear-gradient(135deg, #0a0e27 0%, #1a1a3e 50%, #0f1428 100%);">
+    <div v-else-if="currentView === 'lobby'" id="player-lobby" class="h-full w-full flex flex-col lg:flex-row relative" style="background: linear-gradient(135deg, #0a0e27 0%, #1a1a3e 50%, #0f1428 100%);">
       
       <div class="fixed inset-0 pointer-events-none overflow-hidden z-0" aria-hidden="true">
         <div class="particle float-1" style="top:10%;left:15%;background:#ffbb33;animation-delay:0s;"></div>
@@ -312,6 +316,7 @@ const ClassSurveys = defineAsyncComponent(() => import('./sections/ClassSurveys.
 
 // --- 狀態管理區 ---
 const currentView = ref('lobby'); // 'lobby' 或 'game'
+const isIdentityLoading = ref(true);
 const currentCourseId = ref('');
 const selectedLevelId = ref(1);
 const levelsList = ref([]);
@@ -747,29 +752,38 @@ const handleVisibilityChange = () => { if (document.visibilityState === 'visible
 
 // --- 監聽與生命週期 ---
 onMounted(async () => {
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (user) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      router.replace('/login');
+      return;
+    }
+
     await Promise.all([
       fetchLobbyData(user),
       fetchCourseProgress(user)
     ]);
-  }
 
-  if (user) await loadDailyQuests();
-  sendHeartbeat();
-  // The online indicator treats activity within five minutes as online. Updating
-  // every four minutes keeps that behaviour while avoiding a write per minute.
-  heartbeatInterval = setInterval(sendHeartbeat, 4 * 60 * 1000);
-  document.addEventListener('visibilitychange', handleVisibilityChange);
-  window.addEventListener('click', handleUserInteraction);
+    await loadDailyQuests();
+    sendHeartbeat();
+    // The online indicator treats activity within five minutes as online. Updating
+    // every four minutes keeps that behaviour while avoiding a write per minute.
+    heartbeatInterval = setInterval(sendHeartbeat, 4 * 60 * 1000);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('click', handleUserInteraction);
 
-  maintenanceSubscription = supabase.channel('custom-maintenance-channel')
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'system_settings' }, (payload) => {
+    maintenanceSubscription = supabase.channel('custom-maintenance-channel')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'system_settings' }, (payload) => {
         if (payload.new?.is_maintenance === true && playerRole.value !== 'admin') {
           isForceLogoutModalOpen.value = true;
         }
-    }).subscribe();
+      }).subscribe();
+  } catch (error) {
+    console.error('載入大廳身份資料失敗：', error);
+    router.replace('/login');
+  } finally {
+    isIdentityLoading.value = false;
+  }
 });
 
 watch(() => currentId.value, (newId) => {

@@ -1,5 +1,10 @@
 <template>
-  <router-view v-slot="{ Component }">
+  <div v-if="isAuthHydrating" class="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#0a0e27] text-white" role="status" aria-live="polite">
+    <div class="h-10 w-10 animate-spin rounded-full border-4 border-[#00d4aa]/30 border-t-[#00d4aa]"></div>
+    <p class="mt-4 font-bold text-[#00d4aa]">正在確認登入身份…</p>
+  </div>
+
+  <router-view v-else v-slot="{ Component }">
     <Suspense>
       <component 
         :is="Component" 
@@ -35,15 +40,47 @@ const router = useRouter();
 const currentLevelData = ref(null);
 const currentPlayerName = ref('');       
 const currentUserRole = ref('student'); 
+const isAuthHydrating = ref(true);
+let authSubscription;
 
 const getAuthRole = (user) => {
   const role = user?.app_metadata?.role;
   return ['admin', 'teacher', 'student'].includes(role) ? role : 'student';
 };
 
-const onLoginSuccess = (username) => {
-  currentPlayerName.value = username; 
-  router.push('/dashboard'); 
+const hydrateIdentity = async (providedSession = null) => {
+  isAuthHydrating.value = true;
+  try {
+    const session = providedSession ?? (await supabase.auth.getSession()).data.session;
+    if (!session) {
+      currentPlayerName.value = '';
+      currentUserRole.value = 'student';
+      return null;
+    }
+
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('username')
+      .eq('id', session.user.id)
+      .maybeSingle();
+    if (error) throw error;
+
+    currentPlayerName.value = profile?.username || session.user.email?.split('@')[0] || '玩家';
+    currentUserRole.value = getAuthRole(session.user);
+    return session;
+  } catch (error) {
+    console.error('載入登入身份失敗', error);
+    currentPlayerName.value = '';
+    currentUserRole.value = 'student';
+    return null;
+  } finally {
+    isAuthHydrating.value = false;
+  }
+};
+
+const onLoginSuccess = async () => {
+  const session = await hydrateIdentity();
+  if (session) router.push('/dashboard');
 };
 
 const handleLogout = async () => {
@@ -185,18 +222,22 @@ onMounted(async () => {
   }
 
   // 監聽登出入狀態切換
-  supabase.auth.onAuthStateChange(async (event, session) => {
+  const { data } = supabase.auth.onAuthStateChange((event, session) => {
     if (event === 'SIGNED_OUT') {
-      router.push('/');
+      currentPlayerName.value = '';
+      currentUserRole.value = 'student';
+      router.replace('/');
     } else if (event === 'SIGNED_IN' && session) {
-      currentUserRole.value = getAuthRole(session.user);
-      
+      void hydrateIdentity(session);
     }
   });
+  authSubscription = data.subscription;
+  isAuthHydrating.value = false;
 
 });
 
 onUnmounted(() => {
+  authSubscription?.unsubscribe();
 });
 </script>
 

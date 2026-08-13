@@ -20,6 +20,8 @@
       <UserManagementPanel v-else-if="currentTab === 'users'" />
 
       <LevelDesigner v-else-if="currentTab === 'content'" />
+
+      <AdminAnalyticsPanel v-else-if="currentTab === 'analytics'" />
       
       <UnderConstruction 
         v-else 
@@ -38,6 +40,7 @@ import { computed } from 'vue';
 // 引入我們拆分出去的子元件
 import SystemSettingsPanel from './admin/SystemSettingsPanel.vue';
 import UserManagementPanel from './admin/UserManagementPanel.vue';
+import AdminAnalyticsPanel from './admin/AdminAnalyticsPanel.vue';
 import UnderConstruction from './admin/UnderConstruction.vue';
 import LevelDesigner from './admin/LevelDesigner.vue';
 
