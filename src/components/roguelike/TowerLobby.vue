@@ -13,9 +13,27 @@
     <div class="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-amber-600/10 blur-[120px] rounded-full pointer-events-none"></div>
     <div class="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-red-700/10 blur-[150px] rounded-full pointer-events-none"></div>
 
-    <header class="absolute top-0 w-full px-8 py-6 z-30 flex justify-between items-start pointer-events-none border-b-[3px] border-[#3A2318] bg-gradient-to-b from-[#25150E] to-transparent shadow-[0_10px_30px_rgba(0,0,0,0.8)]">
+    <div v-if="isLoading" class="absolute inset-0 z-40 flex items-center justify-center p-8" role="status" aria-label="正在載入深淵資料">
+      <div class="w-full max-w-5xl animate-pulse space-y-8">
+        <div class="flex items-center justify-between">
+          <div class="h-20 w-80 rounded-lg bg-[#2A1810]/80 border border-[#593922]"></div>
+          <div class="h-12 w-32 rounded-full bg-[#2A1810]/80 border border-[#593922]"></div>
+        </div>
+        <div class="grid grid-cols-[1fr_1.4fr_1fr] gap-8 items-center">
+          <div class="h-72 rounded-sm bg-[#1C110C]/80 border border-[#3A2318]"></div>
+          <div class="space-y-5 text-center">
+            <div class="mx-auto h-10 w-64 rounded bg-[#2A1810]/80"></div>
+            <div class="mx-auto h-28 w-full max-w-xl rounded bg-[#2A1810]/80"></div>
+            <div class="mx-auto h-14 w-80 rounded bg-[#3E1010]/80"></div>
+          </div>
+          <div class="h-72 rounded-sm bg-[#1C110C]/80 border border-[#3A2318]"></div>
+        </div>
+      </div>
+    </div>
+
+    <header v-if="!isLoading" class="absolute top-0 w-full px-8 py-6 z-30 flex justify-between items-start pointer-events-none border-b-[3px] border-[#3A2318] bg-gradient-to-b from-[#25150E] to-transparent shadow-[0_10px_30px_rgba(0,0,0,0.8)]">
       
-      <div class="flex items-center gap-5 bg-[#2A1810] border-2 border-[#593922] p-3 pr-6 rounded-r-full shadow-[4px_4px_10px_rgba(0,0,0,0.5)] pointer-events-auto transition-opacity duration-500 relative" :class="{ 'opacity-0': isLoading }">
+      <div class="flex items-center gap-5 bg-[#2A1810] border-2 border-[#593922] p-3 pr-6 rounded-r-full shadow-[4px_4px_10px_rgba(0,0,0,0.5)] pointer-events-auto relative">
         <div class="absolute right-4 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-[#8C6239] shadow-[inset_-1px_-1px_2px_rgba(0,0,0,0.8)]"></div>
         
         <div class="w-16 h-16 bg-[#150C08] border-[3px] border-[#B8860B] rounded-md flex items-center justify-center text-4xl shadow-[inset_0_0_15px_rgba(0,0,0,1)] overflow-hidden shrink-0 relative">
@@ -46,7 +64,7 @@
         </div>
       </div>
 
-     <div class="flex flex-col items-end gap-3 pointer-events-auto transition-opacity duration-500" :class="{ 'opacity-0': isLoading }">
+     <div class="flex flex-col items-end gap-3 pointer-events-auto">
         <div class="bg-[#2A1810] border-2 border-[#B8860B] px-6 py-2 flex items-center gap-3 shadow-[0_5px_15px_rgba(0,0,0,0.6)] rounded-l-full relative">
           <div class="absolute left-4 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-[#8C6239] shadow-[inset_-1px_-1px_2px_rgba(0,0,0,0.8)]"></div>
           <span class="text-2xl drop-shadow-[0_2px_5px_rgba(255,215,0,0.4)] ml-4">🪙</span>
@@ -65,7 +83,7 @@
       </div>
     </header>
 
-    <main class="relative z-20 w-full h-full flex items-center justify-between px-16 pt-20">
+    <main v-if="!isLoading" class="relative z-20 w-full h-full flex items-center justify-between px-16 pt-20">
       
       <div class="w-[380px] flex flex-col gap-6 transform transition-all duration-700 translate-x-0">
         

@@ -55,10 +55,6 @@ export default class EndlessScene extends Phaser.Scene {
     this.isPlayerTurn = true;
   }
 
-  preload() {
-    this.load.image('hero', '../../../public/hero.png');
-  }
-
   create() {
     console.log("📜 [EndlessScene] 展開地下城地圖卷軸...");
     

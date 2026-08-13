@@ -125,8 +125,8 @@
         </div>
       </div>
     </header>
+    <section class="hidden" aria-hidden="true">
 
-    <section aria-live="polite" class="absolute top-[84px] right-5 z-30 w-[280px] bg-[#0F0805]/95 p-3 rounded-sm border border-[#4A5D23] shadow-[0_4px_14px_rgba(0,0,0,0.65)]">
       <div class="text-[11px] font-black text-[#8FBC8F] uppercase tracking-widest mb-1 border-b border-[#4A5D23] pb-1">XP 活動紀錄</div>
       <p v-for="activity in xpActivities" :key="activity.id" class="flex items-center justify-between gap-2 text-[11px] font-bold py-0.5 text-[#C8B693]">
         <span>{{ activity.source }}</span>
@@ -232,16 +232,23 @@
             <div class="flex justify-between text-[13px]"><span class="text-[#8C6239] font-black">深淵深度</span><span class="text-[#D4AF37] font-black">B{{ floor * 100 }}m</span></div>
           </div>
         </div>
-      </aside>
+        <section aria-live="polite" class="bg-[#0F0805] p-3.5 rounded-sm border border-[#4A5D23] shadow-[inset_0_2px_5px_rgba(0,0,0,1)]">
+          <div class="text-[11px] font-black text-[#8FBC8F] uppercase tracking-widest mb-1 border-b border-[#4A5D23] pb-1">XP 活動紀錄</div>
+          <p v-for="activity in xpActivities" :key="activity.id" class="flex items-center justify-between gap-2 text-[11px] font-bold py-0.5 text-[#C8B693]">
+            <span>{{ activity.source }}</span>
+            <span :class="activity.amount > 0 ? 'text-[#8FBC8F]' : 'text-[#8C6239]'">{{ activity.amount > 0 ? `+${activity.amount} XP` : activity.detail }}</span>
+          </p>
+        </section>
+       </aside>
 
-      <div class="flex-1 bg-black rounded-sm border-[8px] border-[#2A1810] overflow-hidden relative shadow-[0_0_50px_rgba(0,0,0,1)] z-0">
+       <div class="flex-1 bg-black rounded-sm border-[8px] border-[#2A1810] overflow-hidden relative shadow-[0_0_50px_rgba(0,0,0,1)] z-0">
         <div class="absolute inset-0 border-2 border-[#593922] pointer-events-none z-10"></div>
         <div id="endless-game-container" class="w-full h-full relative z-0"></div>
       </div>
 
       <aside class="w-[440px] flex flex-col gap-3 z-10">
         
-        <div class="h-[60%] bg-[#1A0F0A] border-4 border-[#3A2318] rounded-sm flex flex-col overflow-hidden shadow-[0_15px_30px_rgba(0,0,0,0.8)] relative">
+        <div class="h-[45%] bg-[#1A0F0A] border-4 border-[#3A2318] rounded-sm flex flex-col overflow-hidden shadow-[0_15px_30px_rgba(0,0,0,0.8)] relative">
           <div class="px-5 py-3 bg-[#150C08] border-b-2 border-[#3A2318] flex justify-between items-center shrink-0 shadow-md">
             <span class="text-[12px] font-black text-[#DAA520] uppercase tracking-widest drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">Grimoire (Spell Weaver)</span>
             <button @click="clearCode" class="text-[11px] font-black text-[#8B0000] hover:text-[#FF0000] transition-colors bg-[#2A1810] px-2 py-1 rounded-sm border border-[#593922]" :disabled="isExecuting">抹除墨水</button>
@@ -300,7 +307,7 @@
           </transition>
         </div>
 
-        <div class="h-[40%] bg-[#1C110C] border-4 border-[#3A2318] rounded-sm flex flex-col overflow-hidden shadow-[inset_0_0_20px_rgba(0,0,0,1)]">
+        <div class="h-[55%] bg-[#1C110C] border-4 border-[#3A2318] rounded-sm flex flex-col overflow-hidden shadow-[inset_0_0_20px_rgba(0,0,0,1)]">
           <div class="px-5 py-3 bg-[#0F0805] border-b-2 border-[#3A2318] text-[12px] font-black text-[#A08060] uppercase tracking-widest drop-shadow-[0_1px_1px_rgba(0,0,0,1)]">Spell Archive</div>
           <div class="flex-1 p-4 overflow-y-auto custom-scrollbar" :class="{ 'opacity-50 pointer-events-none': isExecuting }">
             <div v-for="cat in commandCategories" :key="cat.name" class="mb-5">
@@ -560,9 +567,9 @@ const proceedToNextFloor = () => {
 };
 
 const lineCount = computed(() => {
-  if (!codeContent.value) return 25;
+  if (!codeContent.value) return 10;
   const lines = codeContent.value.split('\n').length;
-  return Math.max(25, lines);
+  return Math.max(10, lines);
 });
 
 const insertCode = (commandId) => {

@@ -57,8 +57,9 @@
 
         <div v-for="item in section.items" :key="item.id" class="mb-1">
           
-          <div 
-            class="group flex items-center rounded-xl cursor-pointer transition-all duration-300 relative"
+          <button
+            type="button"
+            class="group flex w-full items-center rounded-xl cursor-pointer transition-all duration-300 relative text-left"
             :class="[
               isActive(item.id)
                 ? (item.id.startsWith('admin-') ? 'bg-[#9d4edd]/10 text-[#9d4edd] border border-[#9d4edd]/30 shadow-[0_0_15px_rgba(157,78,221,0.15)]' 
@@ -83,7 +84,7 @@
             <svg v-if="!isCollapsed && item.subItems" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="transition-transform duration-300" :class="isClassDropdownOpen ? 'rotate-180 text-[#00d4aa]' : 'text-[#a0a0b8]'">
               <polyline points="6 9 12 15 18 9"></polyline>
             </svg>
-          </div>
+          </button>
 
           <div v-if="!isCollapsed && item.subItems && isClassDropdownOpen" class="mt-1 ml-6 pl-2 border-l border-[#333366] flex flex-col gap-1">
             <button 
