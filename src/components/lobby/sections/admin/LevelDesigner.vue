@@ -1,5 +1,6 @@
 <template>
   <div class="h-[90vh] flex flex-col bg-[#0f0d1a] text-gray-100 font-sans overflow-hidden rounded-xl border border-indigo-900/40 shadow-2xl">
+    <ToastMessage :message="notice.message" :type="notice.type" @dismiss="clearNotice" />
     
     <header class="flex-shrink-0 px-6 py-4 flex items-center justify-between border-b border-indigo-900/40 bg-[#13111f]">
       <div class="flex items-center gap-3">
@@ -287,7 +288,7 @@
                   </button>
                 </div>
                 
-                <button @click="deleteLevel(lvl)" class="text-xs font-bold text-rose-500 hover:text-rose-400 hover:bg-rose-500/10 px-3 py-1.5 rounded transition flex items-center gap-1">
+                <button @click="requestDeleteLevel(lvl)" class="text-xs font-bold text-rose-500 hover:text-rose-400 hover:bg-rose-500/10 px-3 py-1.5 rounded transition flex items-center gap-1">
                   🗑️ 刪除
                 </button>
               </div>
@@ -298,6 +299,17 @@
       </div>
     </div>
 
+    <ConfirmModal
+      :is-open="isConfirmModalOpen"
+      :title="confirmModalConfig.title"
+      :message="confirmModalConfig.message"
+      :confirm-text="confirmModalConfig.confirmText"
+      :cancel-text="confirmModalConfig.cancelText"
+      :icon="confirmModalConfig.icon"
+      :is-danger="confirmModalConfig.isDanger"
+      @confirm="handleModalConfirm"
+      @cancel="handleModalCancel"
+    />
   </div>
 </template>
 
@@ -317,6 +329,8 @@
 import { ref, computed, nextTick } from 'vue';
 import { supabase } from '../../../../supabase'; 
 import { OUTGAME_COMMANDS } from '../../../../game/config/CommandList.js';
+import ConfirmModal from '../../../common/ConfirmModal.vue';
+import ToastMessage from '../../../common/ToastMessage.vue';
 
 const emit = defineEmits(['preview']);
 
@@ -329,6 +343,33 @@ const isFetchingLevels = ref(false);
 const isModifying = ref(false); 
 const formError = ref('');
 const titleInput = ref(null);
+const notice = ref({ message: '', type: 'success' });
+const isConfirmModalOpen = ref(false);
+const confirmAction = ref(null);
+const confirmModalConfig = ref({ title: '', message: '', confirmText: '確認', cancelText: '取消', icon: '⚠️', isDanger: false });
+let noticeTimer;
+
+const clearNotice = () => {
+  clearTimeout(noticeTimer);
+  notice.value = { message: '', type: 'success' };
+};
+const showNotice = (message, type = 'success') => {
+  clearNotice();
+  notice.value = { message, type };
+  noticeTimer = setTimeout(clearNotice, 4500);
+};
+const openConfirm = (config, onConfirm) => {
+  confirmModalConfig.value = { ...confirmModalConfig.value, ...config };
+  confirmAction.value = onConfirm;
+  isConfirmModalOpen.value = true;
+};
+const handleModalConfirm = () => {
+  const action = confirmAction.value;
+  isConfirmModalOpen.value = false;
+  confirmAction.value = null;
+  action?.();
+};
+const handleModalCancel = () => { isConfirmModalOpen.value = false; confirmAction.value = null; };
 
 const form = ref({
   id: null,
@@ -415,7 +456,16 @@ const paint = (key) => {
 };
 
 const clearGrid = () => {
-  if (confirm('確定要清空所有地圖配置嗎？')) gridMap.value = {};
+  openConfirm({
+    title: '清空地圖',
+    message: '確定要清空所有地圖配置嗎？尚未儲存的格子配置將會遺失。',
+    confirmText: '清空地圖',
+    icon: '🗑️',
+    isDanger: true
+  }, () => {
+    gridMap.value = {};
+    showNotice('地圖配置已清空。');
+  });
 };
 
 // --- 讀取、排序與刪除功能 ---
@@ -433,7 +483,8 @@ const openLoadModal = async () => {
     if (error) throw error;
     savedLevels.value = data || [];
   } catch (error) {
-    alert("讀取關卡列表失敗：" + error.message);
+    console.error('讀取關卡列表失敗:', error);
+    showNotice('讀取關卡列表失敗，請稍後再試。', 'error');
   } finally {
     isFetchingLevels.value = false;
   }
@@ -494,20 +545,31 @@ const loadLevel = async (lvlInfo) => {
 
     showLoadModal.value = false;
   } catch (error) {
-    alert("載入關卡詳細資料失敗：" + error.message);
+    console.error('載入關卡詳細資料失敗:', error);
+    showNotice('載入關卡詳細資料失敗，請稍後再試。', 'error');
   }
 };
 
-const deleteLevel = async (lvl) => {
-  if (!confirm(`確定要刪除「Level ${lvl.level_number}: ${lvl.title}」嗎？\n此操作無法復原！`)) return;
+const requestDeleteLevel = (lvl) => {
+  openConfirm({
+    title: '刪除關卡',
+    message: `確定要刪除「Level ${lvl.level_number}: ${lvl.title}」嗎？此操作無法復原。`,
+    confirmText: '永久刪除',
+    icon: '🗑️',
+    isDanger: true
+  }, () => deleteLevel(lvl));
+};
 
+const deleteLevel = async (lvl) => {
   isModifying.value = true;
   try {
     const { error } = await supabase.from('levels').delete().eq('id', lvl.id);
     if (error) throw error;
-    await openLoadModal(); 
+    await openLoadModal();
+    showNotice(`「${lvl.title}」已刪除。`);
   } catch (error) {
-    alert("刪除失敗：" + error.message);
+    console.error('刪除關卡失敗:', error);
+    showNotice('刪除關卡失敗，請稍後再試。', 'error');
   } finally {
     isModifying.value = false;
   }
@@ -529,7 +591,8 @@ const swapLevels = async (indexA, indexB) => {
 
     await openLoadModal(); 
   } catch (error) {
-    alert("排序失敗：" + error.message);
+    console.error('關卡排序失敗:', error);
+    showNotice('關卡排序失敗，請稍後再試。', 'error');
   } finally {
     isModifying.value = false;
   }
@@ -588,11 +651,11 @@ const saveLevel = async (showAlert = true) => {
       form.value.id = data.id;
     }
     
-    if (showAlert) alert('✅ 儲存成功！');
+    if (showAlert) showNotice('關卡已成功儲存。');
     return true;
   } catch (err) {
     console.error('儲存失敗', err);
-    alert('儲存失敗：' + err.message);
+    showNotice('儲存關卡失敗，請稍後再試。', 'error');
     return false;
   } finally {
     loading.value = false;

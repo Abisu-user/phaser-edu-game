@@ -452,7 +452,14 @@ const viewPollResult = (item) => {
 };
 
 const addOption = () => editingItem.value.options.push({ text: '' });
-const removeOption = (index) => { if (editingItem.value.options.length <= 2) { alert('投票最少需要 2 個選項！'); return; } editingItem.value.options.splice(index, 1); };
+const removeOption = (index) => {
+  if (editingItem.value.options.length <= 2) {
+    formErrors.value.general = '投票最少需要 2 個選項。';
+    return;
+  }
+  formErrors.value.general = '';
+  editingItem.value.options.splice(index, 1);
+};
 
 const saveItem = async (targetStatus) => {
   clearFormErrors();

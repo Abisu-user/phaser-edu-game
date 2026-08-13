@@ -1,5 +1,6 @@
 <template>
   <div class="animate-fade-in bg-[#16162a] border border-[#333366] rounded-3xl p-6 md:p-8 relative overflow-hidden shadow-2xl h-[calc(100vh-120px)] flex flex-col transition-all duration-300">
+    <ToastMessage :message="notice.message" :type="notice.type" @dismiss="clearNotice" />
     
     <div class="flex flex-col sm:flex-row justify-between items-center bg-[#0a0e27] p-5 rounded-2xl border border-[#ffbb33]/30 shadow-[0_0_20px_rgba(255,187,51,0.15)] mb-6 shrink-0 relative overflow-hidden">
       <div class="absolute -right-6 -top-10 text-8xl opacity-5 pointer-events-none">📢</div>
@@ -63,6 +64,9 @@
 
     <div v-else-if="viewMode === 'edit'" class="flex-1 flex flex-col h-full animate-fade-in-up min-h-0">
       <div class="flex-1 overflow-y-auto custom-scrollbar pr-3 space-y-6 pb-6 min-h-0">
+        <div v-if="formErrors.permission" class="rounded-xl border border-red-500/50 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-300" role="alert">
+          {{ formErrors.permission }}
+        </div>
         
         <div class="flex items-center justify-between bg-[#ffbb33]/10 border border-[#ffbb33]/30 p-4 rounded-xl">
           <span class="text-[#ffbb33] font-bold text-sm flex items-center gap-2">
@@ -110,15 +114,35 @@
 <script setup>
 import { ref, onMounted, nextTick } from 'vue';
 import { supabase } from '../../../../supabase.js';
-import ConfirmModal from '../../../common/ConfirmModal.vue'; 
+import ConfirmModal from '../../../common/ConfirmModal.vue';
+import ToastMessage from '../../../common/ToastMessage.vue';
 
 const viewMode = ref('list'); 
 const editingItem = ref(null);
 const announcements = ref([]);
-const myTeacherProfile = ref({ id: '', class_code: '' });
-const formErrors = ref({ title: '', content: '' });
+const myTeacherProfile = ref({ id: '', class_code: '', role: '' });
+const formErrors = ref({ title: '', content: '', permission: '' });
 const titleInput = ref(null);
 const contentInput = ref(null);
+const notice = ref({ message: '', type: 'success' });
+let noticeTimer;
+
+const clearNotice = () => {
+  clearTimeout(noticeTimer);
+  notice.value = { message: '', type: 'success' };
+};
+const showNotice = (message, type = 'success') => {
+  clearNotice();
+  notice.value = { message, type };
+  noticeTimer = setTimeout(clearNotice, 4500);
+};
+const getWriteErrorMessage = (err) => {
+  const message = String(err?.message || '').toLowerCase();
+  if (err?.code === '42501' || /row-level security|permission|policy|not allowed|authorized/.test(message)) {
+    return '沒有班級發布權限，請確認教師帳號與班級設定。';
+  }
+  return '資料庫寫入失敗，請稍後再試。';
+};
 
 // 彈跳視窗控制
 const isConfirmModalOpen = ref(false);
@@ -136,11 +160,17 @@ const handleModalCancel = () => { isConfirmModalOpen.value = false; confirmActio
 const initTeacher = async () => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
-  const { data: profile } = await supabase.from('profiles').select('id, class_code').eq('id', user.id).single();
-  if (profile) {
-    myTeacherProfile.value = profile;
-    await fetchData();
+  const { data: profile, error } = await supabase.from('profiles').select('id, class_code, role').eq('id', user.id).single();
+  if (error || !profile) {
+    showNotice('無法讀取教師帳號資料，請重新登入後再試。', 'error');
+    return;
   }
+  myTeacherProfile.value = profile;
+  if (profile.role !== 'teacher' || !profile.class_code) {
+    showNotice('沒有班級發布權限，請確認教師帳號與班級設定。', 'error');
+    return;
+  }
+  await fetchData();
 };
 
 const fetchData = async () => {
@@ -157,13 +187,13 @@ const fetchData = async () => {
 };
 
 const createNewItem = () => {
-  formErrors.value = { title: '', content: '' };
+  formErrors.value = { title: '', content: '', permission: '' };
   editingItem.value = { title: '', content: '', is_pinned: false };
   viewMode.value = 'edit';
 };
 
 const editItem = (item) => {
-  formErrors.value = { title: '', content: '' };
+  formErrors.value = { title: '', content: '', permission: '' };
   editingItem.value = JSON.parse(JSON.stringify(item));
   viewMode.value = 'edit';
 };
@@ -179,11 +209,17 @@ const cancelEdit = () => {
 const saveItem = async () => {
   formErrors.value = {
     title: editingItem.value.title.trim() ? '' : '請填寫公告標題。',
-    content: editingItem.value.content.trim() ? '' : '請填寫公告內容。'
+    content: editingItem.value.content.trim() ? '' : '請填寫公告內容。',
+    permission: ''
   };
   if (formErrors.value.title || formErrors.value.content) {
     await nextTick();
     (formErrors.value.title ? titleInput.value : contentInput.value)?.focus();
+    return;
+  }
+  if (myTeacherProfile.value.role !== 'teacher' || !myTeacherProfile.value.class_code) {
+    formErrors.value.permission = '沒有班級發布權限，請確認教師帳號與班級設定。';
+    showNotice(formErrors.value.permission, 'error');
     return;
   }
 
@@ -203,31 +239,36 @@ const saveItem = async () => {
       result = await supabase.from('announcements').insert(payload).select();
     }
 
-    // 🌟 這裡檢查是否有錯誤
     if (result.error) throw result.error;
 
-    alert('📢 公告發佈成功！');
+    showNotice('公告已成功發布。');
     viewMode.value = 'list';
-    fetchData();
+    await fetchData();
   } catch (err) { 
-    console.error('Supabase 錯誤細節:', err); // 🌟 請按 F12 打開 Console 看這裡
-    alert('儲存失敗: ' + (err.message || '請檢查資料庫設定')); 
+    console.error('公告儲存失敗:', err);
+    formErrors.value.permission = getWriteErrorMessage(err);
+    showNotice(formErrors.value.permission, 'error');
   }
 };
 
 const togglePin = async (item) => {
   const newStatus = !item.is_pinned;
-  await supabase.from('announcements').update({ is_pinned: newStatus }).eq('id', item.id);
-  fetchData();
+  const { error } = await supabase.from('announcements').update({ is_pinned: newStatus }).eq('id', item.id);
+  if (error) {
+    showNotice(getWriteErrorMessage(error), 'error');
+    return;
+  }
+  await fetchData();
 };
 
 const triggerDelete = (item) => {
   openConfirm({ title: '刪除公告', message: `確定要刪除「${item.title}」嗎？此動作無法復原！`, confirmText: '永久刪除', icon: '🗑️', isDanger: true }, async () => {
     try {
-      await supabase.from('announcements').delete().eq('id', item.id);
-      alert('✅ 公告已刪除！');
-      fetchData(); 
-    } catch (err) { alert('系統錯誤，請稍後再試。'); }
+      const { error } = await supabase.from('announcements').delete().eq('id', item.id);
+      if (error) throw error;
+      showNotice('公告已刪除。');
+      await fetchData();
+    } catch (err) { showNotice(getWriteErrorMessage(err), 'error'); }
   });
 };
 

@@ -1,5 +1,6 @@
 <template>
   <div class="h-full flex flex-col relative min-h-0">
+    <ToastMessage :message="notice.message" :type="notice.type" @dismiss="clearNotice" />
 
     <div v-if="viewMode === 'list'" class="flex-1 flex flex-col min-h-0 animate-fade-in">
       <div class="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-6 pb-4">
@@ -181,7 +182,9 @@
       <div class="flex-1 overflow-y-auto custom-scrollbar p-5 md:p-8 space-y-6">
         
         <div class="bg-[#16162a] border-t-8 border-[#4299e1] p-6 rounded-xl shadow-lg relative">
-          <input v-model="editingItem.title" type="text" placeholder="問卷標題" class="w-full bg-transparent text-3xl text-white font-black outline-none border-b border-transparent focus:border-[#4299e1] pb-2 transition-colors mb-4">
+          <input ref="titleInput" v-model="editingItem.title" type="text" placeholder="問卷標題" class="w-full bg-transparent text-3xl text-white font-black outline-none border-b border-transparent focus:border-[#4299e1] pb-2 transition-colors mb-1" :class="formErrors.title ? 'border-rose-400' : ''">
+          <p v-if="formErrors.title" class="mb-3 text-sm font-medium text-rose-300" role="alert">{{ formErrors.title }}</p>
+          <p v-if="formErrors.permission" class="mb-3 text-sm font-medium text-rose-300" role="alert">{{ formErrors.permission }}</p>
           <textarea v-model="editingItem.desc" placeholder="表單說明..." class="w-full bg-transparent text-[#a0a0b8] outline-none border-b border-transparent focus:border-[#4299e1] pb-2 resize-none transition-colors min-h-[60px]"></textarea>
           
           <div class="flex gap-4 mt-4 pt-4 border-t border-[#333366]">
@@ -424,18 +427,67 @@
         </div>
       </div>
     </div>
+    <ConfirmModal
+      :is-open="isConfirmModalOpen"
+      :title="confirmModalConfig.title"
+      :message="confirmModalConfig.message"
+      :confirm-text="confirmModalConfig.confirmText"
+      :cancel-text="confirmModalConfig.cancelText"
+      :icon="confirmModalConfig.icon"
+      :is-danger="confirmModalConfig.isDanger"
+      @confirm="handleModalConfirm"
+      @cancel="handleModalCancel"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import { supabase } from '../../../../supabase.js';
+import ConfirmModal from '../../../common/ConfirmModal.vue';
+import ToastMessage from '../../../common/ToastMessage.vue';
 
 const viewMode = ref('list'); // 'list', 'edit', 'preview', 'result'
 const surveysList = ref([]);
 const classStudents = ref([]); 
-const myTeacherProfile = ref({ id: '', class_code: '' });
+const myTeacherProfile = ref({ id: '', class_code: '', role: '' });
 const emit = defineEmits(['mode-change']);
+const formErrors = ref({ title: '', permission: '' });
+const titleInput = ref(null);
+const notice = ref({ message: '', type: 'success' });
+let noticeTimer;
+const isConfirmModalOpen = ref(false);
+const confirmAction = ref(null);
+const confirmModalConfig = ref({ title: '', message: '', confirmText: '確認', cancelText: '取消', icon: '⚠️', isDanger: false });
+
+const clearNotice = () => {
+  clearTimeout(noticeTimer);
+  notice.value = { message: '', type: 'success' };
+};
+const showNotice = (message, type = 'success') => {
+  clearNotice();
+  notice.value = { message, type };
+  noticeTimer = setTimeout(clearNotice, 4500);
+};
+const getWriteErrorMessage = (err) => {
+  const message = String(err?.message || '').toLowerCase();
+  if (err?.code === '42501' || /row-level security|permission|policy|not allowed|authorized/.test(message)) {
+    return '沒有班級發布權限，請確認教師帳號與班級設定。';
+  }
+  return '資料庫寫入失敗，請稍後再試。';
+};
+const openConfirm = (config, onConfirm) => {
+  confirmModalConfig.value = { ...confirmModalConfig.value, ...config };
+  confirmAction.value = onConfirm;
+  isConfirmModalOpen.value = true;
+};
+const handleModalConfirm = () => {
+  const action = confirmAction.value;
+  isConfirmModalOpen.value = false;
+  confirmAction.value = null;
+  action?.();
+};
+const handleModalCancel = () => { isConfirmModalOpen.value = false; confirmAction.value = null; };
 
 // 🌟 結算報告相關狀態
 const selectedSurvey = ref(null);
@@ -529,8 +581,11 @@ const aggregatedResults = computed(() => {
 const fetchData = async () => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
-  const { data: profile } = await supabase.from('profiles').select('id, class_code').eq('id', user.id).single();
-  if (!profile || !profile.class_code) return;
+  const { data: profile, error: profileError } = await supabase.from('profiles').select('id, class_code, role').eq('id', user.id).single();
+  if (profileError || !profile || profile.role !== 'teacher' || !profile.class_code) {
+    showNotice('沒有班級發布權限，請確認教師帳號與班級設定。', 'error');
+    return;
+  }
   myTeacherProfile.value = profile;
 
   // 🌟 抓取班級所有的學生名單 (用來比對誰還沒寫問卷)
@@ -638,12 +693,12 @@ const importSurvey = (e) => {
         importedData.status = 'draft'; 
 
         editingItem.value = importedData; 
-        alert('✅ 匯入成功！已載入為全新草稿。'); 
+        showNotice('匯入成功，已載入為全新草稿。');
       } else {
-        alert('❌ 檔案格式錯誤，找不到問卷資料！');
+        showNotice('檔案格式錯誤，找不到問卷資料。', 'error');
       }
     } catch (err) { 
-      alert('❌ JSON 解析失敗，請確認檔案是否損毀！'); 
+      showNotice('JSON 解析失敗，請確認檔案是否損毀。', 'error');
     }
   };
   reader.readAsText(file); 
@@ -651,22 +706,50 @@ const importSurvey = (e) => {
 };
 
 const saveSurvey = async (targetStatus) => {
-  if (!editingItem.value.title.trim()) { alert('請填寫問卷標題！'); return; }
+  formErrors.value = { title: '', permission: '' };
+  if (!editingItem.value.title.trim()) {
+    formErrors.value.title = '請填寫問卷標題。';
+    await nextTick();
+    titleInput.value?.focus();
+    return;
+  }
+  if (!myTeacherProfile.value.id || !myTeacherProfile.value.class_code || myTeacherProfile.value.role !== 'teacher') {
+    formErrors.value.permission = '沒有班級發布權限，請確認教師帳號與班級設定。';
+    return;
+  }
   try {
     const payload = {
       title: editingItem.value.title, description: editingItem.value.desc, deadline: editingItem.value.deadline || null,
       points: Number(editingItem.value.points) || 50, class_code: myTeacherProfile.value.class_code, status: targetStatus,
       created_by: myTeacherProfile.value.id, form_schema: editingItem.value.form_schema 
     };
-    if (editingItem.value.id) { await supabase.from('surveys').update(payload).eq('id', editingItem.value.id); } 
-    else { await supabase.from('surveys').insert(payload); }
-    alert('儲存成功！'); viewMode.value = 'list'; fetchData();
-  } catch (err) { alert('儲存失敗！'); }
+    const result = editingItem.value.id
+      ? await supabase.from('surveys').update(payload).eq('id', editingItem.value.id)
+      : await supabase.from('surveys').insert(payload);
+    if (result.error) throw result.error;
+    showNotice(targetStatus === 'active' ? '問卷已成功發布。' : '問卷草稿已儲存。');
+    viewMode.value = 'list';
+    await fetchData();
+  } catch (err) {
+    console.error('問卷儲存失敗:', err);
+    formErrors.value.permission = getWriteErrorMessage(err);
+    showNotice(formErrors.value.permission, 'error');
+  }
 };
 
-const updateStatus = async (item, newStatus) => { await supabase.from('surveys').update({ status: newStatus }).eq('id', item.id); fetchData(); };
-const triggerDelete = async (item) => {
-  if(confirm('確定要永久刪除此問卷嗎？')) { await supabase.from('surveys').delete().eq('id', item.id); fetchData(); }
+const updateStatus = async (item, newStatus) => {
+  const { error } = await supabase.from('surveys').update({ status: newStatus }).eq('id', item.id);
+  if (error) { showNotice(getWriteErrorMessage(error), 'error'); return; }
+  showNotice(newStatus === 'active' ? '問卷已發布。' : '問卷已結束。');
+  await fetchData();
+};
+const triggerDelete = (item) => {
+  openConfirm({ title: '刪除問卷', message: `確定要永久刪除「${item.title}」嗎？此動作無法復原。`, confirmText: '永久刪除', icon: '🗑️', isDanger: true }, async () => {
+    const { error } = await supabase.from('surveys').delete().eq('id', item.id);
+    if (error) { showNotice(getWriteErrorMessage(error), 'error'); return; }
+    showNotice('問卷已刪除。');
+    await fetchData();
+  });
 };
 
 watch(viewMode, (newMode) => emit('mode-change', newMode));
