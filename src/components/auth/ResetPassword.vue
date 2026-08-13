@@ -59,12 +59,13 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { supabase } from '../../supabase.js';
 
 const CODE_VALIDITY_SECONDS = 5 * 60;
 const RESEND_COOLDOWN_SECONDS = 60;
+const RECOVERY_STATE_KEY = 'code-quest:password-recovery';
 
 const router = useRouter();
 const step = ref('email');
@@ -90,6 +91,39 @@ const startTimer = () => {
   timerId = setInterval(() => { now.value = Date.now(); }, 1000);
 };
 
+const clearPendingRecovery = () => {
+  sessionStorage.removeItem(RECOVERY_STATE_KEY);
+};
+
+const savePendingRecovery = () => {
+  sessionStorage.setItem(RECOVERY_STATE_KEY, JSON.stringify({
+    email: email.value,
+    expiresAt: expiresAt.value,
+    resendAvailableAt: resendAvailableAt.value,
+  }));
+};
+
+const restorePendingRecovery = () => {
+  try {
+    const pendingRecovery = JSON.parse(sessionStorage.getItem(RECOVERY_STATE_KEY) || 'null');
+    if (!pendingRecovery?.email || !Number.isFinite(pendingRecovery.expiresAt) || pendingRecovery.expiresAt <= Date.now()) {
+      clearPendingRecovery();
+      return;
+    }
+
+    email.value = pendingRecovery.email;
+    expiresAt.value = pendingRecovery.expiresAt;
+    resendAvailableAt.value = Number.isFinite(pendingRecovery.resendAvailableAt)
+      ? pendingRecovery.resendAvailableAt
+      : 0;
+    now.value = Date.now();
+    step.value = 'code';
+    startTimer();
+  } catch {
+    clearPendingRecovery();
+  }
+};
+
 const sendRecoveryCode = async () => {
   clearError();
   const normalizedEmail = email.value.trim().toLowerCase();
@@ -107,6 +141,7 @@ const sendRecoveryCode = async () => {
     expiresAt.value = Date.now() + CODE_VALIDITY_SECONDS * 1000;
     resendAvailableAt.value = Date.now() + RESEND_COOLDOWN_SECONDS * 1000;
     now.value = Date.now();
+    savePendingRecovery();
     startTimer();
     step.value = 'code';
   } catch (error) {
@@ -142,6 +177,7 @@ const verifyRecoveryCode = async () => {
     });
     if (error) throw error;
     clearInterval(timerId);
+    clearPendingRecovery();
     code.value = '';
     step.value = 'password';
   } catch (error) {
@@ -182,12 +218,14 @@ const updatePassword = async () => {
 const startOver = () => {
   clearError();
   clearInterval(timerId);
+  clearPendingRecovery();
   code.value = '';
   expiresAt.value = 0;
   resendAvailableAt.value = 0;
   step.value = 'email';
 };
 
+onMounted(restorePendingRecovery);
 onBeforeUnmount(() => clearInterval(timerId));
 </script>
 
