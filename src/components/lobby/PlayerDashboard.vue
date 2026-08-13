@@ -753,7 +753,8 @@ const handleVisibilityChange = () => { if (document.visibilityState === 'visible
 // --- 監聽與生命週期 ---
 onMounted(async () => {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
     if (!user) {
       router.replace('/login');
       return;

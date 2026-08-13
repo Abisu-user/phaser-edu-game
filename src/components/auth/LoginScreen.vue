@@ -385,7 +385,7 @@ const handleLogin = async () => {
 
     const { data: profile } = await supabase
       .from('profiles')
-      .select('username, role')
+      .select('username, role, status')
       .eq('id', data.user.id)
       .single();
     
@@ -402,7 +402,7 @@ const handleLogin = async () => {
       return; 
     }
 
-    emit('login-success', profile?.username || '神秘勇者');
+    emit('login-success', data.session);
   } catch (err) {
     if (err.message.includes('Email not confirmed')) {
       showError('信箱尚未驗證！請去信箱收取驗證信。');

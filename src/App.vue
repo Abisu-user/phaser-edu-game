@@ -50,20 +50,27 @@ const getAuthRole = (user) => {
 
 const hydrateIdentity = async (providedSession = null) => {
   isAuthHydrating.value = true;
+  let session = providedSession;
   try {
-    const session = providedSession ?? (await supabase.auth.getSession()).data.session;
+    session = providedSession ?? (await supabase.auth.getSession()).data.session;
     if (!session) {
       currentPlayerName.value = '';
       currentUserRole.value = 'student';
       return null;
     }
 
+    currentPlayerName.value = session.user.email?.split('@')[0] || '';
+    currentUserRole.value = getAuthRole(session.user);
+
     const { data: profile, error } = await supabase
       .from('profiles')
       .select('username')
       .eq('id', session.user.id)
       .maybeSingle();
-    if (error) throw error;
+    if (error) {
+      console.warn('Unable to load optional profile during auth hydration:', error);
+      return session;
+    }
 
     currentPlayerName.value = profile?.username || session.user.email?.split('@')[0] || '玩家';
     currentUserRole.value = getAuthRole(session.user);
@@ -78,9 +85,9 @@ const hydrateIdentity = async (providedSession = null) => {
   }
 };
 
-const onLoginSuccess = async () => {
-  const session = await hydrateIdentity();
-  if (session) router.push('/dashboard');
+const onLoginSuccess = async (providedSession = null) => {
+  const session = await hydrateIdentity(providedSession?.access_token ? providedSession : null);
+  if (session) router.replace('/dashboard');
 };
 
 const handleLogout = async () => {
