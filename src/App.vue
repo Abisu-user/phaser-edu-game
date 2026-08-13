@@ -48,8 +48,8 @@ const getAuthRole = (user) => {
   return ['admin', 'teacher', 'student'].includes(role) ? role : 'student';
 };
 
-const hydrateIdentity = async (providedSession = null) => {
-  isAuthHydrating.value = true;
+const hydrateIdentity = async (providedSession = null, shouldBlockView = true) => {
+  if (shouldBlockView) isAuthHydrating.value = true;
   let session = providedSession;
   try {
     session = providedSession ?? (await supabase.auth.getSession()).data.session;
@@ -81,7 +81,7 @@ const hydrateIdentity = async (providedSession = null) => {
     currentUserRole.value = 'student';
     return null;
   } finally {
-    isAuthHydrating.value = false;
+    if (shouldBlockView) isAuthHydrating.value = false;
   }
 };
 
@@ -235,7 +235,9 @@ onMounted(async () => {
       currentUserRole.value = 'student';
       router.replace('/');
     } else if (event === 'SIGNED_IN' && session) {
-      void hydrateIdentity(session);
+      // Do not replace the current Login component with a global loading view
+      // here. The sign-in form still needs to emit login-success and navigate.
+      void hydrateIdentity(session, false);
     }
   });
   authSubscription = data.subscription;
