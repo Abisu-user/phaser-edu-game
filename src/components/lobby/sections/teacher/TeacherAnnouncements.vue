@@ -21,8 +21,11 @@
     </div>
 
     <div v-if="viewMode === 'list'" class="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-5 pb-4 min-h-0 animate-fade-in">
+      <div v-if="isLoading" class="space-y-5" aria-live="polite" aria-busy="true">
+        <div v-for="index in 3" :key="index" class="h-40 animate-pulse rounded-xl border border-[#333366] bg-[#0a0e27]/60"></div>
+      </div>
       
-      <div v-if="announcements.length === 0" class="flex flex-col items-center justify-center py-20 border-2 border-dashed border-[#333366] rounded-xl bg-[#0a0e27]/50 text-[#a0a0b8]">
+      <div v-else-if="announcements.length === 0" class="flex flex-col items-center justify-center py-20 border-2 border-dashed border-[#333366] rounded-xl bg-[#0a0e27]/50 text-[#a0a0b8]">
         <span class="text-5xl mb-4 opacity-50">📭</span>
         <p>目前還沒有任何公告，趕快發佈一個吧！</p>
       </div>
@@ -95,8 +98,8 @@
         <button @click="cancelEdit" class="px-5 py-2.5 rounded-lg font-bold text-[#a0a0b8] hover:bg-white/10 transition-colors mr-auto">
           取消
         </button>
-        <button @click="saveItem" class="px-6 py-2.5 rounded-lg font-bold text-[#16162a] bg-[#ffbb33] hover:bg-[#ffcc66] transition-all shadow-md flex items-center gap-2">
-          🚀 發佈公告
+        <button @click="saveItem" :disabled="isSaving" class="px-6 py-2.5 rounded-lg font-bold text-[#16162a] bg-[#ffbb33] hover:bg-[#ffcc66] disabled:cursor-not-allowed disabled:opacity-60 transition-all shadow-md flex items-center gap-2">
+          {{ isSaving ? '儲存中…' : '🚀 發佈公告' }}
         </button>
       </div>
     </div>
@@ -127,6 +130,8 @@ const editingItem = ref(null);
 const announcements = ref([]);
 const myTeacherProfile = ref({ id: '', class_code: '', role: '' });
 const formErrors = ref({ title: '', content: '', permission: '' });
+const isLoading = ref(false);
+const isSaving = ref(false);
 const titleInput = ref(null);
 const contentInput = ref(null);
 const notice = ref({ message: '', type: 'success' });
@@ -162,20 +167,27 @@ const initTeacher = async () => {
     return;
   }
   myTeacherProfile.value = profile;
-  await fetchData();
+  const { error } = await fetchData();
+  if (error) showNotice(getTeacherPublishErrorMessage(error), 'error');
 };
 
 const fetchData = async () => {
-  if (!myTeacherProfile.value.class_code) return;
+  if (!myTeacherProfile.value.class_code) {
+    announcements.value = [];
+    return { data: [], error: null };
+  }
+  isLoading.value = true;
   
   // 按照置頂狀態與建立時間排序 (置頂的在最上面，最新的在前面)
-  const { data } = await supabase.from('announcements')
+  const { data, error } = await supabase.from('announcements')
     .select('*')
     .eq('class_code', myTeacherProfile.value.class_code)
     .order('is_pinned', { ascending: false })
     .order('created_at', { ascending: false });
-  
-  if (data) announcements.value = data;
+  isLoading.value = false;
+  if (error) return { data: [], error };
+  announcements.value = data ?? [];
+  return { data: announcements.value, error: null };
 };
 
 const createNewItem = () => {
@@ -199,6 +211,7 @@ const cancelEdit = () => {
 };
 
 const saveItem = async () => {
+  if (isSaving.value) return;
   formErrors.value = {
     title: editingItem.value.title.trim() ? '' : '請填寫公告標題。',
     content: editingItem.value.content.trim() ? '' : '請填寫公告內容。',
@@ -217,6 +230,7 @@ const saveItem = async () => {
   }
   myTeacherProfile.value = profile;
 
+  isSaving.value = true;
   try {
     const payload = {
       title: editingItem.value.title,
@@ -228,20 +242,30 @@ const saveItem = async () => {
 
     let result;
     if (editingItem.value.id) {
-      result = await supabase.from('announcements').update(payload).eq('id', editingItem.value.id).select();
+      result = await supabase.from('announcements').update(payload).eq('id', editingItem.value.id).eq('created_by', myTeacherProfile.value.id).select().single();
     } else {
-      result = await supabase.from('announcements').insert(payload).select();
+      result = await supabase.from('announcements').insert(payload).select().single();
     }
 
     if (result.error) throw result.error;
+    if (!result.data?.id) throw new Error('公告儲存後未收到資料庫確認。');
 
-    showNotice('公告已成功發布。');
+    const { data: refreshedAnnouncements, error: refreshError } = await fetchData();
+    if (refreshError || !refreshedAnnouncements.some((announcement) => announcement.id === result.data.id)) {
+      editingItem.value = { ...editingItem.value, id: result.data.id };
+      throw new Error('公告已儲存，但讀取驗證失敗。請重新整理後確認。');
+    }
+
+    showNotice(editingItem.value.id ? '公告已成功更新。' : '公告已成功發布。');
     viewMode.value = 'list';
-    await fetchData();
   } catch (err) { 
     console.error('公告儲存失敗:', err);
-    formErrors.value.permission = getTeacherPublishErrorMessage(err);
+    formErrors.value.permission = err?.message === '公告已儲存，但讀取驗證失敗。請重新整理後確認。'
+      ? err.message
+      : getTeacherPublishErrorMessage(err);
     showNotice(formErrors.value.permission, 'error');
+  } finally {
+    isSaving.value = false;
   }
 };
 

@@ -29,28 +29,36 @@
     </div>
 
     <div class="flex-1 overflow-hidden min-h-0 relative">
-      <transition name="fade-slide" mode="out-in">
-        <TeacherPolls v-if="activeTab === 'polls'" ref="activeComponentRef" @mode-change="handleModeChange" />
-        <TeacherSurveys v-else-if="activeTab === 'surveys'" ref="activeComponentRef" @mode-change="handleModeChange" />
-      </transition>
+      <div v-if="isTabSwitching" class="h-full flex flex-col items-center justify-center gap-4 text-[#a0a0b8]" aria-live="polite" aria-busy="true">
+        <span class="w-10 h-10 rounded-full border-4 border-[#4299e1]/30 border-t-[#4299e1] animate-spin"></span>
+        <p class="font-bold">正在載入{{ activeTab === 'polls' ? '投票' : '問卷' }}資料…</p>
+      </div>
+      <TeacherPolls v-else-if="activeTab === 'polls'" key="polls" ref="activeComponentRef" @mode-change="handleModeChange" />
+      <TeacherSurveys v-else key="surveys" ref="activeComponentRef" @mode-change="handleModeChange" />
     </div>
 
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { nextTick, ref } from 'vue';
 import TeacherPolls from './TeacherPolls.vue'; 
 import TeacherSurveys from './TeacherSurveys.vue'; 
 
 const activeTab = ref('polls'); 
 const childViewMode = ref('list'); // 追蹤子元件目前的模式 (列表或編輯)
 const activeComponentRef = ref(null); // 用來抓取目前顯示的子元件
+const isTabSwitching = ref(false);
 
 // 切換頁籤時，重置模式
-const switchTab = (tab) => {
+const switchTab = async (tab) => {
+  if (tab === activeTab.value || isTabSwitching.value) return;
+  isTabSwitching.value = true;
+  activeComponentRef.value = null;
   activeTab.value = tab;
   childViewMode.value = 'list'; 
+  await nextTick();
+  isTabSwitching.value = false;
 };
 
 // 接收子元件傳來的模式變化 (隱藏或顯示建立按鈕)
