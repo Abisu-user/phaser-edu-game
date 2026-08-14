@@ -919,7 +919,7 @@ export default class EndlessScene extends Phaser.Scene {
     const shadow = this.add.ellipse(0, this.tileSize * 0.3, this.tileSize * 0.65, this.tileSize * 0.2, 0x030712, 0.6);
     const glow = this.add.circle(0, 0, this.tileSize * 0.48, 0x38bdf8, 0.12).setBlendMode(Phaser.BlendModes.ADD);
     const rune = this.add.circle(0, this.tileSize * 0.08, this.tileSize * 0.34).setStrokeStyle(2, 0x60a5fa, 0.55).setFillStyle(0x0c4a6e, 0.08);
-    const hero = this.add.image(0, 0, 'dungeon-hero').setDisplaySize(this.tileSize * 1.16, this.tileSize * 1.16);
+    const hero = this.createDungeonArt('dungeon-hero', this.tileSize * 1.5);
     this.playerAura = this.add.circle(0, 0, this.tileSize * 0.38, 0x38bdf8, 0.14).setBlendMode(Phaser.BlendModes.ADD);
     this.tweens.add({ targets: glow, scale: 1.18, alpha: 0.08, duration: 900, yoyo: true, repeat: -1 });
     this.tweens.add({ targets: rune, angle: 360, duration: 7000, repeat: -1 });
@@ -940,6 +940,33 @@ export default class EndlessScene extends Phaser.Scene {
       this.tweens.add({ targets: this.playerHero, y: -this.tileSize * 0.08, angle: dx * 5, scaleY: 0.93, duration: 90, yoyo: true, repeat: 1, ease: 'Sine.easeInOut', onComplete: () => this.playerHero?.setAngle(0).setScale(1) });
     }
     return new Promise(resolve => this.tweens.add({ targets: this.player, x: targetX, y: targetY, duration: 210, ease: 'Sine.easeInOut', onComplete: resolve }));
+  }
+
+  createDungeonArt(textureKey, targetSize) {
+    const art = this.add.image(0, 0, textureKey);
+    const source = art.texture?.getSourceImage?.();
+    const width = source?.width || 1;
+    const height = source?.height || 1;
+    const scale = targetSize / Math.max(width, height);
+    return art.setScale(scale, scale);
+  }
+
+  getEnemyArtSize(enemyId, isBoss = false) {
+    if (enemyId === 'patrol_bug' || enemyId === 'tracker_virus' || enemyId === 'void_creeper') {
+      return this.tileSize * (isBoss ? 0.95 : 0.62);
+    }
+    return this.tileSize * (isBoss ? 1.08 : 0.84);
+  }
+
+  createTerminalArt(x, y, color) {
+    const glow = this.add.circle(0, 0, this.tileSize * 0.42, color, 0.16).setBlendMode(Phaser.BlendModes.ADD);
+    const arch = this.add.rectangle(0, 0, this.tileSize * 0.5, this.tileSize * 0.66, 0x23130e).setStrokeStyle(2, color, 0.95);
+    const portal = this.add.ellipse(0, 0, this.tileSize * 0.26, this.tileSize * 0.42, color, 0.78).setStrokeStyle(2, 0xfff7d6, 0.8);
+    const rune = this.add.circle(0, 0, this.tileSize * 0.055, 0xfff7d6, 0.95).setBlendMode(Phaser.BlendModes.ADD);
+    const sprite = this.add.container(x, y, [glow, arch, portal, rune]).setDepth(25);
+    this.tweens.add({ targets: [glow, portal], scale: 1.12, alpha: 0.38, duration: 800, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    this.tweens.add({ targets: rune, scale: 1.8, alpha: 0.25, duration: 520, yoyo: true, repeat: -1 });
+    return sprite;
   }
 
   playPlayerCastPose(dx, dy, skillName) {
@@ -1113,7 +1140,7 @@ export default class EndlessScene extends Phaser.Scene {
     const shadow = this.add.ellipse(0, this.tileSize * 0.28, this.tileSize * 0.65 * spriteScale, this.tileSize * 0.18, 0x030712, 0.65);
     const auraColor = config.isBoss ? 0xfb7185 : (id === 'ghost' ? 0x67e8f9 : 0xa78bfa);
     const aura = this.add.circle(0, 0, this.tileSize * 0.34 * spriteScale, auraColor, config.isBoss ? 0.2 : 0.1).setBlendMode(Phaser.BlendModes.ADD);
-    const enemyArt = this.add.image(0, 0, textureKey).setDisplaySize(this.tileSize * 0.96 * spriteScale, this.tileSize * 0.96 * spriteScale);
+    const enemyArt = this.createDungeonArt(textureKey, this.getEnemyArtSize(id, config.isBoss) * spriteScale);
     this.tweens.add({ targets: aura, alpha: config.isBoss ? 0.06 : 0.03, scale: 1.16, duration: config.isBoss ? 600 : 1000, yoyo: true, repeat: -1 });
 
     const barWidth = this.tileSize * 0.65;
@@ -1200,10 +1227,8 @@ export default class EndlessScene extends Phaser.Scene {
     // 底部的魔法陣光環
     this.add.circle(px, py, this.tileSize * 0.6, terminalColor, 0.2);
     // 石雕底座
-    const sprite = this.add.rectangle(px, py, this.tileSize - 6, this.tileSize - 6, 0x2A1810, 0.6)
-        .setStrokeStyle(3, terminalColor, 0.8);
+    const sprite = this.createTerminalArt(px, py, terminalColor);
     // 階梯或門扉
-    this.add.text(px, py, '🚪', { fontSize: '32px' }).setOrigin(0.5);
     
     this.terminal = { gx: pos.gx, gy: pos.gy, sprite };
   }
@@ -1372,9 +1397,7 @@ export default class EndlessScene extends Phaser.Scene {
         let terminalColor = 0x00ff00;
         if (this.levelConfig.winCondition.type === 'collect_keys') terminalColor = 0xeab308; 
         if (this.levelConfig.winCondition.type === 'kill_enemies' || this.levelConfig.winCondition.type === 'exterminate') terminalColor = 0xef4444;
-        const sprite = this.add.rectangle(tx, ty, this.tileSize, this.tileSize, terminalColor, 0.3);
-        const fontSize = Math.floor(this.tileSize * 0.6) + 'px';
-        this.add.text(tx, ty, '🏁', { fontSize }).setOrigin(0.5);
+        const sprite = this.createTerminalArt(tx, ty, terminalColor);
         this.terminal = { gx: data.terminal.gx, gy: data.terminal.gy, sprite };
     }
 
@@ -1398,7 +1421,7 @@ export default class EndlessScene extends Phaser.Scene {
         const shadow = this.add.ellipse(0, this.tileSize * 0.28, this.tileSize * 0.65 * spriteScale, this.tileSize * 0.18, 0x030712, 0.65);
         const auraColor = config.isBoss ? 0xfb7185 : (e.id === 'ghost' ? 0x67e8f9 : 0xa78bfa);
         const aura = this.add.circle(0, 0, this.tileSize * 0.34 * spriteScale, auraColor, config.isBoss ? 0.2 : 0.1).setBlendMode(Phaser.BlendModes.ADD);
-        const enemyArt = this.add.image(0, 0, textureKey).setDisplaySize(this.tileSize * 0.96 * spriteScale, this.tileSize * 0.96 * spriteScale);
+        const enemyArt = this.createDungeonArt(textureKey, this.getEnemyArtSize(e.id, config.isBoss) * spriteScale);
         this.tweens.add({ targets: aura, alpha: config.isBoss ? 0.06 : 0.03, scale: 1.16, duration: config.isBoss ? 600 : 1000, yoyo: true, repeat: -1 });
 
         const barWidth = this.tileSize * 0.7;
