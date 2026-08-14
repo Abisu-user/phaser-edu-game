@@ -936,8 +936,10 @@ export default class EndlessScene extends Phaser.Scene {
     const footstep = this.add.ellipse(this.player.x, this.player.y + this.tileSize * 0.3, this.tileSize * 0.3, this.tileSize * 0.1, 0x93c5fd, 0.5).setDepth(19);
     this.tweens.add({ targets: footstep, scaleX: 1.8, alpha: 0, duration: 210, onComplete: () => footstep.destroy() });
     if (this.playerHero) {
+      const baseScale = this.playerHero.getData('baseScale') || this.playerHero.scaleX || 1;
       this.tweens.killTweensOf(this.playerHero);
-      this.tweens.add({ targets: this.playerHero, y: -this.tileSize * 0.08, angle: dx * 5, scaleY: 0.93, duration: 90, yoyo: true, repeat: 1, ease: 'Sine.easeInOut', onComplete: () => this.playerHero?.setAngle(0).setScale(1) });
+      this.playerHero.setScale(baseScale);
+      this.tweens.add({ targets: this.playerHero, y: -this.tileSize * 0.08, angle: dx * 5, scaleY: baseScale * 0.93, duration: 90, yoyo: true, repeat: 1, ease: 'Sine.easeInOut', onComplete: () => this.playerHero?.setAngle(0).setScale(baseScale) });
     }
     return new Promise(resolve => this.tweens.add({ targets: this.player, x: targetX, y: targetY, duration: 210, ease: 'Sine.easeInOut', onComplete: resolve }));
   }
@@ -948,7 +950,9 @@ export default class EndlessScene extends Phaser.Scene {
     const width = source?.width || 1;
     const height = source?.height || 1;
     const scale = targetSize / Math.max(width, height);
-    return art.setScale(scale, scale);
+    art.setScale(scale, scale);
+    art.setData('baseScale', scale);
+    return art;
   }
 
   getEnemyArtSize(enemyId, isBoss = false) {
@@ -972,8 +976,10 @@ export default class EndlessScene extends Phaser.Scene {
   playPlayerCastPose(dx, dy, skillName) {
     if (!this.playerHero) return;
     const castAngle = dx === 0 ? 0 : dx * 7;
+    const baseScale = this.playerHero.getData('baseScale') || this.playerHero.scaleX || 1;
     this.tweens.killTweensOf(this.playerHero);
-    this.tweens.add({ targets: this.playerHero, scale: 1.1, angle: castAngle, duration: 110, yoyo: true, ease: 'Back.easeOut', onComplete: () => this.playerHero?.setScale(1).setAngle(0) });
+    this.playerHero.setScale(baseScale);
+    this.tweens.add({ targets: this.playerHero, scaleX: baseScale * 1.1, scaleY: baseScale * 1.1, angle: castAngle, duration: 110, yoyo: true, ease: 'Back.easeOut', onComplete: () => this.playerHero?.setScale(baseScale).setAngle(0) });
     if (this.playerAura) {
       const color = skillName === 'bomb' ? 0xfb7185 : skillName === 'shoot' ? 0xfbbf24 : 0x67e8f9;
       this.playerAura.setFillStyle(color, 0.5).setAlpha(0.5);
@@ -1264,11 +1270,12 @@ export default class EndlessScene extends Phaser.Scene {
     if (!enemyArt) return;
     const isSlime = enemyId === 'slime';
     const isCrawler = enemyId === 'patrol_bug' || enemyId === 'tracker_virus' || enemyId === 'void_creeper';
+    const baseScale = enemyArt.getData('baseScale') || enemyArt.scaleX || 1;
     this.tweens.add({
       targets: enemyArt,
       y: isCrawler ? this.tileSize * 0.025 : -this.tileSize * 0.045,
-      scaleX: isSlime ? 1.06 : 1,
-      scaleY: isSlime ? 0.92 : 1,
+      scaleX: isSlime ? baseScale * 1.06 : baseScale,
+      scaleY: isSlime ? baseScale * 0.92 : baseScale,
       duration: isBoss ? 520 : 860,
       yoyo: true,
       repeat: -1,
