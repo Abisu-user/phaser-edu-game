@@ -4,8 +4,8 @@ import { HAZARD_DICT } from '../config/Hazards';
 import { ROOM_TYPES, FLOOR_CONFIG } from '../config/LevelRules';
 import { SKILL_DICT, compileToBehavior } from '../config/PlayerSkills';
 import { COMMAND_DICT } from '../config/CommandList';
-import arcaneApprenticeUrl from '../../assets/dungeon/arcane-apprentice.png';
-import slimeUrl from '../../assets/dungeon/slime.png';
+import arcaneRunnerUrl from '../../assets/dungeon/arcane-runner.png';
+import luminousSlimeUrl from '../../assets/dungeon/slime-luminous.png';
 import goblinUrl from '../../assets/dungeon/goblin.png';
 import skeletonUrl from '../../assets/dungeon/skeleton.png';
 import ghostUrl from '../../assets/dungeon/ghost.png';
@@ -14,8 +14,8 @@ import voidSpiderUrl from '../../assets/dungeon/void-spider.png';
 import demonBossUrl from '../../assets/dungeon/demon-boss.png';
 
 const DUNGEON_TEXTURES = {
-  'dungeon-hero': arcaneApprenticeUrl,
-  'dungeon-slime': slimeUrl,
+  'dungeon-hero': arcaneRunnerUrl,
+  'dungeon-slime': luminousSlimeUrl,
   'dungeon-goblin': goblinUrl,
   'dungeon-skeleton': skeletonUrl,
   'dungeon-ghost': ghostUrl,
@@ -25,7 +25,7 @@ const DUNGEON_TEXTURES = {
 };
 
 const ENEMY_TEXTURE_KEYS = {
-  patrol_bug: 'dungeon-slime',
+  patrol_bug: 'dungeon-void-spider',
   tracker_virus: 'dungeon-void-spider',
   slime: 'dungeon-slime',
   goblin: 'dungeon-goblin',
@@ -451,14 +451,14 @@ export default class EndlessScene extends Phaser.Scene {
       const isEnemy = this.enemies.some(e => e.gx === tx && e.gy === ty);
 
       if (!isOutOfBounds && !isWall && !isEnemy) {
+        const fromX = this.playerGridX;
+        const fromY = this.playerGridY;
         this.playerGridX = tx;
         this.playerGridY = ty;
         const px = this.startX + tx * this.tileSize;
         const py = this.startY + ty * this.tileSize;
 
-        await new Promise(resolve => {
-          this.tweens.add({ targets: this.player, x: px, y: py, duration: 200, onComplete: resolve });
-        });
+        await this.playPlayerWalk(px, py, tx - fromX, ty - fromY);
         this.checkInteractions();
         this.updateEnemyRadar();
         return;
@@ -496,10 +496,7 @@ export default class EndlessScene extends Phaser.Scene {
     if (originX === null) {
       this.playerFacing = { dx, dy };
       this.playCastEffect(this.player.x, this.player.y, skillName);
-      if (this.playerBody) {
-        this.playerBody.fillColor = 0xFFD700; // 詠唱時閃爍耀眼金光
-        setTimeout(() => { if (this.playerBody) this.playerBody.fillColor = 0x4299E1; }, 300); // 恢復魔法藍
-      }
+      this.playPlayerCastPose(dx, dy, skillName);
     }
 
     // 遺物判定：雙重連擊 (modifier_double)
@@ -818,10 +815,10 @@ export default class EndlessScene extends Phaser.Scene {
   // 補回斷電特效
   showBlackoutEffect() {
     this.cameras.main.shake(300, 0.015);
-    if (this.playerBody) {
-        this.playerBody.fillColor = 0x333333; 
+    if (this.playerAura) {
+        this.playerAura.setFillStyle(0x111827, 0.34);
         this.time.delayedCall(1000, () => {
-            if (this.playerBody) this.playerBody.fillColor = 0x6366f1; 
+            if (this.playerAura) this.playerAura.setFillStyle(0x38bdf8, 0.14);
         });
     }
     const px = this.startX + this.playerGridX * this.tileSize;
@@ -899,8 +896,10 @@ export default class EndlessScene extends Phaser.Scene {
   }
 
   setupPlayer() {
-    this.playerGridX = Phaser.Math.Between(0, this.cols - 1);
-    this.playerGridY = Phaser.Math.Between(0, this.rows - 1);
+    // The starting tile and its four neighbours are protected from walls.
+    // This prevents unwinnable starts and keeps the exit meaningfully distant.
+    this.playerGridX = 1;
+    this.playerGridY = Math.max(1, this.rows - 2);
     this.playerFacing = { dx: 0, dy: -1 }; 
 
     const px = this.startX + this.playerGridX * this.tileSize;
@@ -918,25 +917,51 @@ export default class EndlessScene extends Phaser.Scene {
   createPlayerGraphic(x, y) {
     if (this.player) this.player.destroy();
     const shadow = this.add.ellipse(0, this.tileSize * 0.3, this.tileSize * 0.65, this.tileSize * 0.2, 0x030712, 0.6);
-    const glow = this.add.circle(0, 0, this.tileSize * 0.48, 0x38bdf8, 0.18).setBlendMode(Phaser.BlendModes.ADD);
+    const glow = this.add.circle(0, 0, this.tileSize * 0.48, 0x38bdf8, 0.12).setBlendMode(Phaser.BlendModes.ADD);
     const rune = this.add.circle(0, this.tileSize * 0.08, this.tileSize * 0.34).setStrokeStyle(2, 0x60a5fa, 0.55).setFillStyle(0x0c4a6e, 0.08);
-    const hero = this.add.image(0, 0, 'dungeon-hero').setDisplaySize(this.tileSize * 1.2, this.tileSize * 1.2);
-    this.playerBody = this.add.circle(0, 0, this.tileSize * 0.45, 0x93c5fd, 0).setBlendMode(Phaser.BlendModes.ADD);
+    const hero = this.add.image(0, 0, 'dungeon-hero').setDisplaySize(this.tileSize * 1.16, this.tileSize * 1.16);
+    this.playerAura = this.add.circle(0, 0, this.tileSize * 0.38, 0x38bdf8, 0.14).setBlendMode(Phaser.BlendModes.ADD);
     this.tweens.add({ targets: glow, scale: 1.18, alpha: 0.08, duration: 900, yoyo: true, repeat: -1 });
     this.tweens.add({ targets: rune, angle: 360, duration: 7000, repeat: -1 });
 
-    this.player = this.add.container(x, y, [shadow, glow, rune, hero, this.playerBody]);
+    this.player = this.add.container(x, y, [shadow, glow, rune, this.playerAura, hero]);
+    this.playerHero = hero;
+    this.playerShadow = shadow;
     this.player.setDepth(20);
+  }
+
+  playPlayerWalk(targetX, targetY, dx, dy) {
+    if (!this.player) return Promise.resolve();
+    if (this.playerHero && dx !== 0) this.playerHero.setFlipX(dx < 0);
+    const footstep = this.add.ellipse(this.player.x, this.player.y + this.tileSize * 0.3, this.tileSize * 0.3, this.tileSize * 0.1, 0x93c5fd, 0.5).setDepth(19);
+    this.tweens.add({ targets: footstep, scaleX: 1.8, alpha: 0, duration: 210, onComplete: () => footstep.destroy() });
+    if (this.playerHero) {
+      this.tweens.killTweensOf(this.playerHero);
+      this.tweens.add({ targets: this.playerHero, y: -this.tileSize * 0.08, angle: dx * 5, scaleY: 0.93, duration: 90, yoyo: true, repeat: 1, ease: 'Sine.easeInOut', onComplete: () => this.playerHero?.setAngle(0).setScale(1) });
+    }
+    return new Promise(resolve => this.tweens.add({ targets: this.player, x: targetX, y: targetY, duration: 210, ease: 'Sine.easeInOut', onComplete: resolve }));
+  }
+
+  playPlayerCastPose(dx, dy, skillName) {
+    if (!this.playerHero) return;
+    const castAngle = dx === 0 ? 0 : dx * 7;
+    this.tweens.killTweensOf(this.playerHero);
+    this.tweens.add({ targets: this.playerHero, scale: 1.1, angle: castAngle, duration: 110, yoyo: true, ease: 'Back.easeOut', onComplete: () => this.playerHero?.setScale(1).setAngle(0) });
+    if (this.playerAura) {
+      const color = skillName === 'bomb' ? 0xfb7185 : skillName === 'shoot' ? 0xfbbf24 : 0x67e8f9;
+      this.playerAura.setFillStyle(color, 0.5).setAlpha(0.5);
+      this.tweens.add({ targets: this.playerAura, alpha: 0.1, scale: 1.45, duration: 280, onComplete: () => this.playerAura?.setScale(1).setFillStyle(0x38bdf8, 0.14) });
+    }
   }
 
   playCastEffect(x, y, skillName) {
     if (!this.player) return;
     const color = skillName === 'bomb' ? 0xfb7185 : skillName === 'laser' ? 0x22d3ee : 0xa78bfa;
     const ring = this.add.circle(x, y, this.tileSize * 0.2).setStrokeStyle(3, color, 0.9).setFillStyle(color, 0.08).setDepth(42);
-    const flash = this.playerBody;
+    const flash = this.playerAura;
     if (flash) {
       flash.setFillStyle(color, 0.5).setAlpha(0.5);
-      this.tweens.add({ targets: flash, alpha: 0, duration: 260 });
+      this.tweens.add({ targets: flash, alpha: 0.7, duration: 260, onComplete: () => flash.setAlpha(1) });
     }
     this.tweens.add({
       targets: ring,
@@ -986,6 +1011,7 @@ export default class EndlessScene extends Phaser.Scene {
     // 🧱 奇幻化：產生阻擋冒險者的「古老石壁」
     const wallCount = Math.floor(this.cols * this.rows * 0.20); 
     this.spawnWalls(wallCount);
+    this.ensurePlayerEscapeRoute();
 
     // 👾 奇幻化：召喚深淵魔物
     for (let i = 0; i < this.levelConfig.enemyCount; i++) {
@@ -1027,9 +1053,12 @@ export default class EndlessScene extends Phaser.Scene {
   }
 
   spawnWalls(count) {
-    for (let i = 0; i < count; i++) {
-      const pos = this.getRandomEmptyGrid();
-      if (!pos) break; 
+    let placed = 0;
+    let attempts = 0;
+    while (placed < count && attempts < count * 20) {
+      attempts++;
+      const pos = this.getRandomEmptyGrid(({ gx, gy }) => !this.isProtectedGrid(gx, gy));
+      if (!pos) break;
       
       // 🧱 古老石壁與黑岩
       const sprite = this.add.rectangle(pos.px, pos.py, this.tileSize - 2, this.tileSize - 2, 0x2A1810)
@@ -1041,6 +1070,12 @@ export default class EndlessScene extends Phaser.Scene {
       }
       
       this.walls.push({ gx: pos.gx, gy: pos.gy, sprite });
+      if (this.hasGridRoute()) {
+        placed++;
+      } else {
+        sprite.destroy();
+        this.walls.pop();
+      }
     }
   }
 
@@ -1096,6 +1131,7 @@ export default class EndlessScene extends Phaser.Scene {
 
     // 把所有東西打包進一個 Container
     const container = this.add.container(px, py, [shadow, aura, enemyArt, spriteText, hpBg, hpFill, atkText]).setDepth(30);
+    this.playEnemyIdleMotion(enemyArt, id, config.isBoss);
 
     // 將狀態存入 enemies 陣列
     this.enemies.push({ 
@@ -1137,11 +1173,20 @@ export default class EndlessScene extends Phaser.Scene {
       if (!tempPos) break;
       const distance = Math.abs(tempPos.gx - this.playerGridX) + Math.abs(tempPos.gy - this.playerGridY);
       // 確保入口距離玩家夠遠
-      if (distance >= Math.floor(this.cols / 1.5)) pos = tempPos;
+      if (distance >= Math.max(4, Math.floor(this.cols / 1.25))) pos = tempPos;
       attempts++;
     } while (!pos && attempts < 100);
 
-    if (!pos) pos = this.getRandomEmptyGrid();
+    if (!pos) {
+      const candidates = [];
+      for (let gy = 0; gy < this.rows; gy++) {
+        for (let gx = 0; gx < this.cols; gx++) {
+          if (this.isGridEmpty(gx, gy)) candidates.push({ gx, gy, distance: Math.abs(gx - this.playerGridX) + Math.abs(gy - this.playerGridY) });
+        }
+      }
+      candidates.sort((a, b) => b.distance - a.distance);
+      pos = candidates[0] || null;
+    }
     if (!pos) pos = { gx: this.cols - 1, gy: 0 };
 
     const px = this.startX + pos.gx * this.tileSize;
@@ -1177,16 +1222,75 @@ export default class EndlessScene extends Phaser.Scene {
     return true;
   }
 
-  getRandomEmptyGrid() {
+  getRandomEmptyGrid(filter = null) {
     let gx, gy, attempts = 0;
-    do {
+    while (attempts < 200) {
       gx = Phaser.Math.Between(0, this.cols - 1);
       gy = Phaser.Math.Between(0, this.rows - 1);
       attempts++;
-      if (attempts > 200) return null; 
-    } while (!this.isGridEmpty(gx, gy));
+      if (this.isGridEmpty(gx, gy) && (!filter || filter({ gx, gy }))) {
+        return { gx, gy, px: this.startX + gx * this.tileSize, py: this.startY + gy * this.tileSize };
+      }
+    }
+    return null;
+  }
 
-    return { gx, gy, px: this.startX + gx * this.tileSize, py: this.startY + gy * this.tileSize };
+  playEnemyIdleMotion(enemyArt, enemyId, isBoss = false) {
+    if (!enemyArt) return;
+    const isSlime = enemyId === 'slime';
+    const isCrawler = enemyId === 'patrol_bug' || enemyId === 'tracker_virus' || enemyId === 'void_creeper';
+    this.tweens.add({
+      targets: enemyArt,
+      y: isCrawler ? this.tileSize * 0.025 : -this.tileSize * 0.045,
+      scaleX: isSlime ? 1.06 : 1,
+      scaleY: isSlime ? 0.92 : 1,
+      duration: isBoss ? 520 : 860,
+      yoyo: true,
+      repeat: -1,
+      ease: isSlime ? 'Sine.easeInOut' : 'Quad.easeInOut'
+    });
+  }
+
+  isProtectedGrid(gx, gy) {
+    const nearPlayer = Math.abs(gx - this.playerGridX) + Math.abs(gy - this.playerGridY) <= 1;
+    const nearTerminal = this.terminal && Math.abs(gx - this.terminal.gx) + Math.abs(gy - this.terminal.gy) <= 1;
+    return nearPlayer || nearTerminal;
+  }
+
+  hasGridRoute() {
+    if (!this.terminal) return true;
+    const queue = [{ gx: this.playerGridX, gy: this.playerGridY }];
+    const visited = new Set([`${this.playerGridX},${this.playerGridY}`]);
+    const directions = [[0, -1], [0, 1], [-1, 0], [1, 0]];
+    while (queue.length) {
+      const current = queue.shift();
+      if (current.gx === this.terminal.gx && current.gy === this.terminal.gy) return true;
+      directions.forEach(([dx, dy]) => {
+        const gx = current.gx + dx;
+        const gy = current.gy + dy;
+        const key = `${gx},${gy}`;
+        if (gx < 0 || gx >= this.cols || gy < 0 || gy >= this.rows || visited.has(key)) return;
+        if (this.walls.some(wall => wall.gx === gx && wall.gy === gy)) return;
+        visited.add(key);
+        queue.push({ gx, gy });
+      });
+    }
+    return false;
+  }
+
+  ensurePlayerEscapeRoute() {
+    const adjacentWalls = this.walls.filter(wall => Math.abs(wall.gx - this.playerGridX) + Math.abs(wall.gy - this.playerGridY) <= 1);
+    adjacentWalls.forEach(wall => wall.sprite.destroy());
+    this.walls = this.walls.filter(wall => !adjacentWalls.includes(wall));
+    if (this.hasGridRoute() || !this.terminal) return;
+
+    // A fallback for legacy saved maps: carve a direct L-shaped corridor to the exit.
+    const corridor = new Set();
+    for (let gx = Math.min(this.playerGridX, this.terminal.gx); gx <= Math.max(this.playerGridX, this.terminal.gx); gx++) corridor.add(`${gx},${this.playerGridY}`);
+    for (let gy = Math.min(this.playerGridY, this.terminal.gy); gy <= Math.max(this.playerGridY, this.terminal.gy); gy++) corridor.add(`${this.terminal.gx},${gy}`);
+    const blocked = this.walls.filter(wall => corridor.has(`${wall.gx},${wall.gy}`));
+    blocked.forEach(wall => wall.sprite.destroy());
+    this.walls = this.walls.filter(wall => !blocked.includes(wall));
   }
 
   getGridFromPointer(pointer) {
@@ -1312,6 +1416,7 @@ export default class EndlessScene extends Phaser.Scene {
         }).setOrigin(0.5);
 
         const container = this.add.container(ex, ey, [shadow, aura, enemyArt, spriteText, hpBg, hpFill, atkText]).setDepth(30);
+        this.playEnemyIdleMotion(enemyArt, e.id, config.isBoss);
 
         this.enemies.push({ 
           id: e.id, 
@@ -1343,6 +1448,10 @@ export default class EndlessScene extends Phaser.Scene {
         const sprite = this.add.text(this.startX + k.gx * this.tileSize, this.startY + k.gy * this.tileSize, '🔑', { fontSize }).setOrigin(0.5);
         this.keys.push({ gx: k.gx, gy: k.gy, sprite });
     });
+
+    // Older saved floors may predate safe-spawn generation. Repair only walls
+    // that can trap the player while preserving the rest of the exploration.
+    this.ensurePlayerEscapeRoute();
 
     this.enemiesKilled = data.enemiesKilled || 0;
     this.keysCollected = data.keysCollected || 0;

@@ -9,7 +9,7 @@ class AsyncProjectile {
     this.active = true;
     
     // 視覺外觀設定
-    this.emoji = options.emoji || '🚀';
+    this.visual = options.visual || 'arcane';
     this.duration = options.duration || 150;
     this.isSpinning = options.isSpinning || false;
     this.leaveTrail = options.leaveTrail || false;
@@ -19,9 +19,7 @@ class AsyncProjectile {
     const px = this.scene.startX + this.gx * this.scene.tileSize;
     const py = this.scene.startY + this.gy * this.scene.tileSize;
     
-    this.sprite = this.scene.add.text(px, py, this.emoji, { 
-      fontSize: (this.scene.tileSize * 0.7 * this.scale) + 'px' 
-    }).setOrigin(0.5);
+    this.sprite = this.createVisual(px, py);
 
     if (this.isSpinning) {
       this.spinTween = this.scene.tweens.add({
@@ -31,6 +29,60 @@ class AsyncProjectile {
   }
 
   // 共用的移動邏輯
+  createVisual(px, py) {
+    const size = this.scene.tileSize * this.scale;
+    const visual = this.scene.add.container(px, py).setDepth(56);
+    const glowColor = this.visual === 'arrow' ? 0xfbbf24 : this.visual === 'bomb' ? 0xfb7185 : this.visual === 'boomerang' ? 0xc4b5fd : 0x67e8f9;
+    const glow = this.scene.add.circle(0, 0, size * 0.22, glowColor, 0.24).setBlendMode(Phaser.BlendModes.ADD);
+    const parts = [glow];
+
+    if (this.visual === 'arrow') {
+      const shaft = this.scene.add.rectangle(0, 0, size * 0.55, Math.max(3, size * 0.07), 0xfde68a).setStrokeStyle(1, 0x92400e);
+      const tip = this.scene.add.triangle(size * 0.31, 0, -size * 0.11, -size * 0.16, -size * 0.11, size * 0.16, size * 0.19, 0, 0xffffff).setStrokeStyle(1, 0x7c2d12);
+      const fletching = this.scene.add.triangle(-size * 0.27, 0, size * 0.13, -size * 0.16, size * 0.13, size * 0.16, -size * 0.13, 0, 0x38bdf8);
+      parts.push(shaft, tip, fletching);
+    } else if (this.visual === 'bomb') {
+      parts.push(this.scene.add.circle(0, 0, size * 0.19, 0xfb7185).setStrokeStyle(2, 0xfef2f2), this.scene.add.circle(size * 0.1, -size * 0.12, size * 0.06, 0xfde68a));
+    } else if (this.visual === 'boomerang') {
+      const arc = this.scene.add.graphics();
+      arc.lineStyle(Math.max(3, size * 0.08), 0xc4b5fd, 1);
+      arc.beginPath();
+      arc.arc(0, 0, size * 0.23, Phaser.Math.DegToRad(35), Phaser.Math.DegToRad(285), false);
+      arc.strokePath();
+      parts.push(arc);
+    } else {
+      parts.push(this.scene.add.circle(0, 0, size * 0.14, 0xe0f2fe), this.scene.add.circle(0, 0, size * 0.09, 0x22d3ee).setBlendMode(Phaser.BlendModes.ADD));
+      for (let index = 0; index < 4; index++) {
+        const angle = (Math.PI * 2 * index) / 4;
+        parts.push(this.scene.add.circle(Math.cos(angle) * size * 0.22, Math.sin(angle) * size * 0.22, size * 0.035, 0xa5f3fc));
+      }
+    }
+    visual.add(parts);
+    return visual;
+  }
+
+  spawnTrail() {
+    const px = this.scene.startX + this.gx * this.scene.tileSize;
+    const py = this.scene.startY + this.gy * this.scene.tileSize;
+    const color = this.visual === 'arrow' ? 0xfbbf24 : 0x67e8f9;
+    const trail = this.scene.add.circle(px, py, this.scene.tileSize * 0.12, color, 0.45).setDepth(54).setBlendMode(Phaser.BlendModes.ADD);
+    this.scene.tweens.add({ targets: trail, scale: 2.3, alpha: 0, duration: 260, onComplete: () => trail.destroy() });
+  }
+
+  explode() {
+    if (!this.sprite?.active) return;
+    this.sprite.removeAll(true);
+    const size = this.scene.tileSize * this.scale;
+    const core = this.scene.add.circle(0, 0, size * 0.22, 0xfef3c7).setBlendMode(Phaser.BlendModes.ADD);
+    this.sprite.add(core);
+    for (let index = 0; index < 8; index++) {
+      const angle = (Math.PI * 2 * index) / 8;
+      const ray = this.scene.add.rectangle(0, 0, Math.max(3, size * 0.06), size * 0.34, 0xfb7185).setRotation(angle);
+      this.sprite.add(ray);
+      this.scene.tweens.add({ targets: ray, x: Math.cos(angle) * size * 0.5, y: Math.sin(angle) * size * 0.5, alpha: 0, duration: 220 });
+    }
+  }
+
   async move(dx, dy) {
     if (!this.active) return false;
 
@@ -57,12 +109,7 @@ class AsyncProjectile {
 
     // 留下軌跡 (例如雷射)
     if (this.leaveTrail) {
-      const trail = this.scene.add.rectangle(
-        this.scene.startX + this.gx * this.scene.tileSize, 
-        this.scene.startY + this.gy * this.scene.tileSize, 
-        this.scene.tileSize, this.scene.tileSize, 0x00ffff, 0.3
-      );
-      this.scene.tweens.add({ targets: trail, alpha: 0, duration: 300, onComplete: () => trail.destroy() });
+      this.spawnTrail();
     }
 
     // 動畫等待
@@ -185,7 +232,7 @@ export const SKILL_DICT = {
   // === 2. 射擊 (箭矢) ===
   'shoot': async (scene, args) => {
     const { dx, dy, originX, originY } = parseArgs(scene, args);
-    const p = new AsyncProjectile(scene, originX, originY, { emoji: '🏹', duration: 150 });
+    const p = new AsyncProjectile(scene, originX, originY, { visual: 'arrow', duration: 150 });
     
     if (args && typeof args.behavior === 'function') {
       try { await args.behavior(p.createAPI()); } catch(e) {}
@@ -199,7 +246,7 @@ export const SKILL_DICT = {
   // === 3. 炸彈 (可飛行拋擲，然後爆炸) ===
   'bomb': async (scene, args) => {
     const { dx, dy, originX, originY } = parseArgs(scene, args);
-    const p = new AsyncProjectile(scene, originX, originY, { emoji: '💣', duration: 200, isSpinning: true, scale: 1.2 });
+    const p = new AsyncProjectile(scene, originX, originY, { visual: 'bomb', duration: 200, isSpinning: true, scale: 1.2 });
     
     if (args && typeof args.behavior === 'function') {
       try { await args.behavior(p.createAPI()); } catch(e) {}
@@ -210,7 +257,7 @@ export const SKILL_DICT = {
 
     // 引爆邏輯 (不管有沒有跑完，最終一定會爆炸)
     if (p.active) {
-      p.sprite.setText('💥');
+      p.explode();
       p.sprite.setScale(2.5);
       p.sprite.setRotation(0);
       if (p.spinTween) p.spinTween.stop();
@@ -230,7 +277,7 @@ export const SKILL_DICT = {
   // === 4. 雷射 (瞬間留下軌跡) ===
   'laser': async (scene, args) => {
     const { dx, dy, originX, originY } = parseArgs(scene, args);
-    const p = new AsyncProjectile(scene, originX, originY, { emoji: '⚡', duration: 50, leaveTrail: true });
+    const p = new AsyncProjectile(scene, originX, originY, { visual: 'arcane', duration: 50, leaveTrail: true });
     
     if (args && typeof args.behavior === 'function') {
       try { await args.behavior(p.createAPI()); } catch(e) {}
@@ -263,7 +310,7 @@ export const SKILL_DICT = {
   // === 9. 迴旋鏢 (飛出去再飛回來) ===
   'boomerang': async (scene, args) => {
     const { dx, dy, originX, originY } = parseArgs(scene, args);
-    const p = new AsyncProjectile(scene, originX, originY, { emoji: '🪃', duration: 150, isSpinning: true });
+    const p = new AsyncProjectile(scene, originX, originY, { visual: 'boomerang', duration: 150, isSpinning: true });
 
     if (args && typeof args.behavior === 'function') {
       try { await args.behavior(p.createAPI()); } catch(e) {}
